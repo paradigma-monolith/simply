@@ -1,0 +1,117 @@
+@media only screen and (max-width : 2500px) {
+	.page-wrapper{
+		overflow:hidden;
+	}
+	
+}
+@media only screen and (max-width : 1199px) {
+	.atf-width-area{height:1000px;}
+	.atf-hot-deal-area.style1::before{background:transparent;margin-top:40px;}
+	.atf-main-nav .navbar .navbar-nav .nav-item a{
+		margin-left:1px;
+	}
+}
+@media only screen and (max-width : 992px) {
+	.atf-single-details h2{
+		font-size:40px;
+	}
+	.atf-width-area{height:1000px;}
+	.atf-hot-deal-area.style1::before{background:transparent;margin-top:40px;}
+	.atf-footer-social-icon a i{
+		margin-right: 8px;
+	}
+	.navbar-nav .atf-themes-btn{margin-top: 4px;}
+	.navbar-expand-md .navbar-nav .nav-link {
+		padding-top: 15px;
+	}
+	.testimonial .pic {
+		top: 13px;
+	}
+@media only screen and (max-width : 991px) {
+	.atf-single-details h2{
+		font-size:30px;
+		line-height:43px;
+	}
+	.mean-container a.meanmenu-reveal{
+		padding-top:8px;
+	}
+	.atf-width-area{height:1000px;}
+	.atf-about-img{margin-top:40px;}
+	#about .atf-about-content{margin-top:30px;}
+	.atf-section-title p{width:100%;}
+	.atf-quote{
+		display:none;
+	}
+	.atf-singl-video,
+	.atf-single-token,
+	.atf-faq-img,
+	.atf-download-img
+	{
+		margin-top:40px;
+	}
+	.atf-single-about{
+		margin: 20px 0px;
+	}
+	.testimonial .pic {
+		top: 0px;
+	}
+	.atf-blog-area .atf-single-blog{
+		margin: 15px 0px;
+	}
+	.atf-footer-link{
+		margin: 15px 0px;
+	}
+	.address_area{
+		margin-top:20px;
+	}
+
+}
+@media only screen and (max-width : 768px) {
+	.navbar-navs.navbar-expend .menu-nav, .navbar-navs.navbar-collaps .menu-nav{padding-right:2px;}
+}
+@media only screen and (max-width: 767px) {
+	.atf-section-title p {
+		width: 100%;
+	}
+	.mean-container a.meanmenu-reveal{
+		padding-top:0px;
+	}
+	#download .atf-about-content {
+		padding-left: 100px;
+		margin-top:25px;
+	}
+	.panel .panel-body .table tbody tr td{font-size:12px;}
+	.atf-counter-value,.atf-about-text h3{margin:10px 0;}
+	.form-message{
+		padding-bottom:30px;
+	}
+	.atf-main-counter{text-align:center;}
+	
+
+}
+
+@media only screen and (max-width: 576px) {
+	#download .atf-about-content {
+		padding-left: 50px;
+	}
+	.atf-hot-deal-content #atf-timer div{margin-bottom:20px;}
+}
+
+@media screen and (max-width: 479px) and (min-width: 0px){
+	.atf-single-details h2{
+		font-size:25px;
+		line-height:40px;
+	}
+	#download .atf-about-content {
+		padding-left:25px;
+	}
+	.atf-width-area{height:1100px;}
+	.atf-about-btn .atf-themes-btn{font-size:12px;}
+	.google-visualization-orgchart-node-medium{
+		font-size: 0.8em!important; 
+		padding: 0px 0px !important;
+	}
+	.atf-main-responsive-nav .logo{
+		width:60%;
+	}
+}

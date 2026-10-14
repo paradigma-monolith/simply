@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://www.simply.bkkbandung.net/first-page/assets/files/sitebocah.xml

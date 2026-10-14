@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    @page {
+      margin: 0;
+    }
+
+    * {
+      padding: 0;
+      margin: 0;
+    }
+
+    @font-face {
+      font-family: "source_sans_proregular";
+      src: local("Arial"), url("/fonts/sourcesans/arial.ttf") format("truetype");
+      font-weight: normal;
+      font-style: normal;
+
+    }
+
+    * {
+      margin: 0;
+      /* font-family: 'Arial Narrow', Arial, Helvetica, sans-serif; */
+      font-family: 'Arial', 'sans-serif';
+      font-size: 8.5pt;
+    }
+
+    body {
+      border: unset;
+      margin: 40px;
+      margin-top: 15px;
+      margin-bottom: 0px;
+    }
+
+    .center {
+      text-align: center;
+    }
+
+    .uppercase {
+      text-transform: uppercase;
+    }
+
+    .bold {
+      font-weight: bold;
+    }
+
+    .box-ttd {
+      height: 55px;
+    }
+
+    /* ================Tabel================= */
+    /* Mengatur gaya dasar untuk tabel */
+    table {
+      /* width: 100%; */
+      /* Lebar maksimum yang diizinkan, sesuaikan sesuai kebutuhan */
+      max-width: 7.5in;
+      border-collapse: collapse;
+      margin-left: auto;
+      margin-right: auto;
+      margin-bottom: 8px;
+      margin-top: 8px;
+    }
+
+    /* Mengatur gaya untuk sel tabel */
+    td,
+    th {
+      border: 1px solid #000;
+      padding: 0px 10px;
+      text-align: left;
+    }
+
+    th {
+      /* background-color: #f0f0f2; */
+      padding-top: 2px;
+      padding-bottom: 2px;
+    }
+
+    td {
+      font-size: 8.5pt;
+      height: 40px;
+    }
+
+    @media print {
+      table {
+        width: 100%;
+      }
+
+      th,
+      td {
+        width: auto;
+        /* Mengatur lebar kolom menjadi otomatis saat mencetak */
+      }
+    }
+
+    .heade-table-kop {
+      margin: 25px 10px 0 0;
+      border: unset;
+    }
+
+    .unset-table td {
+      height: unset;
+      border: unset;
+    }
+
+    .unset-hight td {
+      padding: 2px;
+      height: unset;
+    }
+
+    .container {
+      width: 100%;
+      overflow: hidden;
+      /* Untuk mengatasi float */
+    }
+
+    .float-left {
+      float: left;
+    }
+
+    .float-right {
+      float: right;
+    }
+
+    .clear {
+      clear: both;
+      /* Untuk mengatasi float dan menjaga konten di bawahnya */
+    }
+
+    .page-break {
+      page-break-after: always;
+    }
+
+    .dotted-underline {
+      border-bottom: 1px dotted;
+      /* Mengatur garis putus-putus dengan ketebalan 1 piksel */
+      text-decoration: none;
+      /* Menghapus garis bawah bawaan dari elemen <u> */
+      border-color: black;
+      color: transparent;
+    }
+  </style>
+</head>
+
+<body>
+  <?php foreach ($perjalanan as $value => $data) : ?>
+    <?php $isDalamKota = (isset($data['jenis_perjalanan_dinas']) && $data['jenis_perjalanan_dinas'] == 'dalam kota') || $data['kota'] == $data['kota_asal']; ?>
+    <div>
+      <div class="float-left">
+        <div style="width: 100px; height: 100px; margin:0; padding:0;"> <?= $logo_kkp; ?> </div>
+      </div>
+      <div class="float-right uppercase" style="margin-right: 55px;">
+        <div style="font-size: 7.5pt;">LAMPIRAN II</div>
+        <div style="font-size: 7.5pt;">PERATURAN MENTERI KEUANGAN REPUBLIK INDONESIA</div>
+        <div style="font-size: 7.5pt;"><?= date('Y') >= 2024 ? 'NOMOR 119 TAHUN 2023' : 'NOMOR 113/PMK.05/'; ?><?= date('Y') >= 2024 ? '' : '2012'; ?></div>
+        <div style="font-size: 7.5pt;">TENTANG</div>
+        <div style="font-size: 7.5pt;">PERJALANAN DINAS JABATAN DALAM NEGERI BAGI PEJABAT</div>
+        <div style="font-size: 7.5pt;">NEGARA, PEGAWAI NEGERI, DAN PEGAWAI TIDAK TETAP</div>
+      </div>
+    </div>
+    <div class="clear"></div>
+    <div>
+      <div class="float-left center" style="padding: 10px; padding-left: 38px;">
+        <div>KEMENTERIAN KESEHATAN REPUBLIK INDONESIA</div>
+        <div>DIREKTORAT JENDERAL PENCEGAHAN</div>
+        <div>DAN PENGENDALIAN PENYAKIT</div>
+        <div class="uppercase"><?= $data['nama_kantor']; ?></div>
+        <div>&nbsp;</div>
+      </div>
+      <div class="float-right">
+        <table class="heade-table-kop unset-table">
+          <tr>
+            <td>Tanggal</td>
+            <td style="padding-left: 20px;">: <u class="dotted-underline">…………………………</u> <?= date('Y') ?></td>
+          </tr>
+          <tr>
+            <td>Beban MAK</td>
+            <td style="padding-left: 20px;">: <?= substr($data['mata_anggaran'], strrpos($data['mata_anggaran'], '.') + 1); ?></td>
+          </tr>
+          <tr>
+            <td>Bukti Kas No.</td>
+            <td style="padding-left: 20px;">: <u class="dotted-underline">…………………</u> / <?= romawi(date('m')) ?> /<?= date('Y') ?></td>
+          </tr>
+          <tr>
+            <td>Tahun Anggaran</td>
+            <td style="padding-left: 20px;">: <?= date('Y') ?></td>
+          </tr>
+          <tr>
+            <td>Mata Anggaran</td>
+            <td style="padding-left: 20px;">: <?= $data['mata_anggaran']; ?></td>
+          </tr>
+
+        </table>
+      </div>
+    </div>
+    <div class="clear"></div>
+    <div class="uppercase center" style=" margin-top: 15px;">
+      <?php if ($isDalamKota) : ?>
+        <u><strong style="font-size: 12pt;">KUITANSI</strong></u>
+      <?php else : ?>
+        <u><strong style="font-size: 12pt;">RINCIAN BIAYA PERJALANAN DINAS</strong></u>
+      <?php endif; ?>
+    </div>
+    <div>
+      <table class="unset-table" style="width: 90%; margin-top: 20px;">
+
+        <?php if ($isDalamKota) : ?>
+          <tr>
+            <td style="width: 27%;">Lampiran ST Nomor</td>
+            <td>: &nbsp;&nbsp;&nbsp; <?= $data['no_surat_tugas'] ?></td>
+          </tr>
+          <tr>
+            <td>Tanggal</td>
+            <td>: &nbsp;&nbsp;&nbsp; <?= shortdate_indo2($data['tgl_surat_tugas']); ?> </td>
+          </tr>
+
+        <?php else : ?>
+
+          <tr>
+            <td style="width: 27%;">Lampiran SPD Nomor</td>
+            <td>: &nbsp;&nbsp;&nbsp; <?= $data['no_sppd'] ?></td>
+          </tr>
+          <tr>
+            <td>Tanggal</td>
+            <td>: &nbsp;&nbsp;&nbsp; <?= shortdate_indo2($data['tgl_sppd']); ?> </td>
+          </tr>
+        <?php endif; ?>
+    </div>
+    <div>
+      <table class="unset-hight" style="width:100%;" cellpadding="2" cellspacing="0">
+
+        <tr>
+          <th style="text-align:center; width: 22px;">NO</th>
+          <th colspan="8" style="text-align:center;">RINCIAN BIAYA</th>
+          <th style="text-align:center;">JUMLAH</th>
+          <th style="text-align:center;">KETERANGAN</th>
+        </tr>
+        <tr>
+          <td style="border-top: unset; border-bottom: unset; padding-top: 20px; text-align:center;">1 </td>
+          <td style="border-top: unset; border-bottom: unset; padding-top: 20px; border-right: unset">Transport <?= $isDalamKota ? 'Dalam Kota' : 'Luar Kota'; ?> </td>
+          <td style="border: unset; text-align: center; padding-top: 20px;">(</td>
+          <td style="border: unset; text-align: center; padding-top: 20px;"><?= $data['transport_hari'] ?></td>
+          <td style="border: unset; text-align: center; padding-top: 20px;">kl</td>
+          <td style="border: unset; text-align: center; padding-top: 20px;">x</td>
+          <td style="border: unset; text-align: center; padding-top: 20px;">Rp</td>
+          <td style="border: unset; text-align: right; padding-top: 20px;"><?= number_format($data['transport_nominal'], 0, ",", ".") ?></td>
+          <td style="border: unset; text-align: left; padding-top: 20px;">)</td>
+          <td style="border-top: unset; border-bottom: unset; padding-top: 20px; text-align: right; padding-right: 20px;"><?= number_format($data['transport_jumlah'], 0, ",", ".") ?> </td>
+          <td style="border-top: unset; border-bottom: unset; padding-top: 20px;"></td>
+        </tr>
+        <tr>
+          <td style="border-top: unset; border-bottom: unset; text-align:center;">2 </td>
+          <td style="border-top: unset; border-bottom: unset; border-right: unset">Uang Harian </td>
+          <td style="border: unset; text-align: center;">(</td>
+          <td style="border: unset; text-align: center;"><?= $data['harian_hari'] ?></td>
+          <td style="border: unset; text-align: center;">hr</td>
+          <td style="border: unset; text-align: center;">x</td>
+          <td style="border: unset; text-align: center;">Rp</td>
+          <td style="border: unset; text-align: right;"><?= number_format($data['harian_nominal'], 0, ",", ".") ?></td>
+          <td style="border: unset; text-align: left;">)</td>
+          <td style="border-top: unset; border-bottom: unset; text-align: right; padding-right: 20px;"><?= number_format($data['harian_jumlah'], 0, ",", ".") ?> </td>
+          <td style="border-top: unset; border-bottom: unset; "></td>
+        </tr>
+        <tr>
+          <td style="border-top: unset; border-bottom: unset; padding-bottom: 20px; text-align:center;">3 </td>
+          <td style="border-top: unset; border-bottom: unset; padding-bottom: 20px; border-right: unset">Penginapan </td>
+          <td style="border: unset; text-align: center; padding-bottom: 20px;">(</td>
+          <td style="border: unset; text-align: center; padding-bottom: 20px;"><?= $data['penginapan_hari'] ?></td>
+          <td style="border: unset; text-align: center; padding-bottom: 20px;">hr</td>
+          <td style="border: unset; text-align: center; padding-bottom: 20px;">x</td>
+          <td style="border: unset; text-align: center; padding-bottom: 20px;">Rp</td>
+          <td style="border: unset; text-align: right; padding-bottom: 20px;"><?= number_format($data['penginapan_nominal'], 0, ",", ".") ?></td>
+          <td style="border: unset; text-align: left; padding-bottom: 20px;">)</td>
+          <td style="border-top: unset; border-bottom: unset; padding-bottom: 20px; text-align: right; padding-right: 20px;"><?= number_format($data['penginapan_jumlah'], 0, ",", ".") ?> </td>
+          <td style="border-top: unset; border-bottom: unset; padding-bottom: 20px;"></td>
+        </tr>
+        <tr>
+          <td style="border-bottom: unset;"> </td>
+          <td colspan="8">JUMLAH </td>
+          <td style="text-align: right;"><?= number_format($data['transport_jumlah'] + $data['harian_jumlah'] + $data['penginapan_jumlah'], 0, ",", ".") ?> </td>
+          <td></td>
+        </tr>
+        <tr>
+          <td style="border-top: unset;"> </td>
+          <td style="border-right: unset; padding: 10px 0 10px 0;"><strong>TERBILANG</strong></td>
+          <?php $jml = intval($data['transport_jumlah'] + $data['harian_jumlah'] + $data['penginapan_jumlah']); ?>
+          <td colspan="9" style="border-left: unset; padding: 10px 0 10px 0;"> <strong>: <?= terbilang($jml); ?></strong> </td>
+        </tr>
+      </table>
+    </div>
+
+    <div>&nbsp;</div>
+    <table class="unset-table" style="width:100%">
+      <tr>
+        <td style="width:65%">&nbsp;</td>
+        <td>
+          <div style="display: inline-block;">Bandung,</div>
+          <div style="width: 140px; display: inline-block; text-align: right;"> <?= date('Y') ?></div>
+        </td>
+      </tr>
+    </table>
+    <div>&nbsp;</div>
+    <table class="unset-table" style="width:100%">
+      <tr>
+        <td>Telah dibayar sejumlah</td>
+        <td style="width:36%"></td>
+        <td style="width:10%"></td>
+        <td style="width:34%">Telah menerima jumlah uang sebesar </td>
+      </tr>
+      <tr>
+        <td>Rp.</td>
+        <td><?= number_format($data['transport_jumlah'] + $data['harian_jumlah'] + $data['penginapan_jumlah'], 0, ",", ".") ?></td>
+        <td style="text-align: right; padding-right: 40px;">Rp. </td>
+        <td style="padding-left: 40px;"><?= number_format($data['transport_jumlah'] + $data['harian_jumlah'] + $data['penginapan_jumlah'], 0, ",", ".") ?> </td>
+      </tr>
+    </table>
+    <div>&nbsp;</div>
+    <table class="unset-table" style="width:100%">
+      <tr style="text-align:center;font-size: 13px;">
+        <td style="width: 200px;">
+          BENDAHARA PENGELUARAN <br>
+          <span class="uppercase"><?= $data['nama_kantor']; ?></span>
+        </td>
+        <td></td>
+        <td style="width:10%"></td>
+        <td>YANG MENERIMA</td>
+      </tr>
+
+      <tr>
+        <td colspan="4" style="height: 60px;"></td>
+      </tr>
+
+      <tr style="text-align:center;font-size: 13px;">
+        <td colspan="2">
+          <strong>
+            <?= name_capitalize($data['bendahara']); ?> <br>
+            <?= $data['bendahara_nip']; ?>
+          </strong>
+        </td>
+        <td></td>
+        <td>
+          <strong>
+            <?= name_capitalize($data['nama_pegawai']); ?> <br>
+            NIP. <?= $data['nip_pegawai']; ?>
+          </strong>
+        </td>
+      </tr>
+    </table>
+    <div style="border: solid; border-bottom: unset;"></div>
+
+    <table class="unset-hight unset-table" style="width:100%">
+      <tr style="text-align:left ;font-size: 13px;">
+        <td style="width: 42%;">Ditetapkan sejumlah</td>
+        <td style="width: 6%;"> : Rp. </td>
+        <td><?= number_format($data['transport_jumlah'] + $data['harian_jumlah'] + $data['penginapan_jumlah'], 0, ",", ".") ?> </td>
+      </tr>
+      <tr>
+        <td>Yang telah dibayar semula</td>
+        <td> : Rp. </td>
+        <td><?= number_format($data['transport_jumlah'] + $data['harian_jumlah'] + $data['penginapan_jumlah'], 0, ",", ".") ?> </td>
+      </tr>
+      <tr>
+        <td>Sisa kurang/lebih</td>
+        <td> : Rp. </td>
+        <td></td>
+      </tr>
+    </table>
+
+    <table class="unset-table" style="width:100%">
+      <tr style="text-align:left;;font-size: 13px;">
+        <td>&nbsp;</td>
+        <td style="width:30%">&nbsp;</td>
+        <td colspan="2" style="width: 5%;">Setuju dibayar</td>
+      </tr>
+      <tr style="text-align:left;;font-size: 13px;">
+        <td>&nbsp;</td>
+        <td style="width:30%">&nbsp;</td>
+        <td style="width: 5%;">An</td>
+        <td>
+          Kuasa Pengguna Anggaran/Pengg. Barang
+        </td>
+      </tr>
+      <tr style="text-align:left;;font-size: 13px;">
+        <td>&nbsp;</td>
+        <td style="width:30%">&nbsp;</td>
+        <td style="width: 5%;"></td>
+        <td>
+          Pejabat Pembuat Komitmen
+        </td>
+      </tr>
+      <tr style="text-align:center;font-size: 13px;">
+        <td colspan="4" style="height: 60px;"></td>
+      </tr>
+      <tr style="text-align:left;;font-size: 13px;">
+        <td></td>
+        <td></td>
+        <td></td>
+        <td>
+          <strong>
+            <?= name_capitalize($data['ppk']); ?> <br> <?= $data['ppk_nip']; ?>
+          </strong>
+        </td>
+      </tr>
+    </table>
+    <?php if (isset($perjalanan[1 + $value])) : ?>
+      <div class="page-break"></div>
+    <?php endif; ?>
+  <?php endforeach; ?>
+</body>
+
+</html>

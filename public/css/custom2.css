@@ -1,0 +1,212 @@
+
+.small-box-header{
+  background-color: rgba(0,0,0,.1);
+  color: rgba(255,255,255,.8);
+  display: block;
+  padding: 3px 0;
+  position: relative;
+  text-align: center;
+  text-decoration: none;
+  z-index: 10;
+  margin: -8px -35px 0;
+  margin-bottom: 8px;
+}
+.small-box-header:hover{
+  background-color: rgba(0,0,0,.15);
+  color: #fff;
+}
+.icon-custom{
+  font-size: 70px;
+  top: 20px;
+  position: absolute;
+  right: 25px;
+  top: 15px;
+}
+.small-box-custom{
+  border-radius: .45rem;
+  box-shadow: 0 0 1px rgb(0 0 0 / 13%), 0 1px 3px rgb(0 0 0 / 20%);
+  display: block;
+  margin-bottom: 20px;
+  position: relative;
+}
+.small-box-custom h3 {
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin: 0 0 10px;
+  padding: 0;
+  white-space: nowrap;
+}
+.small-box-custom>.inner-custom{
+  padding: 10px 35px 10px;
+}
+.small-box-custom .icon-custom{
+  color: rgba(0,0,0,.25);
+}
+.lds-ring {
+  display: inline-block;
+  position: relative;
+  width: 80px;
+height: 80px;
+}
+.lds-ring div {
+  box-sizing: border-box;
+display: block;
+position: absolute;
+width: 64px;
+height: 64px;
+margin: 8px;
+border: 8px solid #252525;
+border-radius: 50%;
+animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+border-color: #252525 transparent transparent transparent;
+text-align: center;
+}
+.lds-ring div:nth-child(1) {
+  animation-delay: -0.45s;
+}
+.lds-ring div:nth-child(2) {
+  animation-delay: -0.3s;
+}
+.lds-ring div:nth-child(3) {
+  animation-delay: -0.15s;
+}
+@keyframes lds-ring {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+.previewPDF{
+  display: none;
+}
+.previewPDF::-webkit-scrollbar-thumb {
+  background-color: #d6dee1;
+  border-radius: 20px;
+  border: 6px solid transparent;
+  background-clip: content-box;
+}
+.d-none{
+  display: none;
+}
+.btn-menu-utama {
+  height: 80px;
+}
+#logout{
+  margin-bottom: 20px;
+}
+
+
+/* Side Bar Right */
+.list-group-right-bar{
+	width: 400px !important;
+}
+
+.list-group-item{
+	/* margin-top:10px; */
+	border-radius: none; 
+	/* background: #2D7FCA; */
+	cursor: pointer;
+	transition: all 0.3s ease-in-out;
+}
+
+.list-group-item:hover{
+	transform: scaleX(1.1);
+  /* color: #252525; */
+}
+
+.item-scale:hover {
+	transform: scaleX(150%);
+}
+
+.check{
+	opacity: 0;
+	transition: all 0.6s ease-in-out;
+}
+
+.list-group-item:hover .check {
+	opacity: 1;
+}
+
+.about span{
+	font-size: 12px;
+	margin-right: 10px;
+}
+
+input[type=checkbox] {
+  position: relative;
+  cursor: pointer;
+}
+input[type=checkbox]:before {
+  /* content: "";
+  display: block;
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  top: 0px;
+  left: 0;
+  border: 1px solid #10a3f9;
+  border-radius: 3px; */
+  /* background-color: white; */
+}
+input[type=checkbox]:checked:after {
+  /* content: "";
+  display: block;
+  width: 7px;
+  height: 12px;
+  border: solid #007bff;
+  border-width: 0 2px 2px 0;
+  -webkit-transform: rotate(45deg);
+  -ms-transform: rotate(45deg);
+  transform: rotate(45deg);
+  position: absolute;
+  top: 2px;
+  left: 6px; */
+}
+
+input[type="checkbox"]:checked + .check { opacity: 1; }
+  
+#overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5); /* Warna latar belakang dengan transparansi 50% */
+  z-index: 9999; /* Pastikan elemen ini ada di atas konten lain */
+
+  /* Animasi loading */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 60px;
+    height: 60px;
+    margin: -30px 0 0 -30px;
+    border: 6px solid transparent;
+    border-top: 6px solid #3498db; /* Warna garis loading */
+    border-radius: 50%;
+    animation: spin 2s linear infinite;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 40px;
+    height: 40px;
+    margin: -20px 0 0 -20px;
+    border: 6px solid transparent;
+    border-top: 6px solid #e74c3c; /* Warna garis loading */
+    border-radius: 50%;
+    animation: spin 1s linear reverse infinite;
+  }
+}
+  
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
