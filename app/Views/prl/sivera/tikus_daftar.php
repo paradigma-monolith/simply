@@ -2,7 +2,8 @@
   <thead>
     <tr>
       <th>No</th>
-      <th>Tanggal</th>
+      <th>Tanggal Mulai</th>
+      <th>Tanggal Selesai</th>
       <th>Wilayah Kerja</th>
       <th>Lokasi Pemasangan</th>
       <th>Jenis Umpan</th>
@@ -33,7 +34,8 @@
     ?>
     <tr>
       <td><?= $no++; ?></td>
-      <td><?= $row['tanggal']; ?></td>
+      <td><?= !empty($row['tanggal_mulai']) ? $row['tanggal_mulai'] : $row['tanggal']; ?></td>
+      <td><?= !empty($row['tanggal_selesai']) ? $row['tanggal_selesai'] : (!empty($row['tanggal_mulai']) ? $row['tanggal_mulai'] : $row['tanggal']); ?></td>
       <td><?= $row['wilker']; ?></td>
       <td><?= $row['lokasi_pemasangan']; ?></td>
       <td><?= $row['jenis_umpan']; ?></td>
@@ -65,8 +67,12 @@
         <div class="modal-body">
           <div class="row">
             <div class="col-md-6 form-group">
-              <label class="font-weight-bold">Tanggal <span class="text-danger">*</span></label>
-              <input type="date" name="tanggal" class="form-control" required>
+              <label class="font-weight-bold">Tanggal Mulai <span class="text-danger">*</span></label>
+              <input type="date" name="tanggal_mulai" id="tikus_tanggal_mulai" class="form-control" required>
+            </div>
+            <div class="col-md-6 form-group">
+              <label class="font-weight-bold">Tanggal Selesai <span class="text-danger">*</span></label>
+              <input type="date" name="tanggal_selesai" id="tikus_tanggal_selesai" class="form-control" required>
             </div>
             <div class="col-md-6 form-group">
               <label class="font-weight-bold">Wilayah Kerja <span class="text-danger">*</span></label>
@@ -85,10 +91,7 @@
               <label class="font-weight-bold">Lokasi Pemasangan</label>
               <input type="text" name="lokasi_pemasangan" class="form-control" placeholder="Contoh: Dermaga 1, Gudang A">
             </div>
-          </div>
-          
-          <div class="row">
-            <div class="col-md-12 form-group">
+            <div class="col-md-6 form-group">
               <label class="font-weight-bold">Jenis Umpan</label>
               <input type="text" name="jenis_umpan" class="form-control" placeholder="Contoh: Kelapa bakar, Ikan asin">
             </div>

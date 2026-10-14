@@ -95,10 +95,10 @@ class SiveraData extends BaseController
         $tikusBuilder->where('prl_sivera_tikus.id_wilayah_kerja', $wilkerId);
       }
       if (!empty($tglMulai)) {
-        $tikusBuilder->where('prl_sivera_tikus.tanggal >=', $tglMulai);
+        $tikusBuilder->where('COALESCE(prl_sivera_tikus.tanggal_selesai, prl_sivera_tikus.tanggal_mulai, prl_sivera_tikus.tanggal) >=', $tglMulai);
       }
       if (!empty($tglSelesai)) {
-        $tikusBuilder->where('prl_sivera_tikus.tanggal <=', $tglSelesai);
+        $tikusBuilder->where('COALESCE(prl_sivera_tikus.tanggal_mulai, prl_sivera_tikus.tanggal) <=', $tglSelesai);
       }
       $tikus = $tikusBuilder->findAll();
 
@@ -522,10 +522,10 @@ class SiveraData extends BaseController
         $builder->where('prl_sivera_tikus.id_wilayah_kerja', $wilkerId);
       }
       if (!empty($tglMulai)) {
-        $builder->where('prl_sivera_tikus.tanggal >=', $tglMulai);
+        $builder->where('COALESCE(prl_sivera_tikus.tanggal_selesai, prl_sivera_tikus.tanggal_mulai, prl_sivera_tikus.tanggal) >=', $tglMulai);
       }
       if (!empty($tglSelesai)) {
-        $builder->where('prl_sivera_tikus.tanggal <=', $tglSelesai);
+        $builder->where('COALESCE(prl_sivera_tikus.tanggal_mulai, prl_sivera_tikus.tanggal) <=', $tglSelesai);
       }
 
       $data['tikus'] = $builder->findAll();

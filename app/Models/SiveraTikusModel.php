@@ -13,7 +13,7 @@ class SiveraTikusModel extends Model
     protected $useSoftDeletes   = false;
     protected $protectFields    = true;
     protected $allowedFields    = [
-        'tanggal', 'id_wilayah_kerja', 'lokasi', 'lokasi_pemasangan', 
+        'tanggal', 'tanggal_mulai', 'tanggal_selesai', 'id_wilayah_kerja', 'lokasi', 'lokasi_pemasangan', 
         'jenis_umpan', 'spesies', 'jml_perangkap_dipasang', 'jml_perangkap_hilang', 
         'jml_tikus_tertangkap', 'success_trap', 'created_by', 'updated_by'
     ];

@@ -324,8 +324,13 @@ class SiveraCrud extends BaseController
       $inputTertangkap = (int) $this->request->getVar("jml_tikus_tertangkap");
       $finalTertangkap = $sumTertangkap > 0 ? $sumTertangkap : $inputTertangkap;
 
+      $tglMulai = $this->request->getVar("tanggal_mulai") ?: $this->request->getVar("tanggal");
+      $tglSelesai = $this->request->getVar("tanggal_selesai") ?: $tglMulai;
+
       $data = [
-        'tanggal'                => $this->request->getVar("tanggal"),
+        'tanggal'                => $tglMulai,
+        'tanggal_mulai'          => $tglMulai,
+        'tanggal_selesai'        => $tglSelesai,
         'id_wilayah_kerja'       => $this->request->getVar("id_wilayah_kerja"),
         'lokasi'                 => $this->request->getVar("lokasi"),
         'lokasi_pemasangan'      => $this->request->getVar("lokasi_pemasangan"),

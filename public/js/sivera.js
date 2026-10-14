@@ -364,6 +364,17 @@ $(document).ready(function() {
     $('#modal-tikus').modal('show');
   });
 
+  $(document).on('change', '#tikus_tanggal_mulai', function() {
+    let tglMulai = $(this).val();
+    let $tglSelesai = $('#tikus_tanggal_selesai');
+    if (tglMulai) {
+      $tglSelesai.attr('min', tglMulai);
+      if (!$tglSelesai.val() || $tglSelesai.val() < tglMulai) {
+        $tglSelesai.val(tglMulai);
+      }
+    }
+  });
+
   $(document).on('click', '.btn-tambah-pinjal', function() {
     if($('#form-pinjal').length) $('#form-pinjal')[0].reset();
     $('#id_pinjal_form').val('');
@@ -500,7 +511,10 @@ $(document).ready(function() {
     $('#modal-tikus-title').text('Edit Data Tikus');
     $('#modal-tikus-header').removeClass('bg-success').addClass('bg-info');
     
-    $('#form-tikus input[name="tanggal"]').val(row.tanggal);
+    let tglMulai = row.tanggal_mulai || row.tanggal || '';
+    let tglSelesai = row.tanggal_selesai || row.tanggal_mulai || row.tanggal || '';
+    $('#form-tikus input[name="tanggal_mulai"]').val(tglMulai);
+    $('#form-tikus input[name="tanggal_selesai"]').val(tglSelesai);
     $('#form-tikus select[name="id_wilayah_kerja"]').val(row.id_wilayah_kerja);
     $('#form-tikus input[name="lokasi"]').val(row.lokasi);
     $('#form-tikus input[name="lokasi_pemasangan"]').val(row.lokasi_pemasangan);
