@@ -9,29 +9,112 @@
       <th>Kelembapan (%)</th>
       <th>Rata-Rata Kepadatan</th>
       <th>Status</th>
+      <th>Hasil Pengendalian</th>
       <th>Aksi</th>
     </tr>
   </thead>
   <tbody>
     <?php $no = 1; foreach($lalat as $row): 
       $rata = (float) ($row['rata_rata'] ?? 0);
+      $detail = !empty($row['detail_lokasi']) ? json_decode($row['detail_lokasi'], true) : null;
+      $hasMultiple = is_array($detail) && count($detail) > 1;
+      
+      $anyTms = false;
+      if ($hasMultiple) {
+        foreach ($detail as $d) {
+          if (($d['rata_rata'] ?? 0) >= 2) {
+            $anyTms = true;
+            break;
+          }
+        }
+      } else {
+        $anyTms = ($rata >= 2);
+      }
+      
       $status = ($rata < 2) 
         ? '<span class="badge badge-success">MS</span>' 
         : '<span class="badge badge-danger">TMS</span>';
+
+      $pengendalian = !empty($row['pengendalian']) ? json_decode($row['pengendalian'], true) : null;
+      $hasilPengendalian = [];
+      if (!empty($pengendalian) && is_array($pengendalian)) {
+        $tglPengendalian = !empty($pengendalian['tanggal']) 
+          ? $pengendalian['tanggal'] 
+          : (!empty($row['tanggal']) ? $row['tanggal'] : null);
+        if (!empty($tglPengendalian)) {
+          $hasilPengendalian[] = '<div class="text-dark font-weight-bold mb-1"><i class="far fa-calendar-alt text-primary mr-1"></i>Tanggal: <span class="text-primary">' . date('d/m/Y', strtotime($tglPengendalian)) . '</span></div>';
+        }
+        $metodeList = [];
+        if (!empty($pengendalian['spraying'])) {
+          $str = 'Spraying';
+          if (!empty($pengendalian['spraying_ml'])) {
+            $str .= ' (' . $pengendalian['spraying_ml'] . ' ml)';
+          }
+          $metodeList[] = $str;
+        }
+        if (!empty($pengendalian['granule'])) {
+          $str = 'Granule Distribution';
+          if (!empty($pengendalian['granule_gram'])) {
+            $str .= ' (' . $pengendalian['granule_gram'] . ' gram)';
+          }
+          $metodeList[] = $str;
+        }
+
+        if (!empty($metodeList)) {
+          $hasilPengendalian[] = '<div><span class="badge badge-primary mr-1"><i class="fas fa-spray-can mr-1"></i>Metode:</span> ' . implode('; ', $metodeList) . '</div>';
+        }
+        if (!empty($pengendalian['lokasi'])) {
+          $hasilPengendalian[] = '<div class="text-muted"><i class="fas fa-map-marker-alt mr-1 text-danger"></i><b>Lokasi:</b> ' . esc($pengendalian['lokasi']) . '</div>';
+        }
+      }
     ?>
     <tr>
       <td><?= $no++; ?></td>
       <td><?= $row['tanggal']; ?></td>
       <td><?= $row['wilker']; ?></td>
-      <td><?= $row['lokasi']; ?></td>
+      <td class="<?= $hasMultiple ? 'text-left' : ''; ?>">
+        <?php if($hasMultiple): ?>
+          <div class="small">
+            <?php foreach($detail as $d): 
+              $dRata = (float) ($d['rata_rata'] ?? 0);
+              $dBadge = ($dRata < 2) ? 'badge-success' : 'badge-danger';
+              $dStatus = ($dRata < 2) ? 'MS' : 'TMS';
+            ?>
+              <div class="mb-1 d-flex justify-content-between align-items-center border-bottom pb-1">
+                <span class="font-weight-bold mr-2"><?= esc($d['lokasi'] ?? ''); ?>:</span>
+                <span>
+                  <span class="mr-1"><?= number_format($dRata, 2); ?></span>
+                  <span class="badge <?= $dBadge; ?>"><?= $dStatus; ?></span>
+                </span>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        <?php else: ?>
+          <?= esc($row['lokasi']); ?>
+        <?php endif; ?>
+      </td>
       <td><?= $row['temperatur']; ?></td>
       <td><?= $row['kelembapan']; ?></td>
-      <td><?= number_format($row['rata_rata'], 2); ?></td>
+      <td>
+        <strong><?= number_format($row['rata_rata'], 2); ?></strong>
+        <?php if($hasMultiple): ?>
+          <br><small class="text-muted">(Gabungan)</small>
+        <?php endif; ?>
+      </td>
       <td><?= $status; ?></td>
+      <td class="text-left small">
+        <?php if (!empty($hasilPengendalian)): ?>
+          <?= implode('', $hasilPengendalian); ?>
+        <?php elseif ($row['rata_rata'] >= 2 || $anyTms): ?>
+          <span class="badge badge-warning text-dark"><i class="fas fa-exclamation-triangle mr-1"></i>Belum dikendalikan</span>
+        <?php else: ?>
+          <span class="text-muted">-</span>
+        <?php endif; ?>
+      </td>
       <td>
         <button class="btn btn-sm btn-info btn-edit-lalat" data-row='<?= htmlspecialchars(json_encode($row), ENT_QUOTES, 'UTF-8'); ?>' title="Edit"><i class="fas fa-edit"></i></button>
-        <?php if($row['rata_rata'] >= 2): ?>
-        <button class="btn btn-sm btn-warning btn-pengendalian-lalat" data-id="<?= $row['id_lalat']; ?>" data-pengendalian='<?= htmlspecialchars($row['pengendalian'] ?? '', ENT_QUOTES, 'UTF-8'); ?>' title="Pengendalian"><i class="fas fa-shield-virus"></i></button>
+        <?php if($row['rata_rata'] >= 2 || $anyTms): ?>
+        <button class="btn btn-sm btn-warning btn-pengendalian-lalat" data-id="<?= $row['id_lalat']; ?>" data-tanggal="<?= $row['tanggal']; ?>" data-pengendalian='<?= htmlspecialchars($row['pengendalian'] ?? '', ENT_QUOTES, 'UTF-8'); ?>' title="Pengendalian"><i class="fas fa-shield-virus"></i></button>
         <?php endif; ?>
         <button class="btn btn-sm btn-danger btn-hapus-lalat" data-id="<?= $row['id_lalat']; ?>" title="Hapus"><i class="fas fa-trash"></i></button>
       </td>
@@ -92,45 +175,88 @@
             </div>
           </div>
           <hr>
+          <!-- Template lokasi item untuk cloning yang aman dan konsisten -->
+          <template id="template-lokasi-item">
+            <div class="lokasi-item card mb-3 border shadow-none bg-light">
+              <div class="card-header py-2 d-flex justify-content-between align-items-center bg-white border-bottom">
+                <strong class="lokasi-header-title text-primary"><i class="fas fa-map-marker-alt mr-1"></i> Lokasi 1</strong>
+                <button type="button" class="btn btn-outline-danger btn-xs btn-remove-lokasi" style="display:none;"><i class="fas fa-trash"></i> Hapus Lokasi</button>
+              </div>
+              <div class="card-body p-3">
+                <div class="form-group mb-2">
+                  <label class="mb-1 font-weight-bold">Nama Lokasi</label>
+                  <input type="text" name="lokasi[]" class="form-control form-control-sm" placeholder="Contoh: Dapur, TPS, Kantin..." required>
+                </div>
+                <h6 class="font-weight-bold small text-muted mb-2">Pengamatan (Jumlah Lalat per 30 Detik)</h6>
+                <div class="row">
+                  <?php for($i=1; $i<=10; $i++): ?>
+                  <div class="col-md-2 col-4 form-group mb-2">
+                    <label class="small mb-1">T-<?= $i; ?></label>
+                    <input type="number" min="0" name="t<?= $i; ?>[]" class="form-control form-control-sm t_input" value="0">
+                  </div>
+                  <?php endfor; ?>
+                </div>
+                <div class="small mb-2">
+                  <strong>Total Pengamatan:</strong> <span class="total_pengamatan badge badge-secondary">0</span>
+                </div>
+                <hr class="my-2">
+                <h6 class="font-weight-bold small text-muted mb-2">Hasil Pengamatan 5 Titik Tertinggi</h6>
+                <div class="row">
+                  <?php for($i=1; $i<=5; $i++): ?>
+                  <div class="col-md-2 col-4 form-group mb-2">
+                    <label class="small mb-1">Titik <?= $i; ?></label>
+                    <input type="number" min="0" name="titik_<?= $i; ?>[]" class="form-control form-control-sm titik_input" value="0" readonly>
+                  </div>
+                  <?php endfor; ?>
+                </div>
+                <div class="small mt-2 p-2 bg-white rounded border">
+                  <strong>Total 5 Tertinggi (N):</strong> <span class="total_top5">0</span> &nbsp;|&nbsp;
+                  <strong>Rata-Rata:</strong> <span class="rata_lalat font-weight-bold">0.00</span> &nbsp;|&nbsp;
+                  <strong>Status:</strong> <span class="status_lalat"><span class="badge badge-success">MS</span></span>
+                </div>
+              </div>
+            </div>
+          </template>
+
           <div id="dynamic-lokasi-container">
-            <div class="lokasi-item">
-              <div class="row">
-                <div class="col-md-10 form-group">
-                  <label>Lokasi</label>
-                  <input type="text" name="lokasi[]" class="form-control" required>
+            <div class="lokasi-item card mb-3 border shadow-none bg-light">
+              <div class="card-header py-2 d-flex justify-content-between align-items-center bg-white border-bottom">
+                <strong class="lokasi-header-title text-primary"><i class="fas fa-map-marker-alt mr-1"></i> Lokasi 1</strong>
+                <button type="button" class="btn btn-outline-danger btn-xs btn-remove-lokasi" style="display:none;"><i class="fas fa-trash"></i> Hapus Lokasi</button>
+              </div>
+              <div class="card-body p-3">
+                <div class="form-group mb-2">
+                  <label class="mb-1 font-weight-bold">Nama Lokasi</label>
+                  <input type="text" name="lokasi[]" class="form-control form-control-sm" placeholder="Contoh: Dapur, TPS, Kantin..." required>
                 </div>
-                <div class="col-md-2 form-group">
-                  <label>&nbsp;</label><br>
-                  <button type="button" class="btn btn-danger btn-remove-lokasi w-100" style="display:none;"><i class="fas fa-trash"></i> Hapus</button>
+                <h6 class="font-weight-bold small text-muted mb-2">Pengamatan (Jumlah Lalat per 30 Detik)</h6>
+                <div class="row">
+                  <?php for($i=1; $i<=10; $i++): ?>
+                  <div class="col-md-2 col-4 form-group mb-2">
+                    <label class="small mb-1">T-<?= $i; ?></label>
+                    <input type="number" min="0" name="t<?= $i; ?>[]" class="form-control form-control-sm t_input" value="0">
+                  </div>
+                  <?php endfor; ?>
+                </div>
+                <div class="small mb-2">
+                  <strong>Total Pengamatan:</strong> <span class="total_pengamatan badge badge-secondary">0</span>
+                </div>
+                <hr class="my-2">
+                <h6 class="font-weight-bold small text-muted mb-2">Hasil Pengamatan 5 Titik Tertinggi</h6>
+                <div class="row">
+                  <?php for($i=1; $i<=5; $i++): ?>
+                  <div class="col-md-2 col-4 form-group mb-2">
+                    <label class="small mb-1">Titik <?= $i; ?></label>
+                    <input type="number" min="0" name="titik_<?= $i; ?>[]" class="form-control form-control-sm titik_input" value="0" readonly>
+                  </div>
+                  <?php endfor; ?>
+                </div>
+                <div class="small mt-2 p-2 bg-white rounded border">
+                  <strong>Total 5 Tertinggi (N):</strong> <span class="total_top5">0</span> &nbsp;|&nbsp;
+                  <strong>Rata-Rata:</strong> <span class="rata_lalat font-weight-bold">0.00</span> &nbsp;|&nbsp;
+                  <strong>Status:</strong> <span class="status_lalat"><span class="badge badge-success">MS</span></span>
                 </div>
               </div>
-              <h6>Pengamatan (Jumlah Lalat per 30 Detik)</h6>
-              <div class="row">
-                <?php for($i=1; $i<=10; $i++): ?>
-                <div class="col-md-2 form-group">
-                  <label>T-<?= $i; ?></label>
-                  <input type="number" name="t<?= $i; ?>[]" class="form-control t_input" value="0">
-                </div>
-                <?php endfor; ?>
-              </div>
-              <div class="mt-2">
-                <strong>Total Pengamatan:</strong> <span class="total_pengamatan">0</span>
-              </div>
-              <hr>
-              <h6>Hasil Pengamatan 5 Titik Tertinggi</h6>
-              <div class="row">
-                <?php for($i=1; $i<=5; $i++): ?>
-                <div class="col-md-2 form-group">
-                  <label>Titik <?= $i; ?></label>
-                  <input type="number" name="titik_<?= $i; ?>[]" class="form-control titik_input" value="0" readonly>
-                </div>
-                <?php endfor; ?>
-              </div>
-              <div class="mt-2">
-                <strong>Total 5 Tertinggi (N):</strong> <span class="total_top5">0</span> <br>
-                <strong>Rata-Rata Kepadatan Lalat:</strong> <span class="rata_lalat">0</span>
-              </div>
-              <hr style="border-top: 2px dashed #ccc;">
             </div>
           </div>
           <div id="gabungan-lokasi-info" class="alert alert-info py-2 px-3 mt-2" style="display: none;">
@@ -165,9 +291,15 @@
           </button>
         </div>
         <div class="modal-body">
-          <div class="form-group">
-            <label>Lokasi Pengendalian</label>
-            <input type="text" name="pengendalian[lokasi]" class="form-control">
+          <div class="row">
+            <div class="col-md-6 form-group">
+              <label class="font-weight-bold"><i class="far fa-calendar-alt text-primary mr-1"></i> Tanggal Pengendalian</label>
+              <input type="date" name="pengendalian[tanggal]" class="form-control" required>
+            </div>
+            <div class="col-md-6 form-group">
+              <label class="font-weight-bold"><i class="fas fa-map-marker-alt text-danger mr-1"></i> Lokasi Pengendalian</label>
+              <input type="text" name="pengendalian[lokasi]" class="form-control" placeholder="Contoh: TPS, Dapur...">
+            </div>
           </div>
           <h6>Metode yang digunakan:</h6>
           <div class="form-group">
@@ -218,6 +350,38 @@
     }
   });
   
+  function getCleanLokasiItem() {
+    let tmpl = document.getElementById('template-lokasi-item');
+    let newItem;
+    if (tmpl && tmpl.content && tmpl.content.firstElementChild) {
+      newItem = $(tmpl.content.firstElementChild).clone();
+    } else {
+      newItem = $('.lokasi-item').first().clone();
+    }
+    newItem.find('input[type="text"]').val('');
+    newItem.find('input[type="number"]').val('0');
+    newItem.find('.total_pengamatan').text('0');
+    newItem.find('.total_top5').text('0');
+    newItem.find('.rata_lalat').text('0.00');
+    newItem.find('.status_lalat').html('<span class="badge badge-success">MS</span>');
+    newItem.find('.btn-remove-lokasi').hide();
+    return newItem;
+  }
+  window.getCleanLokasiItem = getCleanLokasiItem;
+
+  function updateLokasiIndexes() {
+    let items = $('#dynamic-lokasi-container .lokasi-item');
+    items.each(function(index) {
+      $(this).find('.lokasi-header-title').html('<i class="fas fa-map-marker-alt mr-1"></i> Lokasi ' + (index + 1));
+      if (items.length <= 1) {
+        $(this).find('.btn-remove-lokasi').hide();
+      } else {
+        $(this).find('.btn-remove-lokasi').show();
+      }
+    });
+  }
+  window.updateLokasiIndexes = updateLokasiIndexes;
+
   function hitungGabunganLalat() {
     let items = $('#dynamic-lokasi-container .lokasi-item');
     if (items.length > 1) {
@@ -230,8 +394,8 @@
       });
       let avg = count > 0 ? (totalRata / count) : 0;
       let statusHtml = avg < 2 
-        ? '<span class="badge badge-success">MS</span>' 
-        : '<span class="badge badge-danger">TMS</span>';
+        ? '<span class="badge badge-success">MS (Memenuhi Syarat)</span>' 
+        : '<span class="badge badge-danger">TMS (Tidak Memenuhi Syarat)</span>';
       $('#rata_gabungan_lalat').text(avg.toFixed(2));
       $('#status_gabungan_lalat').html(statusHtml);
       $('#gabungan-lokasi-info').slideDown();
@@ -239,8 +403,9 @@
       $('#gabungan-lokasi-info').slideUp();
     }
   }
+  window.hitungGabunganLalat = hitungGabunganLalat;
 
-  // Real-time calculation
+  // Real-time calculation per lokasi
   $(document).on('input', '.t_input', function() {
     let container = $(this).closest('.lokasi-item');
     let values = [];
@@ -254,43 +419,44 @@
     
     container.find('.total_pengamatan').text(total_pengamatan);
 
-    // Sort descending
+    // Sort descending for top 5
     values.sort(function(a, b) { return b - a; });
     
     let sum_top5 = 0;
     let titik_inputs = container.find('.titik_input');
     for(let i=0; i<5; i++) {
-      $(titik_inputs[i]).val(values[i]);
-      sum_top5 += values[i];
+      let val = values[i] !== undefined ? values[i] : 0;
+      $(titik_inputs[i]).val(val);
+      sum_top5 += val;
     }
     
     container.find('.total_top5').text(sum_top5);
     let rata = sum_top5 / 5;
     container.find('.rata_lalat').text(rata.toFixed(2));
+    let statusBadge = (rata < 2) 
+      ? '<span class="badge badge-success">MS</span>' 
+      : '<span class="badge badge-danger">TMS</span>';
+    container.find('.status_lalat').html(statusBadge);
 
     hitungGabunganLalat();
   });
 
   // Tambah Lokasi
   $(document).on('click', '.btn-tambah-lokasi', function() {
-    let firstItem = $('.lokasi-item').first();
-    let newItem = firstItem.clone();
-    
-    // Reset values in clone
-    newItem.find('input[type="text"]').val('');
-    newItem.find('input[type="number"]').val('0');
-    newItem.find('.total_pengamatan').text('0');
-    newItem.find('.total_top5').text('0');
-    newItem.find('.rata_lalat').text('0');
-    newItem.find('.btn-remove-lokasi').show();
+    let newItem = (typeof window.getCleanLokasiItem === 'function') 
+      ? window.getCleanLokasiItem() 
+      : $('.lokasi-item').first().clone();
     
     $('#dynamic-lokasi-container').append(newItem);
+    updateLokasiIndexes();
+    newItem.find('.t_input').first().trigger('input');
     hitungGabunganLalat();
   });
 
   // Hapus Lokasi
   $(document).on('click', '.btn-remove-lokasi', function() {
     $(this).closest('.lokasi-item').remove();
+    updateLokasiIndexes();
     hitungGabunganLalat();
   });
 </script>

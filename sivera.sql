@@ -34,6 +34,7 @@ CREATE TABLE `prl_sivera_lalat` (
   `titik_4` float DEFAULT 0,
   `titik_5` float DEFAULT 0,
   `rata_rata` float DEFAULT 0,
+  `detail_lokasi` text DEFAULT NULL,
   `created_by` int(11) DEFAULT NULL,
   `updated_by` int(11) DEFAULT NULL,
   `created_at` datetime DEFAULT NULL,

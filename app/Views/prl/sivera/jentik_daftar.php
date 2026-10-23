@@ -8,10 +8,9 @@
       <th>Lokasi</th>
       <th>Kondisi Musim</th>
       <th>Wilayah</th>
-      <th>HI (%)</th>
-      <th>CI (%)</th>
-      <th>BI (%)</th>
+      <th>Indeks (HI / CI / BI)</th>
       <th>Status</th>
+      <th>Hasil Pengendalian</th>
       <th>Aksi</th>
     </tr>
   </thead>
@@ -21,6 +20,61 @@
       $ci = $row['jml_kontainer_diperiksa'] > 0 ? ($row['jml_kontainer_positif'] / $row['jml_kontainer_diperiksa']) * 100 : 0;
       $bi = $row['jml_rumah_diperiksa'] > 0 ? ($row['jml_kontainer_positif'] / $row['jml_rumah_diperiksa']) * 100 : 0;
       $status = ($hi == 0 && $ci == 0 && $bi == 0) ? '<span class="badge badge-success">Memenuhi Syarat</span>' : '<span class="badge badge-danger">Tidak Memenuhi Syarat</span>';
+
+      $pengendalian = !empty($row['pengendalian']) ? json_decode($row['pengendalian'], true) : null;
+      $hasilPengendalian = [];
+      if (!empty($pengendalian) && is_array($pengendalian)) {
+        $tglPengendalian = !empty($pengendalian['tanggal']) 
+          ? $pengendalian['tanggal'] 
+          : (!empty($row['tanggal_selesai']) ? $row['tanggal_selesai'] : (!empty($row['tanggal_mulai']) ? $row['tanggal_mulai'] : null));
+        if (!empty($tglPengendalian)) {
+          $hasilPengendalian[] = '<div class="text-dark font-weight-bold mb-1"><i class="far fa-calendar-alt text-primary mr-1"></i>Tanggal: <span class="text-primary">' . date('d/m/Y', strtotime($tglPengendalian)) . '</span></div>';
+        }
+        // Pengendalian Jentik
+        $metodeJentik = [];
+        if (!empty($pengendalian['jentik_kimia'])) {
+          $detailKimia = [];
+          if (!empty($pengendalian['jentik_kimia_gram'])) $detailKimia[] = $pengendalian['jentik_kimia_gram'] . ' gr';
+          if (!empty($pengendalian['jentik_kimia_sachet'])) $detailKimia[] = $pengendalian['jentik_kimia_sachet'] . ' sachet';
+          $strKimia = 'Kimia (Larvasidasi)';
+          if (!empty($detailKimia)) $strKimia .= ' (' . implode(', ', $detailKimia) . ')';
+          $metodeJentik[] = $strKimia;
+        }
+        if (!empty($pengendalian['jentik_fisik'])) {
+          $metodeJentik[] = 'Fisik (Membuang air)';
+        }
+        if (!empty($pengendalian['jentik_biologi'])) {
+          $metodeJentik[] = 'Biologi (BTI/Ikan)';
+        }
+        if (!empty($metodeJentik)) {
+          $hasilPengendalian[] = '<div class="mb-1"><span class="badge badge-primary mr-1"><i class="fas fa-water mr-1"></i>Jentik:</span> ' . implode('; ', $metodeJentik) . '</div>';
+        }
+
+        // Pengendalian Nyamuk
+        $metodeNyamuk = [];
+        if (!empty($pengendalian['nyamuk_fogging'])) {
+          $detailFogging = [];
+          if (!empty($pengendalian['nyamuk_fogging_mesin'])) $detailFogging[] = $pengendalian['nyamuk_fogging_mesin'] . ' mesin';
+          if (!empty($pengendalian['nyamuk_fogging_ml'])) $detailFogging[] = $pengendalian['nyamuk_fogging_ml'] . ' ml';
+          if (!empty($pengendalian['nyamuk_fogging_golongan'])) $detailFogging[] = esc($pengendalian['nyamuk_fogging_golongan']);
+          if (!empty($pengendalian['nyamuk_fogging_bahan'])) $detailFogging[] = 'Bahan: ' . esc($pengendalian['nyamuk_fogging_bahan']);
+          if (!empty($pengendalian['nyamuk_fogging_merk'])) $detailFogging[] = 'Merk: ' . esc($pengendalian['nyamuk_fogging_merk']);
+          $strFogging = 'Fogging';
+          if (!empty($detailFogging)) $strFogging .= ' (' . implode(', ', $detailFogging) . ')';
+          $metodeNyamuk[] = $strFogging;
+        }
+        if (!empty($pengendalian['nyamuk_fisik'])) {
+          $metodeNyamuk[] = 'Fisik (Raket/Trap)';
+        }
+        $txtNyamuk = !empty($metodeNyamuk) ? implode('; ', $metodeNyamuk) : '';
+        if (!empty($pengendalian['nyamuk_lokasi'])) {
+          $lokText = '<span class="text-secondary font-weight-bold">Lokasi:</span> ' . esc($pengendalian['nyamuk_lokasi']);
+          $txtNyamuk = $txtNyamuk ? ($txtNyamuk . ' <span class="text-muted">|</span> ' . $lokText) : $lokText;
+        }
+        if (!empty($txtNyamuk)) {
+          $hasilPengendalian[] = '<div><span class="badge badge-danger mr-1"><i class="fas fa-mosquito mr-1"></i>Nyamuk:</span> ' . $txtNyamuk . '</div>';
+        }
+      }
     ?>
     <tr>
       <td><?= $no++; ?></td>
@@ -30,14 +84,31 @@
       <td><?= $row['lokasi']; ?></td>
       <td><?= $row['kondisi_musim']; ?></td>
       <td><?= $row['wilayah']; ?></td>
-      <td><?= number_format($hi, 2); ?></td>
-      <td><?= number_format($ci, 2); ?></td>
-      <td><?= number_format($bi, 2); ?></td>
+      <td class="text-left small" style="white-space: nowrap;">
+        <div title="House Index: (<?= $row['jml_rumah_positif']; ?> / <?= $row['jml_rumah_diperiksa']; ?>) * 100">
+          <span class="text-muted font-weight-bold">HI:</span> <b><?= number_format($hi, 2); ?>%</b>
+        </div>
+        <div title="Container Index: (<?= $row['jml_kontainer_positif']; ?> / <?= $row['jml_kontainer_diperiksa']; ?>) * 100">
+          <span class="text-muted font-weight-bold">CI:</span> <b><?= number_format($ci, 2); ?>%</b>
+        </div>
+        <div title="Breteau Index: (<?= $row['jml_kontainer_positif']; ?> / <?= $row['jml_rumah_diperiksa']; ?>) * 100">
+          <span class="text-muted font-weight-bold">BI:</span> <b><?= number_format($bi, 2); ?>%</b>
+        </div>
+      </td>
       <td><?= $status; ?></td>
+      <td class="text-left small">
+        <?php if (!empty($hasilPengendalian)): ?>
+          <?= implode('', $hasilPengendalian); ?>
+        <?php elseif ($hi > 0 || $ci > 0 || $bi > 0): ?>
+          <span class="badge badge-warning text-dark"><i class="fas fa-exclamation-triangle mr-1"></i>Belum dikendalikan</span>
+        <?php else: ?>
+          <span class="text-muted">-</span>
+        <?php endif; ?>
+      </td>
       <td>
         <button class="btn btn-sm btn-info btn-edit-jentik" data-row='<?= htmlspecialchars(json_encode($row), ENT_QUOTES, 'UTF-8'); ?>' title="Edit"><i class="fas fa-edit"></i></button>
         <?php if($hi > 0 || $ci > 0 || $bi > 0): ?>
-        <button class="btn btn-sm btn-warning btn-pengendalian-jentik" data-id="<?= $row['id_jentik']; ?>" data-pengendalian='<?= htmlspecialchars($row['pengendalian'] ?? '', ENT_QUOTES, 'UTF-8'); ?>' title="Pengendalian"><i class="fas fa-shield-virus"></i></button>
+        <button class="btn btn-sm btn-warning btn-pengendalian-jentik" data-id="<?= $row['id_jentik']; ?>" data-tanggal="<?= !empty($row['tanggal_selesai']) ? $row['tanggal_selesai'] : $row['tanggal_mulai']; ?>" data-pengendalian='<?= htmlspecialchars($row['pengendalian'] ?? '', ENT_QUOTES, 'UTF-8'); ?>' title="Pengendalian"><i class="fas fa-shield-virus"></i></button>
         <?php endif; ?>
         <button class="btn btn-sm btn-danger btn-hapus-jentik" data-id="<?= $row['id_jentik']; ?>" title="Hapus"><i class="fas fa-trash"></i></button>
       </td>
@@ -167,6 +238,10 @@
           </button>
         </div>
         <div class="modal-body">
+          <div class="form-group mb-3">
+            <label class="font-weight-bold"><i class="far fa-calendar-alt text-primary mr-1"></i> Tanggal Pengendalian</label>
+            <input type="date" name="pengendalian[tanggal]" class="form-control" style="max-width: 250px;" required>
+          </div>
           <ul class="nav nav-tabs" id="myTab" role="tablist">
             <li class="nav-item">
               <a class="nav-link active" id="jentik-tab" data-toggle="tab" href="#tab-pengendalian-jentik" role="tab">Pengendalian Jentik</a>

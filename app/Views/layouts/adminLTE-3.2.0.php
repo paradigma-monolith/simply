@@ -893,7 +893,7 @@
   <?= in_array($activeMenu, ['uklwPenjamahMakanan', 'uklwPasien', 'uklwPemkes', 'uklwSkriningTBC', 'uklwSkriningHIV', 'uklwLaboratorium']) ? '<script src="/js/uklw2.js"></script>' : ""; ?>
   <?= in_array($activeMenu, ['uklwPenjamahMakanan']) ? '<script src="/js/uklwPenjamahMakanan1.js"></script>' : ""; ?>
   <?= in_array($activeMenu, ['tpp', 'sab', 'hsbu']) ? '<script src="/js/prl.js"></script>' : ""; ?>
-  <?= in_array($activeMenu, ['sivera']) ? '<script src="/js/sivera.js"></script>' : ""; ?>
+  <?= in_array($activeMenu, ['sivera']) ? '<script src="/js/sivera.js?v=' . filemtime(FCPATH . 'js/sivera.js') . '"></script>' : ""; ?>
   <?= in_array($activeMenu, ['bangunan', 'lokasi']) ? '<script src="/js/abs.js"></script>' : ""; ?>
   <?= in_array($activeMenu, ['lhkpnSpt']) ? '<script src="/js/lhkpnSpt.js"></script>' : ""; ?>
   <?= in_array($activeMenu, ['absenBlockir']) ? '<script src="/js/absenBlockir.js"></script>' : ""; ?>

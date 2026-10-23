@@ -97,22 +97,20 @@ class SiveraCrud extends BaseController
         $lokasi_arr = [$lokasi_arr];
       }
 
-      // Gabungkan lokasi menggunakan koma
-      $lokasi_clean = [];
-      foreach ($lokasi_arr as $lok) {
-        $trimmed = trim((string) $lok);
-        if ($trimmed !== '') {
-          $lokasi_clean[] = $trimmed;
-        }
-      }
-      $lokasi_gabungan = implode(', ', $lokasi_clean);
-
       $num_lokasi = count($lokasi_arr);
+      $lokasi_clean = [];
+      $detail_lokasi = [];
       $rata_rata_per_lokasi = [];
       $t_sums = array_fill(1, 10, 0);
       $titik_sums = array_fill(1, 5, 0);
 
       for ($k = 0; $k < $num_lokasi; $k++) {
+        $lok_name = trim((string) ($lokasi_arr[$k] ?? ''));
+        if ($lok_name === '') {
+          continue;
+        }
+        $lokasi_clean[] = $lok_name;
+
         // Ambil data pengamatan t1 - t10 untuk lokasi ke-k
         $t_vals = [];
         for ($i = 1; $i <= 10; $i++) {
@@ -134,13 +132,27 @@ class SiveraCrud extends BaseController
         $sum_top5 = array_sum($titik_vals);
         // Jika form belum mengisi titik, hitung langsung dari 5 tertinggi t_vals
         if ($sum_top5 == 0 && array_sum($t_vals) > 0) {
-          rsort($t_vals);
-          $sum_top5 = array_sum(array_slice($t_vals, 0, 5));
+          $sorted = $t_vals;
+          rsort($sorted);
+          $titik_vals = array_slice($sorted, 0, 5);
+          $sum_top5 = array_sum($titik_vals);
         }
-        $rata_rata_per_lokasi[] = $sum_top5 / 5;
+        $avg_k = $sum_top5 / 5;
+        $rata_rata_per_lokasi[] = $avg_k;
+
+        $detail_lokasi[] = [
+          'lokasi'            => $lok_name,
+          't'                 => $t_vals,
+          'titik'             => $titik_vals,
+          'total_pengamatan'  => array_sum($t_vals),
+          'total_top5'        => $sum_top5,
+          'rata_rata'         => round($avg_k, 2),
+          'status'            => $avg_k < 2 ? 'MS' : 'TMS',
+        ];
       }
 
-      $total_item = count($rata_rata_per_lokasi);
+      $total_item = count($detail_lokasi);
+      $lokasi_gabungan = implode(', ', $lokasi_clean);
       $rata_rata_final = $total_item > 0 ? (array_sum($rata_rata_per_lokasi) / $total_item) : 0;
 
       $data = [
@@ -152,6 +164,7 @@ class SiveraCrud extends BaseController
         'kecepatan_angin'  => $kecepatan_angin,
         'musim'            => $musim,
         'rata_rata'        => round($rata_rata_final, 2),
+        'detail_lokasi'    => json_encode($detail_lokasi),
       ];
 
       for ($i = 1; $i <= 10; $i++) {

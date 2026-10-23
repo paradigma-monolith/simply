@@ -329,16 +329,21 @@ $(document).ready(function() {
     $('#modal-lalat-title').text('Tambah Data Lalat');
     $('#modal-lalat-header').removeClass('bg-info').addClass('bg-success');
     
-    // Reset to 1 lokasi item
-    let firstItem = $('.lokasi-item').first().clone();
-    $('#dynamic-lokasi-container').html('');
-    $('#dynamic-lokasi-container').append(firstItem);
+    // Reset to 1 clean lokasi item
+    let firstItem = (typeof window.getCleanLokasiItem === 'function')
+      ? window.getCleanLokasiItem()
+      : $('.lokasi-item').first().clone();
+    
+    $('#dynamic-lokasi-container').empty().append(firstItem);
+    
+    if (typeof window.updateLokasiIndexes === 'function') {
+      window.updateLokasiIndexes();
+    }
     
     $('.btn-tambah-lokasi').show();
-    $('.btn-remove-lokasi').hide();
     $('#gabungan-lokasi-info').hide();
     
-    $('.t_input').trigger('input');
+    firstItem.find('.t_input').first().trigger('input');
     $('#modal-lalat').modal('show');
   });
 
@@ -434,37 +439,112 @@ $(document).ready(function() {
 
   $(document).on('click', '.btn-edit-lalat', function() {
     let row = $(this).data('row');
-    $('#form-lalat')[0].reset();
+    if($('#form-lalat').length) $('#form-lalat')[0].reset();
     
     $('#id_lalat_form').val(row.id_lalat);
     $('#modal-lalat-title').text('Edit Data Lalat');
     $('#modal-lalat-header').removeClass('bg-success').addClass('bg-info');
     
-    // Reset container to only have 1 item
-    let firstItem = $('.lokasi-item').first().clone();
-    $('#dynamic-lokasi-container').html('');
-    $('#dynamic-lokasi-container').append(firstItem);
+    $('#form-lalat input[name="tanggal"]').val(row.tanggal);
+    $('#form-lalat select[name="id_wilayah_kerja"]').val(row.id_wilayah_kerja);
+    $('#form-lalat select[name="musim"]').val(row.musim);
+    $('#form-lalat input[name="temperatur"]').val(row.temperatur);
+    $('#form-lalat input[name="kelembapan"]').val(row.kelembapan);
+    $('#form-lalat input[name="kecepatan_angin"]').val(row.kecepatan_angin);
     
-    $('input[name="tanggal"]').val(row.tanggal);
-    $('select[name="id_wilayah_kerja"]').val(row.id_wilayah_kerja);
-    $('select[name="musim"]').val(row.musim);
-    $('input[name="temperatur"]').val(row.temperatur);
-    $('input[name="kelembapan"]').val(row.kelembapan);
-    $('input[name="kecepatan_angin"]').val(row.kecepatan_angin);
-    
-    $('input[name="lokasi[]"]').val(row.lokasi);
-    
-    let container = $('.lokasi-item').first();
-    let t_inputs = container.find('.t_input');
-    for(let i=1; i<=10; i++) {
-      $(t_inputs[i-1]).val(row['t'+i] || 0);
+    // Parse detail_lokasi if present
+    let detailLokasi = [];
+    if (row.detail_lokasi) {
+      try {
+        let parsed = row.detail_lokasi;
+        while (typeof parsed === 'string') {
+          parsed = JSON.parse(parsed);
+        }
+        if (Array.isArray(parsed)) {
+          detailLokasi = parsed;
+        }
+      } catch (err) {
+        detailLokasi = [];
+      }
     }
     
-    $('.btn-tambah-lokasi').hide(); // Sembunyikan saat edit karena edit hanya 1 baris
-    $('.btn-remove-lokasi').hide();
-    $('#gabungan-lokasi-info').hide();
+    // Fallback: if detail_lokasi is empty, parse from row.lokasi (comma separated or single)
+    if (!Array.isArray(detailLokasi) || detailLokasi.length === 0) {
+      if (row.lokasi && typeof row.lokasi === 'string' && row.lokasi.includes(',')) {
+        let locNames = row.lokasi.split(',').map(s => s.trim()).filter(s => s !== '');
+        detailLokasi = locNames.map((name) => {
+          let tVals = [];
+          for (let i = 1; i <= 10; i++) {
+            tVals.push(row['t' + i] !== undefined ? row['t' + i] : 0);
+          }
+          return {
+            lokasi: name,
+            t: tVals
+          };
+        });
+      } else {
+        let tVals = [];
+        for (let i = 1; i <= 10; i++) {
+          tVals.push(row['t' + i] !== undefined ? row['t' + i] : 0);
+        }
+        detailLokasi = [{
+          lokasi: row.lokasi || '',
+          t: tVals
+        }];
+      }
+    }
     
-    $('.t_input').trigger('input');
+    // Render dynamic lokasi container
+    $('#dynamic-lokasi-container').empty();
+    
+    detailLokasi.forEach((item, index) => {
+      let elem = (typeof window.getCleanLokasiItem === 'function')
+        ? window.getCleanLokasiItem()
+        : null;
+        
+      if (!elem || elem.length === 0) {
+        let tmpl = document.getElementById('template-lokasi-item');
+        if (tmpl && tmpl.content && tmpl.content.firstElementChild) {
+          elem = $(tmpl.content.firstElementChild).clone();
+        } else {
+          elem = $('.lokasi-item').first().clone();
+        }
+      }
+        
+      elem.find('input[name="lokasi[]"]').val(item.lokasi || '');
+      
+      let t_inputs = elem.find('.t_input');
+      for (let i = 1; i <= 10; i++) {
+        let val = 0;
+        if (item.t && item.t[i - 1] !== undefined) {
+          val = item.t[i - 1];
+        } else if (item['t' + i] !== undefined) {
+          val = item['t' + i];
+        } else {
+          val = row['t' + i] || 0;
+        }
+        $(t_inputs[i - 1]).val(val);
+      }
+      
+      $('#dynamic-lokasi-container').append(elem);
+    });
+    
+    if (typeof window.updateLokasiIndexes === 'function') {
+      window.updateLokasiIndexes();
+    }
+    
+    // Keep tambah lokasi button VISIBLE in edit mode so user can manage locations per survey
+    $('.btn-tambah-lokasi').show();
+    
+    // Trigger calculation on all location items
+    $('#dynamic-lokasi-container .lokasi-item').each(function() {
+      $(this).find('.t_input').first().trigger('input');
+    });
+    
+    if (typeof window.hitungGabunganLalat === 'function') {
+      window.hitungGabunganLalat();
+    }
+    
     $('#modal-lalat').modal('show');
   });
 
@@ -558,10 +638,18 @@ $(document).ready(function() {
   $(document).on('click', '.btn-pengendalian-jentik', function() {
     let id = $(this).data('id');
     let data = $(this).data('pengendalian');
+    let surveyTgl = $(this).data('tanggal') || new Date().toISOString().split('T')[0];
+    if (typeof data === 'string' && data.trim() !== '') {
+      try { data = JSON.parse(data); } catch(e) {}
+    }
     $('#form-pengendalian-jentik')[0].reset();
     $('#id_jentik_pengendalian').val(id);
+    $('#jentik-tab').tab('show');
     
-    if (data) {
+    let defaultTgl = (data && data.tanggal) ? data.tanggal : surveyTgl;
+    $('#form-pengendalian-jentik input[name="pengendalian[tanggal]"]').val(defaultTgl);
+    
+    if (data && typeof data === 'object') {
       if(data.jentik_kimia) $('#jentik_kimia').prop('checked', true);
       if(data.jentik_kimia_gram) $('input[name="pengendalian[jentik_kimia_gram]"]').val(data.jentik_kimia_gram);
       if(data.jentik_kimia_sachet) $('input[name="pengendalian[jentik_kimia_sachet]"]').val(data.jentik_kimia_sachet);
@@ -584,10 +672,17 @@ $(document).ready(function() {
   $(document).on('click', '.btn-pengendalian-lalat', function() {
     let id = $(this).data('id');
     let data = $(this).data('pengendalian');
+    let surveyTgl = $(this).data('tanggal') || new Date().toISOString().split('T')[0];
+    if (typeof data === 'string' && data.trim() !== '') {
+      try { data = JSON.parse(data); } catch(e) {}
+    }
     $('#form-pengendalian-lalat')[0].reset();
     $('#id_lalat_pengendalian').val(id);
     
-    if (data) {
+    let defaultTgl = (data && data.tanggal) ? data.tanggal : surveyTgl;
+    $('#form-pengendalian-lalat input[name="pengendalian[tanggal]"]').val(defaultTgl);
+    
+    if (data && typeof data === 'object') {
       if(data.lokasi) $('input[name="pengendalian[lokasi]"]').val(data.lokasi);
       if(data.spraying) $('#lalat_spraying').prop('checked', true);
       if(data.spraying_ml) $('input[name="pengendalian[spraying_ml]"]').val(data.spraying_ml);
@@ -601,10 +696,13 @@ $(document).ready(function() {
   $(document).on('click', '.btn-pengendalian-kecoa', function() {
     let id = $(this).data('id');
     let data = $(this).data('pengendalian');
+    if (typeof data === 'string' && data.trim() !== '') {
+      try { data = JSON.parse(data); } catch(e) {}
+    }
     $('#form-pengendalian-kecoa')[0].reset();
     $('#id_kecoa_pengendalian').val(id);
     
-    if (data) {
+    if (data && typeof data === 'object') {
       if(data.lokasi) $('input[name="pengendalian[lokasi]"]').val(data.lokasi);
       if(data.retrapping) $('#kecoa_retrapping').prop('checked', true);
       if(data.retrapping_trap) $('input[name="pengendalian[retrapping_trap]"]').val(data.retrapping_trap);

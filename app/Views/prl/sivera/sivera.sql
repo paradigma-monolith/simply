@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS `prl_sivera_lalat` (
   `titik_4` int(11) DEFAULT 0,
   `titik_5` int(11) DEFAULT 0,
   `rata_rata` decimal(10,2) DEFAULT 0,
+  `detail_lokasi` text DEFAULT NULL,
   `pengendalian` text DEFAULT NULL,
   `created_by` varchar(100) DEFAULT NULL,
   `updated_by` varchar(100) DEFAULT NULL,
