@@ -1794,4 +1794,242 @@ class Pdf extends BaseController
         
         // dd($data);
     }
+
+  private function format_hari_tanggal_indo($dateStr)
+  {
+    if (empty($dateStr) || $dateStr == '0000-00-00') {
+      return '-';
+    }
+    $hari = [
+      'Sunday'    => 'Minggu',
+      'Monday'    => 'Senin',
+      'Tuesday'   => 'Selasa',
+      'Wednesday' => 'Rabu',
+      'Thursday'  => 'Kamis',
+      'Friday'    => 'Jumat',
+      'Saturday'  => 'Sabtu'
+    ];
+    $bulan = [
+      1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+      5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+      9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+    ];
+    $ts = strtotime($dateStr);
+    $namaHari = $hari[date('l', $ts)] ?? date('l', $ts);
+    $tgl = date('j', $ts);
+    $bln = $bulan[(int)date('n', $ts)] ?? date('m', $ts);
+    $thn = date('Y', $ts);
+    return $namaHari . ', ' . $tgl . ' ' . $bln . ' ' . $thn;
+  }
+
+  public function sivera_lalat_pdf($id)
+  {
+    $row = $this->siveraLalatModel
+      ->select('prl_sivera_lalat.*, unit_kerja.unit_kerja as wilker, user.nama as nama_pegawai')
+      ->join('user', 'user.id_user = prl_sivera_lalat.created_by', 'left')
+      ->join('unit_kerja', 'unit_kerja.id_unit_kerja = prl_sivera_lalat.id_wilayah_kerja', 'left')
+      ->where('prl_sivera_lalat.id_lalat', $id)
+      ->first();
+
+    if (!$row) {
+      return redirect()->back()->with('error', 'Data survei lalat tidak ditemukan');
+    }
+
+    $pengendalian = !empty($row['pengendalian']) ? json_decode($row['pengendalian'], true) : [];
+    $detailLokasi = !empty($row['detail_lokasi']) ? json_decode($row['detail_lokasi'], true) : [];
+
+    // Hari, Tanggal
+    $tglTarget = !empty($pengendalian['tanggal']) ? $pengendalian['tanggal'] : $row['tanggal'];
+    $data['hari_tanggal'] = $this->format_hari_tanggal_indo($tglTarget);
+
+    // Wilayah Kerja
+    $data['wilker'] = $row['wilker'] ?? '-';
+
+    // Lokasi
+    if (!empty($pengendalian['lokasi'])) {
+      $data['lokasi'] = $pengendalian['lokasi'];
+    } elseif (!empty($row['lokasi'])) {
+      $data['lokasi'] = $row['lokasi'];
+    } elseif (!empty($detailLokasi) && is_array($detailLokasi)) {
+      $data['lokasi'] = implode(', ', array_filter(array_column($detailLokasi, 'lokasi')));
+    } else {
+      $data['lokasi'] = '-';
+    }
+
+    // Persiapan
+    $data['persiapan'] = $pengendalian['persiapan'] ?? '';
+
+    // Hasil Survei Lalat
+    $statusText = ($row['rata_rata'] < 2) ? 'MS' : 'TMS';
+    $data['hasil_survei'] = number_format($row['rata_rata'], 2) . ' (' . $statusText . ')';
+
+    // Pengendalian & Jumlah Insektisida
+    $metode = [];
+    $insektisida = [];
+    if (!empty($pengendalian['spraying'])) {
+      $metode[] = 'Spraying';
+      if (!empty($pengendalian['spraying_ml'])) {
+        $insektisida[] = $pengendalian['spraying_ml'] . ' ml (Spraying)';
+      }
+    }
+    if (!empty($pengendalian['granule'])) {
+      $metode[] = 'Granule Distribution';
+      if (!empty($pengendalian['granule_gram'])) {
+        $insektisida[] = $pengendalian['granule_gram'] . ' gram (Granule)';
+      }
+    }
+
+    if (!empty($metode)) {
+      $data['metode_pengendalian'] = 'Kimia (' . implode(', ', $metode) . ')';
+    } else {
+      $data['metode_pengendalian'] = 'Kimia/ Fisika/ Biologi';
+    }
+
+    if (!empty($insektisida)) {
+      $data['jumlah_insektisida'] = implode(', ', $insektisida);
+    } else {
+      $data['jumlah_insektisida'] = '-';
+    }
+
+    // Pelaksana
+    $data['nama_pegawai'] = !empty($row['nama_pegawai']) ? $row['nama_pegawai'] : (session()->get('nama') ?? 'Petugas Pengendalian');
+
+    // Kop
+    $kopPath = FCPATH . 'dist/img/Kop_BKK_bandung.png';
+    if (!file_exists($kopPath)) {
+      $kopPath = ROOTPATH . 'public/dist/img/Kop_BKK_bandung.png';
+    }
+    $data['kop'] = generate_base64($kopPath);
+
+    $options = new Options();
+    $options->set('isRemoteEnabled', true);
+    $options->set('isHtml5ParserEnabled', true);
+    $options->set('defaultFont', 'Arial');
+
+    $dompdf = new Dompdf($options);
+    $dompdf->loadHtml(view('prl/sivera/pdf/pengendalian_lalat_pdf', $data));
+    $dompdf->setPaper('A4', 'portrait');
+    $dompdf->render();
+
+    $filename = 'Laporan_Pengendalian_Lalat_' . date('Ymd_His');
+    $attachment = $this->request->getGet('download') ? true : false;
+    $dompdf->stream($filename . '.pdf', ["Attachment" => $attachment]);
+  }
+
+  public function sivera_jentik_pdf($id, $tipe = 'jentik')
+  {
+    $row = $this->siveraJentikModel
+      ->select('prl_sivera_jentik.*, unit_kerja.unit_kerja as wilker, user.nama as nama_pegawai')
+      ->join('user', 'user.id_user = prl_sivera_jentik.created_by', 'left')
+      ->join('unit_kerja', 'unit_kerja.id_unit_kerja = prl_sivera_jentik.id_wilayah_kerja', 'left')
+      ->where('prl_sivera_jentik.id_jentik', $id)
+      ->first();
+
+    if (!$row) {
+      return redirect()->back()->with('error', 'Data survei jentik tidak ditemukan');
+    }
+
+    $pengendalian = !empty($row['pengendalian']) ? json_decode($row['pengendalian'], true) : [];
+
+    // Hari, Tanggal
+    $tglTarget = !empty($pengendalian['tanggal']) 
+      ? $pengendalian['tanggal'] 
+      : (!empty($row['tanggal_selesai']) ? $row['tanggal_selesai'] : $row['tanggal_mulai']);
+    $data['hari_tanggal'] = $this->format_hari_tanggal_indo($tglTarget);
+
+    // Wilayah Kerja
+    $data['wilker'] = $row['wilker'] ?? '-';
+
+    // Hitung Indeks Survei
+    $hi = ($row['jml_rumah_diperiksa'] > 0) ? ($row['jml_rumah_positif'] / $row['jml_rumah_diperiksa']) * 100 : 0;
+    $ci = ($row['jml_kontainer_diperiksa'] > 0) ? ($row['jml_kontainer_positif'] / $row['jml_kontainer_diperiksa']) * 100 : 0;
+    $bi = ($row['jml_rumah_diperiksa'] > 0) ? ($row['jml_kontainer_positif'] / $row['jml_rumah_diperiksa']) * 100 : 0;
+
+    $data['hasil_survei'] = 'Nilai HI: ' . number_format($hi, 2) . '%, CI: ' . number_format($ci, 2) . '%, BI: ' . number_format($bi, 2) . '%';
+
+    // Pelaksana
+    $data['nama_pegawai'] = !empty($row['nama_pegawai']) ? $row['nama_pegawai'] : (session()->get('nama') ?? 'Petugas Pengendalian');
+
+    // Kop
+    $kopPath = FCPATH . 'dist/img/Kop_BKK_bandung.png';
+    if (!file_exists($kopPath)) {
+      $kopPath = ROOTPATH . 'public/dist/img/Kop_BKK_bandung.png';
+    }
+    $data['kop'] = generate_base64($kopPath);
+
+    $options = new Options();
+    $options->set('isRemoteEnabled', true);
+    $options->set('isHtml5ParserEnabled', true);
+    $options->set('defaultFont', 'Arial');
+
+    $dompdf = new Dompdf($options);
+
+    if ($tipe === 'fogging') {
+      // PDF Fogging (Image 3)
+      $data['lokasi'] = !empty($pengendalian['nyamuk_lokasi']) ? $pengendalian['nyamuk_lokasi'] : ($row['lokasi'] ?? '-');
+      $data['persiapan'] = $pengendalian['persiapan'] ?? '';
+
+      $metode = [];
+      if (!empty($pengendalian['nyamuk_fogging'])) {
+        $metode[] = 'Fogging';
+      }
+      if (!empty($pengendalian['nyamuk_fisik'])) {
+        $metode[] = 'Fisik (Raket nyamuk/Light trap)';
+      }
+      $data['metode_pengendalian'] = !empty($metode) ? 'Kimia (' . implode(', ', $metode) . ')' : 'Kimia/ Fisika/ Biologi';
+
+      // Insektisida
+      if (!empty($pengendalian['nyamuk_fogging_ml'])) {
+        $ins = $pengendalian['nyamuk_fogging_ml'] . ' ml';
+        $detailIns = [];
+        if (!empty($pengendalian['nyamuk_fogging_bahan'])) $detailIns[] = 'Bahan: ' . $pengendalian['nyamuk_fogging_bahan'];
+        if (!empty($pengendalian['nyamuk_fogging_merk'])) $detailIns[] = 'Merk: ' . $pengendalian['nyamuk_fogging_merk'];
+        if (!empty($detailIns)) $ins .= ' (' . implode(', ', $detailIns) . ')';
+        $data['jumlah_insektisida'] = $ins;
+      } else {
+        $data['jumlah_insektisida'] = '-';
+      }
+
+      $data['penggunaan_solar'] = !empty($pengendalian['nyamuk_fogging_solar']) ? $pengendalian['nyamuk_fogging_solar'] . ' Liter' : '';
+      $data['penggunaan_bensin'] = !empty($pengendalian['nyamuk_fogging_bensin']) ? $pengendalian['nyamuk_fogging_bensin'] . ' Liter' : '';
+
+      $dompdf->loadHtml(view('prl/sivera/pdf/pengendalian_fogging_pdf', $data));
+      $filename = 'Laporan_Pengendalian_Fogging_' . date('Ymd_His');
+    } else {
+      // PDF Jentik (Image 2)
+      $data['lokasi'] = $row['lokasi'] ?? '-';
+      $data['persiapan'] = $pengendalian['persiapan'] ?? '';
+
+      $metode = [];
+      if (!empty($pengendalian['jentik_kimia'])) {
+        $metode[] = 'Kimia (Larvasidasi)';
+      }
+      if (!empty($pengendalian['jentik_fisik'])) {
+        $metode[] = 'Fisik (Membuang sumber air)';
+      }
+      if (!empty($pengendalian['jentik_biologi'])) {
+        $metode[] = 'Biologi (BTI / Ikan pemakan jentik)';
+      }
+      $data['metode_pengendalian'] = !empty($metode) ? implode(', ', $metode) : 'Kimia/ Fisika/ Biologi';
+
+      $ins = [];
+      if (!empty($pengendalian['jentik_kimia_gram'])) {
+        $ins[] = $pengendalian['jentik_kimia_gram'] . ' gram';
+      }
+      if (!empty($pengendalian['jentik_kimia_sachet'])) {
+        $ins[] = $pengendalian['jentik_kimia_sachet'] . ' sachet';
+      }
+      $data['jumlah_insektisida'] = !empty($ins) ? implode(' / ', $ins) : '-';
+
+      $dompdf->loadHtml(view('prl/sivera/pdf/pengendalian_jentik_pdf', $data));
+      $filename = 'Laporan_Pengendalian_Jentik_' . date('Ymd_His');
+    }
+
+    $dompdf->setPaper('A4', 'portrait');
+    $dompdf->render();
+
+    $attachment = $this->request->getGet('download') ? true : false;
+    $dompdf->stream($filename . '.pdf', ["Attachment" => $attachment]);
+  }
 }
+

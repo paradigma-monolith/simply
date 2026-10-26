@@ -575,4 +575,70 @@ class SiveraData extends BaseController
     }
   }
 
+  public function anopheles_jentik_daftar()
+  {
+    if ($this->request->isAJAX()) {
+      $wilkerId = $this->request->getVar('id_wilayah_kerja');
+      $tglMulai = $this->request->getVar('tanggal_mulai');
+      $tglSelesai = $this->request->getVar('tanggal_selesai');
+      $status = $this->request->getVar('status');
+
+      $builder = $this->siveraAnophelesJentikModel
+        ->select('prl_sivera_anopheles_jentik.*, unit_kerja.unit_kerja as wilker, user.nama as nama_pegawai')
+        ->join('user', 'user.id_user = prl_sivera_anopheles_jentik.created_by', 'left')
+        ->join('unit_kerja', 'unit_kerja.id_unit_kerja = prl_sivera_anopheles_jentik.id_wilayah_kerja', 'left')
+        ->orderBy('prl_sivera_anopheles_jentik.updated_at DESC');
+
+      if (!empty($wilkerId)) {
+        $builder->where('prl_sivera_anopheles_jentik.id_wilayah_kerja', $wilkerId);
+      }
+      if (!empty($tglMulai)) {
+        $builder->where('prl_sivera_anopheles_jentik.tanggal >=', $tglMulai);
+      }
+      if (!empty($tglSelesai)) {
+        $builder->where('prl_sivera_anopheles_jentik.tanggal <=', $tglSelesai);
+      }
+      if (!empty($status)) {
+        $builder->where('prl_sivera_anopheles_jentik.status', $status);
+      }
+
+      $data['anopheles_jentik'] = $builder->findAll();
+      $data['wilayah_kerja'] = $this->unitKerjaModel->findAll();
+      return view('prl/sivera/anopheles_jentik_daftar', $data);
+    }
+  }
+
+  public function anopheles_nyamuk_daftar()
+  {
+    if ($this->request->isAJAX()) {
+      $wilkerId = $this->request->getVar('id_wilayah_kerja');
+      $tglMulai = $this->request->getVar('tanggal_mulai');
+      $tglSelesai = $this->request->getVar('tanggal_selesai');
+      $adaAnopheles = $this->request->getVar('ada_anopheles');
+
+      $builder = $this->siveraAnophelesNyamukModel
+        ->select('prl_sivera_anopheles_nyamuk.*, unit_kerja.unit_kerja as wilker, user.nama as nama_pegawai')
+        ->join('user', 'user.id_user = prl_sivera_anopheles_nyamuk.created_by', 'left')
+        ->join('unit_kerja', 'unit_kerja.id_unit_kerja = prl_sivera_anopheles_nyamuk.id_wilayah_kerja', 'left')
+        ->orderBy('prl_sivera_anopheles_nyamuk.updated_at DESC');
+
+      if (!empty($wilkerId)) {
+        $builder->where('prl_sivera_anopheles_nyamuk.id_wilayah_kerja', $wilkerId);
+      }
+      if (!empty($tglMulai)) {
+        $builder->where('prl_sivera_anopheles_nyamuk.tanggal >=', $tglMulai);
+      }
+      if (!empty($tglSelesai)) {
+        $builder->where('prl_sivera_anopheles_nyamuk.tanggal <=', $tglSelesai);
+      }
+      if (!empty($adaAnopheles)) {
+        $builder->where('prl_sivera_anopheles_nyamuk.ada_anopheles', $adaAnopheles);
+      }
+
+      $data['anopheles_nyamuk'] = $builder->findAll();
+      $data['wilayah_kerja'] = $this->unitKerjaModel->findAll();
+      return view('prl/sivera/anopheles_nyamuk_daftar', $data);
+    }
+  }
+
 }

@@ -116,6 +116,7 @@
         <?php if($row['rata_rata'] >= 2 || $anyTms): ?>
         <button class="btn btn-sm btn-warning btn-pengendalian-lalat" data-id="<?= $row['id_lalat']; ?>" data-tanggal="<?= $row['tanggal']; ?>" data-pengendalian='<?= htmlspecialchars($row['pengendalian'] ?? '', ENT_QUOTES, 'UTF-8'); ?>' title="Pengendalian"><i class="fas fa-shield-virus"></i></button>
         <?php endif; ?>
+        <a href="/prl/sivera_lalat/pdf/<?= $row['id_lalat']; ?>" target="_blank" class="btn btn-sm btn-danger" title="Download Form PDF (Laporan Pengendalian)"><i class="fas fa-file-pdf"></i></a>
         <button class="btn btn-sm btn-danger btn-hapus-lalat" data-id="<?= $row['id_lalat']; ?>" title="Hapus"><i class="fas fa-trash"></i></button>
       </td>
     </tr>
@@ -300,6 +301,10 @@
               <label class="font-weight-bold"><i class="fas fa-map-marker-alt text-danger mr-1"></i> Lokasi Pengendalian</label>
               <input type="text" name="pengendalian[lokasi]" class="form-control" placeholder="Contoh: TPS, Dapur...">
             </div>
+          </div>
+          <div class="form-group">
+            <label class="font-weight-bold"><i class="fas fa-tasks text-info mr-1"></i> Persiapan</label>
+            <input type="text" name="pengendalian[persiapan]" class="form-control" placeholder="Catatan persiapan kegiatan (opsional)">
           </div>
           <h6>Metode yang digunakan:</h6>
           <div class="form-group">

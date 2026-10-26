@@ -453,4 +453,202 @@ class SiveraCrud extends BaseController
       }
     }
   }
+
+  public function simpan_anopheles_jentik()
+  {
+    if ($this->request->isAJAX()) {
+      $id = $this->request->getVar("id_anopheles_jentik");
+      $by = $this->userModel
+        ->select('id_user')
+        ->where('user.username', session()->get('username'))
+        ->first();
+
+      $jenisHabitat = $this->request->getVar("jenis_habitat");
+      if (is_array($jenisHabitat)) {
+        $jenisHabitat = implode(',', $jenisHabitat);
+      }
+
+      $kondisiAir = $this->request->getVar("kondisi_air");
+      if (is_array($kondisiAir)) {
+        $kondisiAir = implode(',', $kondisiAir);
+      }
+
+      $kondisiPencahayaan = $this->request->getVar("kondisi_pencahayaan");
+      if (is_array($kondisiPencahayaan)) {
+        $kondisiPencahayaan = implode(',', $kondisiPencahayaan);
+      }
+
+      $kondisiVegetasi = $this->request->getVar("kondisi_vegetasi");
+      if (is_array($kondisiVegetasi)) {
+        $kondisiVegetasi = implode(',', $kondisiVegetasi);
+      }
+
+      $disurvei = (int) $this->request->getVar("jml_habitat_disurvei");
+      $positif = (int) $this->request->getVar("jml_habitat_positif");
+      $indeksHabitat = $disurvei > 0 ? round(($positif / $disurvei) * 100, 2) : 0.00;
+      $status = ($indeksHabitat < 1.0) ? 'MS' : 'TMS';
+
+      $data = [
+        'tanggal'               => $this->request->getVar("tanggal"),
+        'id_wilayah_kerja'      => $this->request->getVar("id_wilayah_kerja"),
+        'lokasi'                => $this->request->getVar("lokasi"),
+        'jenis_habitat'         => $jenisHabitat,
+        'jenis_habitat_lainnya' => $this->request->getVar("jenis_habitat_lainnya"),
+        'kondisi_pencahayaan'   => $kondisiPencahayaan,
+        'kondisi_vegetasi'      => $kondisiVegetasi,
+        'kondisi_air'           => $kondisiAir,
+        'keterangan'            => $this->request->getVar("keterangan"),
+        'jml_habitat_disurvei'  => $disurvei,
+        'jml_habitat_positif'   => $positif,
+        'indeks_habitat'        => $indeksHabitat,
+        'status'                => $status,
+      ];
+
+      if ($id != null && $id != '') {
+        $data['id_anopheles_jentik'] = $id;
+        $data['updated_by'] = $by['id_user'] ?? session()->get('username');
+      } else {
+        $data['created_by'] = $by['id_user'] ?? session()->get('username');
+        $data['updated_by'] = $by['id_user'] ?? session()->get('username');
+      }
+
+      if ($this->siveraAnophelesJentikModel->save($data)) {
+        return json_encode(['status' => 'success']);
+      } else {
+        return json_encode(['status' => 'error', 'msg' => 'Gagal menyimpan data Jentik Anopheles']);
+      }
+    }
+  }
+
+  public function hapus_anopheles_jentik($id)
+  {
+    if ($this->request->isAJAX()) {
+      if ($this->siveraAnophelesJentikModel->delete($id)) {
+        return json_encode(['status' => 'success']);
+      } else {
+        return json_encode(['status' => 'error', 'msg' => 'Gagal menghapus data Jentik Anopheles']);
+      }
+    }
+  }
+
+  public function simpan_anopheles_nyamuk()
+  {
+    if ($this->request->isAJAX()) {
+      $id = $this->request->getVar("id_anopheles_nyamuk");
+      $by = $this->userModel
+        ->select('id_user')
+        ->where('user.username', session()->get('username'))
+        ->first();
+
+      $penangkap = (int) $this->request->getVar("jml_penangkap");
+      $lama = (float) $this->request->getVar("lama_penangkapan");
+      if ($lama <= 0) {
+        $lama = 12.0; // default 12 jam
+      }
+
+      $tangkapanDalam = $this->request->getVar("tangkapan_dalam") ?? [];
+      $tangkapanLuar = $this->request->getVar("tangkapan_luar") ?? [];
+      $ketDalam = $this->request->getVar("ket_dalam") ?? '';
+      $ketLuar = $this->request->getVar("ket_luar") ?? '';
+
+      $hours = ['18_19','19_20','20_21','21_22','22_23','23_24','24_01','01_02','02_03','03_04','04_05','05_06'];
+      
+      $totalDalam = 0;
+      $cleanDalam = [];
+      foreach ($hours as $h) {
+        $val = isset($tangkapanDalam[$h]) ? (int)$tangkapanDalam[$h] : 0;
+        $cleanDalam[$h] = $val;
+        $totalDalam += $val;
+      }
+
+      $totalLuar = 0;
+      $cleanLuar = [];
+      foreach ($hours as $h) {
+        $val = isset($tangkapanLuar[$h]) ? (int)$tangkapanLuar[$h] : 0;
+        $cleanLuar[$h] = $val;
+        $totalLuar += $val;
+      }
+
+      $totalTertangkap = $totalDalam + $totalLuar;
+      $adaAnopheles = $totalTertangkap > 0 ? 'Ya' : 'Tidak';
+
+      $manHours = ($penangkap > 0 && $lama > 0) ? ($penangkap * $lama) : 0;
+      $mbr = $manHours > 0 ? round($totalTertangkap / $manHours, 4) : 0.0000;
+      $mhd = $manHours > 0 ? round($totalTertangkap / $manHours, 4) : 0.0000;
+
+      $mhdMbrDalam = $manHours > 0 ? round($totalDalam / $manHours, 4) : 0.0000;
+      $mhdMbrLuar = $manHours > 0 ? round($totalLuar / $manHours, 4) : 0.0000;
+
+      $dataTangkapan = [
+        'dalam' => [
+          'jam' => $cleanDalam,
+          'total' => $totalDalam,
+          'mhd_mbr' => $mhdMbrDalam,
+          'ket' => $ketDalam
+        ],
+        'luar' => [
+          'jam' => $cleanLuar,
+          'total' => $totalLuar,
+          'mhd_mbr' => $mhdMbrLuar,
+          'ket' => $ketLuar
+        ],
+      ];
+
+      $interpretasi = $this->request->getVar("interpretasi");
+      if (empty($interpretasi)) {
+        if ($adaAnopheles == 'Ya') {
+          $interpretasi = 'Ditemukan Anopheles sehingga perlu dilakukan identifikasi spesies, analisis faktor risiko lingkungan, dan tindak lanjut pengendalian vektor.';
+        } else {
+          $interpretasi = 'Tidak ditemukan Anopheles sehingga belum terdapat indikasi faktor risiko penularan malaria pada saat survei.';
+        }
+      }
+
+      $data = [
+        'tanggal'          => $this->request->getVar("tanggal"),
+        'id_wilayah_kerja' => $this->request->getVar("id_wilayah_kerja"),
+        'lokasi'           => $this->request->getVar("lokasi"),
+        'jml_penangkap'    => $penangkap,
+        'lama_penangkapan' => $lama,
+        'kondisi_cuaca'    => $this->request->getVar("kondisi_cuaca"),
+        'suhu'             => $this->request->getVar("suhu") !== '' && $this->request->getVar("suhu") !== null ? (float)$this->request->getVar("suhu") : null,
+        'kelembaban'       => $this->request->getVar("kelembaban") !== '' && $this->request->getVar("kelembaban") !== null ? (float)$this->request->getVar("kelembaban") : null,
+        'kecepatan_angin'  => $this->request->getVar("kecepatan_angin") !== '' && $this->request->getVar("kecepatan_angin") !== null ? (float)$this->request->getVar("kecepatan_angin") : null,
+        'spesies'          => $this->request->getVar("spesies") ?: 'Anopheles sp',
+        'data_tangkapan'   => json_encode($dataTangkapan),
+        'total_dalam'      => $totalDalam,
+        'total_luar'       => $totalLuar,
+        'total_tertangkap' => $totalTertangkap,
+        'ada_anopheles'    => $adaAnopheles,
+        'mbr'              => $mbr,
+        'mhd'              => $mhd,
+        'interpretasi'     => $interpretasi,
+        'keterangan'       => $this->request->getVar("keterangan"),
+      ];
+
+      if ($id != null && $id != '') {
+        $data['id_anopheles_nyamuk'] = $id;
+        $data['updated_by'] = $by['id_user'] ?? session()->get('username');
+      } else {
+        $data['created_by'] = $by['id_user'] ?? session()->get('username');
+        $data['updated_by'] = $by['id_user'] ?? session()->get('username');
+      }
+
+      if ($this->siveraAnophelesNyamukModel->save($data)) {
+        return json_encode(['status' => 'success']);
+      } else {
+        return json_encode(['status' => 'error', 'msg' => 'Gagal menyimpan data Nyamuk Anopheles']);
+      }
+    }
+  }
+
+  public function hapus_anopheles_nyamuk($id)
+  {
+    if ($this->request->isAJAX()) {
+      if ($this->siveraAnophelesNyamukModel->delete($id)) {
+        return json_encode(['status' => 'success']);
+      } else {
+        return json_encode(['status' => 'error', 'msg' => 'Gagal menghapus data Nyamuk Anopheles']);
+      }
+    }
+  }
 }

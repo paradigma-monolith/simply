@@ -601,11 +601,14 @@ $routes->get('/prl/sivera_dashboard', 'Prl\SiveraData::dashboard');
 $routes->post('/prl/simpan_sivera_jentik', 'Prl\SiveraCrud::simpan_jentik');
 $routes->post('/prl/simpan_pengendalian_jentik', 'Prl\SiveraCrud::simpan_pengendalian_jentik');
 $routes->delete('/prl/hapus_sivera_jentik/(:num)', 'Prl\SiveraCrud::hapus_jentik/$1');
+$routes->get('/prl/sivera_jentik/pdf/(:num)/(:segment)', 'Export\Pdf::sivera_jentik_pdf/$1/$2');
+$routes->get('/prl/sivera_jentik/pdf/(:num)', 'Export\Pdf::sivera_jentik_pdf/$1');
 
 $routes->get('/prl/sivera_lalat', 'Prl\SiveraData::lalat_daftar');
 $routes->post('/prl/simpan_sivera_lalat', 'Prl\SiveraCrud::simpan_lalat');
 $routes->post('/prl/simpan_pengendalian_lalat', 'Prl\SiveraCrud::simpan_pengendalian_lalat');
 $routes->delete('/prl/hapus_sivera_lalat/(:num)', 'Prl\SiveraCrud::hapus_lalat/$1');
+$routes->get('/prl/sivera_lalat/pdf/(:num)', 'Export\Pdf::sivera_lalat_pdf/$1');
 
 $routes->get('/prl/sivera_kecoa', 'Prl\SiveraData::kecoa_daftar');
 $routes->post('/prl/simpan_sivera_kecoa', 'Prl\SiveraCrud::simpan_kecoa');
@@ -619,6 +622,14 @@ $routes->delete('/prl/hapus_sivera_tikus/(:num)', 'Prl\SiveraCrud::hapus_tikus/$
 $routes->get('/prl/sivera_pinjal', 'Prl\SiveraData::pinjal_daftar');
 $routes->post('/prl/simpan_sivera_pinjal', 'Prl\SiveraCrud::simpan_pinjal');
 $routes->delete('/prl/hapus_sivera_pinjal/(:num)', 'Prl\SiveraCrud::hapus_pinjal/$1');
+
+$routes->get('/prl/sivera_anopheles_jentik', 'Prl\SiveraData::anopheles_jentik_daftar');
+$routes->post('/prl/simpan_sivera_anopheles_jentik', 'Prl\SiveraCrud::simpan_anopheles_jentik');
+$routes->delete('/prl/hapus_sivera_anopheles_jentik/(:num)', 'Prl\SiveraCrud::hapus_anopheles_jentik/$1');
+
+$routes->get('/prl/sivera_anopheles_nyamuk', 'Prl\SiveraData::anopheles_nyamuk_daftar');
+$routes->post('/prl/simpan_sivera_anopheles_nyamuk', 'Prl\SiveraCrud::simpan_anopheles_nyamuk');
+$routes->delete('/prl/hapus_sivera_anopheles_nyamuk/(:num)', 'Prl\SiveraCrud::hapus_anopheles_nyamuk/$1');
 
 $routes->get('/prl/tambah_inspeksi_hsbu', 'Prl\Data::tambah_inspeksi_hsbu');
 $routes->get('/prl/tambah_inspeksi_hsbu/(:num)', 'Prl\Data::tambah_inspeksi_hsbu/$1');

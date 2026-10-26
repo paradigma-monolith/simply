@@ -110,6 +110,15 @@
         <?php if($hi > 0 || $ci > 0 || $bi > 0): ?>
         <button class="btn btn-sm btn-warning btn-pengendalian-jentik" data-id="<?= $row['id_jentik']; ?>" data-tanggal="<?= !empty($row['tanggal_selesai']) ? $row['tanggal_selesai'] : $row['tanggal_mulai']; ?>" data-pengendalian='<?= htmlspecialchars($row['pengendalian'] ?? '', ENT_QUOTES, 'UTF-8'); ?>' title="Pengendalian"><i class="fas fa-shield-virus"></i></button>
         <?php endif; ?>
+        <div class="btn-group">
+          <button type="button" class="btn btn-sm btn-danger dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Download Form PDF">
+            <i class="fas fa-file-pdf"></i>
+          </button>
+          <div class="dropdown-menu dropdown-menu-right">
+            <a class="dropdown-item" href="/prl/sivera_jentik/pdf/<?= $row['id_jentik']; ?>/jentik" target="_blank"><i class="fas fa-file-pdf text-danger mr-2"></i>Form Pengendalian Jentik</a>
+            <a class="dropdown-item" href="/prl/sivera_jentik/pdf/<?= $row['id_jentik']; ?>/fogging" target="_blank"><i class="fas fa-file-pdf text-danger mr-2"></i>Form Pengendalian Fogging</a>
+          </div>
+        </div>
         <button class="btn btn-sm btn-danger btn-hapus-jentik" data-id="<?= $row['id_jentik']; ?>" title="Hapus"><i class="fas fa-trash"></i></button>
       </td>
     </tr>
@@ -238,9 +247,15 @@
           </button>
         </div>
         <div class="modal-body">
-          <div class="form-group mb-3">
-            <label class="font-weight-bold"><i class="far fa-calendar-alt text-primary mr-1"></i> Tanggal Pengendalian</label>
-            <input type="date" name="pengendalian[tanggal]" class="form-control" style="max-width: 250px;" required>
+          <div class="row">
+            <div class="col-md-6 form-group">
+              <label class="font-weight-bold"><i class="far fa-calendar-alt text-primary mr-1"></i> Tanggal Pengendalian</label>
+              <input type="date" name="pengendalian[tanggal]" class="form-control" required>
+            </div>
+            <div class="col-md-6 form-group">
+              <label class="font-weight-bold"><i class="fas fa-tasks text-info mr-1"></i> Persiapan</label>
+              <input type="text" name="pengendalian[persiapan]" class="form-control" placeholder="Persiapan yang dilakukan (opsional)">
+            </div>
           </div>
           <ul class="nav nav-tabs" id="myTab" role="tablist">
             <li class="nav-item">
@@ -304,6 +319,16 @@
                   <input type="text" name="pengendalian[nyamuk_fogging_bahan]" class="form-control form-control-sm mb-2" style="width: 200px;">
                   <label>Merk dagang yang digunakan</label>
                   <input type="text" name="pengendalian[nyamuk_fogging_merk]" class="form-control form-control-sm" style="width: 200px;">
+                  <div class="row" style="max-width: 350px;">
+                    <div class="col-6">
+                      <label>Penggunaan Solar (L)</label>
+                      <input type="number" step="0.1" name="pengendalian[nyamuk_fogging_solar]" class="form-control form-control-sm mb-2" placeholder="Liter">
+                    </div>
+                    <div class="col-6">
+                      <label>Penggunaan Bensin (L)</label>
+                      <input type="number" step="0.1" name="pengendalian[nyamuk_fogging_bensin]" class="form-control form-control-sm mb-2" placeholder="Liter">
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="form-group">

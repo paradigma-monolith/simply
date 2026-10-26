@@ -111,6 +111,8 @@
               <li class="nav-item"><a class="nav-link" href="#kecoa" data-toggle="tab"><i class="fas fa-spider"></i> Kecoa</a></li>
               <li class="nav-item"><a class="nav-link" href="#tikus" data-toggle="tab"><i class="fas fa-mouse"></i> Tikus</a></li>
               <li class="nav-item"><a class="nav-link" href="#pinjal" data-toggle="tab"><i class="fas fa-microscope"></i> Pinjal</a></li>
+              <li class="nav-item"><a class="nav-link" href="#anopheles-jentik" data-toggle="tab"><i class="fas fa-bacteria"></i> Jentik Anopheles</a></li>
+              <li class="nav-item"><a class="nav-link" href="#anopheles-nyamuk" data-toggle="tab"><i class="fas fa-mosquito"></i> Nyamuk Anopheles</a></li>
             </ul>
           </div>
           <div class="card-body">
@@ -505,6 +507,134 @@
                 </div>
 
                 <div class="sivera_daftar_pinjal"></div>
+              </div>
+
+              <!-- Jentik Anopheles -->
+              <div class="tab-pane" id="anopheles-jentik">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+                  <div class="d-flex align-items-center mb-2 mb-md-0">
+                    <span class="font-weight-bold text-dark"><i class="fas fa-bacteria text-success mr-1"></i> Surveilans Jentik Anopheles</span>
+                    <span class="badge badge-primary px-2 py-1 ml-2 filter-active-pill filter-badge-anopheles-jentik d-none"><i class="fas fa-check-circle mr-1"></i> Filter Diterapkan</span>
+                  </div>
+                  <button type="button" class="btn bg-gradient-success btn-sm btn-tambah-anopheles-jentik shadow-sm">
+                    <i class="fas fa-plus mr-1"></i> Tambah Data Jentik Anopheles
+                  </button>
+                </div>
+
+                <div class="card sivera-filter-box mb-3">
+                  <div class="card-body p-3">
+                    <form id="form-filter-anopheles-jentik">
+                      <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center">
+                          <span class="font-weight-bold text-dark small mr-2">
+                            <i class="fas fa-bolt text-warning mr-1"></i> Filter Aktif Otomatis
+                          </span>
+                          <span class="text-muted ml-2 small filter-loading-anopheles-jentik d-none">
+                            <i class="fas fa-spinner fa-spin text-primary mr-1"></i> Memuat...
+                          </span>
+                        </div>
+                        <div>
+                          <button type="button" class="btn btn-sm btn-outline-danger btn-reset-anopheles-jentik shadow-sm py-1 px-2" title="Reset filter ke kondisi awal">
+                            <i class="fas fa-undo-alt mr-1"></i> Reset Filter
+                          </button>
+                        </div>
+                      </div>
+                      <div class="row align-items-end">
+                        <div class="col-lg-3 col-md-4 col-sm-6 mb-2">
+                          <label><i class="fas fa-map-marker-alt text-danger mr-1"></i> Wilayah Kerja</label>
+                          <select name="id_wilayah_kerja" id="filter-anopheles-jentik-wilker" class="form-control">
+                            <option value="">-- Semua Wilayah Kerja --</option>
+                            <?php foreach($wilayah_kerja as $wk): ?>
+                            <option value="<?= $wk['id_unit_kerja']; ?>"><?= esc($wk['unit_kerja']); ?></option>
+                            <?php endforeach; ?>
+                          </select>
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6 mb-2">
+                          <label><i class="far fa-calendar-alt text-info mr-1"></i> Dari Tanggal</label>
+                          <input type="date" name="tanggal_mulai" id="filter-anopheles-jentik-tgl-mulai" class="form-control">
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6 mb-2">
+                          <label><i class="far fa-calendar-alt text-info mr-1"></i> Sampai Tanggal</label>
+                          <input type="date" name="tanggal_selesai" id="filter-anopheles-jentik-tgl-selesai" class="form-control">
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6 mb-2">
+                          <label><i class="fas fa-shield-alt text-success mr-1"></i> Status Indeks Habitat</label>
+                          <select name="status" id="filter-anopheles-jentik-status" class="form-control">
+                            <option value="">-- Semua Status --</option>
+                            <option value="MS">Memenuhi Syarat (MS &lt; 1%)</option>
+                            <option value="TMS">Tidak Memenuhi Syarat (TMS &ge; 1%)</option>
+                          </select>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+
+                <div class="sivera_daftar_anopheles_jentik"></div>
+              </div>
+
+              <!-- Nyamuk Anopheles -->
+              <div class="tab-pane" id="anopheles-nyamuk">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+                  <div class="d-flex align-items-center mb-2 mb-md-0">
+                    <span class="font-weight-bold text-dark"><i class="fas fa-mosquito text-danger mr-1"></i> Surveilans Nyamuk Anopheles</span>
+                    <span class="badge badge-primary px-2 py-1 ml-2 filter-active-pill filter-badge-anopheles-nyamuk d-none"><i class="fas fa-check-circle mr-1"></i> Filter Diterapkan</span>
+                  </div>
+                  <button type="button" class="btn bg-gradient-success btn-sm btn-tambah-anopheles-nyamuk shadow-sm">
+                    <i class="fas fa-plus mr-1"></i> Tambah Data Nyamuk Anopheles
+                  </button>
+                </div>
+
+                <div class="card sivera-filter-box mb-3">
+                  <div class="card-body p-3">
+                    <form id="form-filter-anopheles-nyamuk">
+                      <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center">
+                          <span class="font-weight-bold text-dark small mr-2">
+                            <i class="fas fa-bolt text-warning mr-1"></i> Filter Aktif Otomatis
+                          </span>
+                          <span class="text-muted ml-2 small filter-loading-anopheles-nyamuk d-none">
+                            <i class="fas fa-spinner fa-spin text-primary mr-1"></i> Memuat...
+                          </span>
+                        </div>
+                        <div>
+                          <button type="button" class="btn btn-sm btn-outline-danger btn-reset-anopheles-nyamuk shadow-sm py-1 px-2" title="Reset filter ke kondisi awal">
+                            <i class="fas fa-undo-alt mr-1"></i> Reset Filter
+                          </button>
+                        </div>
+                      </div>
+                      <div class="row align-items-end">
+                        <div class="col-lg-3 col-md-4 col-sm-6 mb-2">
+                          <label><i class="fas fa-map-marker-alt text-danger mr-1"></i> Wilayah Kerja</label>
+                          <select name="id_wilayah_kerja" id="filter-anopheles-nyamuk-wilker" class="form-control">
+                            <option value="">-- Semua Wilayah Kerja --</option>
+                            <?php foreach($wilayah_kerja as $wk): ?>
+                            <option value="<?= $wk['id_unit_kerja']; ?>"><?= esc($wk['unit_kerja']); ?></option>
+                            <?php endforeach; ?>
+                          </select>
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6 mb-2">
+                          <label><i class="far fa-calendar-alt text-info mr-1"></i> Dari Tanggal</label>
+                          <input type="date" name="tanggal_mulai" id="filter-anopheles-nyamuk-tgl-mulai" class="form-control">
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6 mb-2">
+                          <label><i class="far fa-calendar-alt text-info mr-1"></i> Sampai Tanggal</label>
+                          <input type="date" name="tanggal_selesai" id="filter-anopheles-nyamuk-tgl-selesai" class="form-control">
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6 mb-2">
+                          <label><i class="fas fa-search text-warning mr-1"></i> Temuan Anopheles</label>
+                          <select name="ada_anopheles" id="filter-anopheles-nyamuk-temuan" class="form-control">
+                            <option value="">-- Semua Temuan --</option>
+                            <option value="Ya">Ditemukan (Positif Anopheles)</option>
+                            <option value="Tidak">Tidak Ditemukan</option>
+                          </select>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+
+                <div class="sivera_daftar_anopheles_nyamuk"></div>
               </div>
 
             </div>

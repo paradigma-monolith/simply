@@ -56,6 +56,24 @@ $(document).ready(function() {
     };
   }
 
+  function getAnophelesJentikFilters() {
+    return {
+      id_wilayah_kerja: $('#filter-anopheles-jentik-wilker').val() || '',
+      tanggal_mulai: $('#filter-anopheles-jentik-tgl-mulai').val() || '',
+      tanggal_selesai: $('#filter-anopheles-jentik-tgl-selesai').val() || '',
+      status: $('#filter-anopheles-jentik-status').val() || ''
+    };
+  }
+
+  function getAnophelesNyamukFilters() {
+    return {
+      id_wilayah_kerja: $('#filter-anopheles-nyamuk-wilker').val() || '',
+      tanggal_mulai: $('#filter-anopheles-nyamuk-tgl-mulai').val() || '',
+      tanggal_selesai: $('#filter-anopheles-nyamuk-tgl-selesai').val() || '',
+      ada_anopheles: $('#filter-anopheles-nyamuk-temuan').val() || ''
+    };
+  }
+
   function checkFilterActive(params, badgeSelector) {
     let hasFilter = Object.values(params).some(x => x !== '' && x !== null && x !== undefined);
     if (hasFilter) {
@@ -227,6 +245,66 @@ $(document).ready(function() {
     });
   }
 
+  function loadAnophelesJentik(callback) {
+    let params = getAnophelesJentikFilters();
+    checkFilterActive(params, '.filter-badge-anopheles-jentik');
+
+    let $wrap = $('.sivera_daftar_anopheles_jentik');
+    if ($wrap.is(':empty')) {
+      $wrap.html('<div class="text-center py-5"><div class="spinner-border text-success" role="status"><span class="sr-only">Memuat...</span></div><p class="mt-2 text-muted font-weight-bold">Memuat Data Jentik Anopheles...</p></div>');
+    } else {
+      $wrap.css({ 'opacity': '0.55', 'pointer-events': 'none', 'transition': 'opacity 0.2s ease' });
+    }
+    $('.filter-loading-anopheles-jentik').removeClass('d-none');
+
+    $.ajax({
+      url: '/prl/sivera_anopheles_jentik',
+      type: 'GET',
+      data: params,
+      success: function(response) {
+        $wrap.html(response);
+        if (typeof callback === 'function') callback();
+      },
+      error: function(xhr, status, error) {
+        $wrap.html('<div class="alert alert-danger m-3"><i class="fas fa-exclamation-triangle mr-2"></i><b>Gagal memuat data Jentik Anopheles:</b> ' + (xhr.statusText || error || 'Terjadi kesalahan sistem') + '</div>');
+      },
+      complete: function() {
+        $wrap.css({ 'opacity': '1', 'pointer-events': 'auto' });
+        $('.filter-loading-anopheles-jentik').addClass('d-none');
+      }
+    });
+  }
+
+  function loadAnophelesNyamuk(callback) {
+    let params = getAnophelesNyamukFilters();
+    checkFilterActive(params, '.filter-badge-anopheles-nyamuk');
+
+    let $wrap = $('.sivera_daftar_anopheles_nyamuk');
+    if ($wrap.is(':empty')) {
+      $wrap.html('<div class="text-center py-5"><div class="spinner-border text-danger" role="status"><span class="sr-only">Memuat...</span></div><p class="mt-2 text-muted font-weight-bold">Memuat Data Nyamuk Anopheles...</p></div>');
+    } else {
+      $wrap.css({ 'opacity': '0.55', 'pointer-events': 'none', 'transition': 'opacity 0.2s ease' });
+    }
+    $('.filter-loading-anopheles-nyamuk').removeClass('d-none');
+
+    $.ajax({
+      url: '/prl/sivera_anopheles_nyamuk',
+      type: 'GET',
+      data: params,
+      success: function(response) {
+        $wrap.html(response);
+        if (typeof callback === 'function') callback();
+      },
+      error: function(xhr, status, error) {
+        $wrap.html('<div class="alert alert-danger m-3"><i class="fas fa-exclamation-triangle mr-2"></i><b>Gagal memuat data Nyamuk Anopheles:</b> ' + (xhr.statusText || error || 'Terjadi kesalahan sistem') + '</div>');
+      },
+      complete: function() {
+        $wrap.css({ 'opacity': '1', 'pointer-events': 'auto' });
+        $('.filter-loading-anopheles-nyamuk').addClass('d-none');
+      }
+    });
+  }
+
   // Initial load
   loadDashboard();
   
@@ -239,10 +317,12 @@ $(document).ready(function() {
     if (target == '#kecoa') loadKecoa();
     if (target == '#tikus') loadTikus();
     if (target == '#pinjal') loadPinjal();
+    if (target == '#anopheles-jentik') loadAnophelesJentik();
+    if (target == '#anopheles-nyamuk') loadAnophelesNyamuk();
   });
 
   // Prevent default form submits on Enter
-  $(document).on('submit', '#form-filter-dashboard, #form-filter-jentik, #form-filter-lalat, #form-filter-kecoa, #form-filter-tikus, #form-filter-pinjal', function(e) {
+  $(document).on('submit', '#form-filter-dashboard, #form-filter-jentik, #form-filter-lalat, #form-filter-kecoa, #form-filter-tikus, #form-filter-pinjal, #form-filter-anopheles-jentik, #form-filter-anopheles-nyamuk', function(e) {
     e.preventDefault();
   });
 
@@ -265,6 +345,12 @@ $(document).ready(function() {
   $(document).on('change', '#form-filter-pinjal select, #form-filter-pinjal input[type="date"]', function() {
     loadPinjal();
   });
+  $(document).on('change', '#form-filter-anopheles-jentik select, #form-filter-anopheles-jentik input[type="date"]', function() {
+    loadAnophelesJentik();
+  });
+  $(document).on('change', '#form-filter-anopheles-nyamuk select, #form-filter-anopheles-nyamuk input[type="date"]', function() {
+    loadAnophelesNyamuk();
+  });
 
   // Debounced input for date fields (when typing keyboard dates)
   $(document).on('input', '#form-filter-dashboard input[type="date"]', function() {
@@ -284,6 +370,12 @@ $(document).ready(function() {
   });
   $(document).on('input', '#form-filter-pinjal input[type="date"]', function() {
     debounceFilter('pinjal', loadPinjal);
+  });
+  $(document).on('input', '#form-filter-anopheles-jentik input[type="date"]', function() {
+    debounceFilter('anopheles_jentik', loadAnophelesJentik);
+  });
+  $(document).on('input', '#form-filter-anopheles-nyamuk input[type="date"]', function() {
+    debounceFilter('anopheles_nyamuk', loadAnophelesNyamuk);
   });
 
   // Handle Reset Buttons (resets form and immediately reloads active filter)
@@ -310,6 +402,14 @@ $(document).ready(function() {
   $(document).on('click', '.btn-reset-pinjal', function() {
     $('#form-filter-pinjal')[0].reset();
     loadPinjal();
+  });
+  $(document).on('click', '.btn-reset-anopheles-jentik', function() {
+    $('#form-filter-anopheles-jentik')[0].reset();
+    loadAnophelesJentik();
+  });
+  $(document).on('click', '.btn-reset-anopheles-nyamuk', function() {
+    $('#form-filter-anopheles-nyamuk')[0].reset();
+    loadAnophelesNyamuk();
   });
 
   // Handle Tambah Buttons (Reset Form)
@@ -663,7 +763,10 @@ $(document).ready(function() {
       if(data.nyamuk_fogging_golongan) $('select[name="pengendalian[nyamuk_fogging_golongan]"]').val(data.nyamuk_fogging_golongan);
       if(data.nyamuk_fogging_bahan) $('input[name="pengendalian[nyamuk_fogging_bahan]"]').val(data.nyamuk_fogging_bahan);
       if(data.nyamuk_fogging_merk) $('input[name="pengendalian[nyamuk_fogging_merk]"]').val(data.nyamuk_fogging_merk);
+      if(data.nyamuk_fogging_solar) $('input[name="pengendalian[nyamuk_fogging_solar]"]').val(data.nyamuk_fogging_solar);
+      if(data.nyamuk_fogging_bensin) $('input[name="pengendalian[nyamuk_fogging_bensin]"]').val(data.nyamuk_fogging_bensin);
       if(data.nyamuk_fisik) $('#nyamuk_fisik').prop('checked', true);
+      if(data.persiapan) $('#form-pengendalian-jentik input[name="pengendalian[persiapan]"]').val(data.persiapan);
     }
     
     $('#modal-pengendalian-jentik').modal('show');
@@ -684,6 +787,7 @@ $(document).ready(function() {
     
     if (data && typeof data === 'object') {
       if(data.lokasi) $('input[name="pengendalian[lokasi]"]').val(data.lokasi);
+      if(data.persiapan) $('#form-pengendalian-lalat input[name="pengendalian[persiapan]"]').val(data.persiapan);
       if(data.spraying) $('#lalat_spraying').prop('checked', true);
       if(data.spraying_ml) $('input[name="pengendalian[spraying_ml]"]').val(data.spraying_ml);
       if(data.granule) $('#lalat_granule').prop('checked', true);
@@ -1019,6 +1123,484 @@ $(document).ready(function() {
         });
       }
     })
+  });
+
+  // ==========================================
+  // SIVERA ANOPHELES MODULE LOGIC
+  // ==========================================
+
+  function getHariIndo(dateStr) {
+    if (!dateStr) return '';
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      if (!isNaN(d.getDay())) {
+        return 'Hari: ' + days[d.getDay()];
+      }
+    }
+    return '';
+  }
+
+  // --- Jentik Anopheles Handlers ---
+  $(document).on('change', '#anopheles_jentik_tanggal', function() {
+    $('#anopheles_jentik_hari_label').text(getHariIndo($(this).val()));
+  });
+
+  $(document).on('change', '#chk_anopheles_jentik_lainnya', function() {
+    if($(this).is(':checked')) {
+      $('#txt_anopheles_jentik_lainnya').prop('disabled', false).focus();
+    } else {
+      $('#txt_anopheles_jentik_lainnya').prop('disabled', true).val('');
+    }
+  });
+
+  function hitungIndeksAnophelesJentik() {
+    let disurvei = parseInt($('#anopheles_jml_disurvei').val()) || 0;
+    let positif = parseInt($('#anopheles_jml_positif').val()) || 0;
+    let indeks = disurvei > 0 ? ((positif / disurvei) * 100).toFixed(2) : '0.00';
+
+    $('#anopheles_indeks_val').text(indeks + '%');
+    if (parseFloat(indeks) < 1.0) {
+      $('#anopheles_status_val').removeClass('badge-danger').addClass('badge-success').html('MS (&lt; 1%)');
+    } else {
+      $('#anopheles_status_val').removeClass('badge-success').addClass('badge-danger').html('TMS (&ge; 1%)');
+    }
+  }
+
+  $(document).on('input change', '.calc-anopheles-jentik', function() {
+    hitungIndeksAnophelesJentik();
+  });
+
+  $(document).on('click', '.btn-tambah-anopheles-jentik', function() {
+    if (!$('#modal-anopheles-jentik').length) {
+      loadAnophelesJentik(function() {
+        $('.btn-tambah-anopheles-jentik').trigger('click');
+      });
+      return;
+    }
+    if($('#form-anopheles-jentik').length) $('#form-anopheles-jentik')[0].reset();
+    $('#id_anopheles_jentik_form').val('');
+    $('#modal-anopheles-jentik-title').html('<i class="fas fa-bacteria mr-2"></i> Tambah Data Jentik Anopheles');
+    $('#modal-anopheles-jentik-header').removeClass('bg-info').addClass('bg-success');
+    $('#anopheles_jentik_hari_label').text('');
+    $('#txt_anopheles_jentik_lainnya').prop('disabled', true).val('');
+    $('#anopheles_jml_disurvei').val(0);
+    $('#anopheles_jml_positif').val(0);
+    hitungIndeksAnophelesJentik();
+    $('#modal-anopheles-jentik').modal('show');
+  });
+
+  $(document).on('click', '.btn-edit-anopheles-jentik', function() {
+    let row = $(this).data('row');
+    if($('#form-anopheles-jentik').length) $('#form-anopheles-jentik')[0].reset();
+    
+    $('#id_anopheles_jentik_form').val(row.id_anopheles_jentik);
+    $('#modal-anopheles-jentik-title').html('<i class="fas fa-edit mr-2"></i> Edit Data Jentik Anopheles');
+    $('#modal-anopheles-jentik-header').removeClass('bg-success').addClass('bg-info');
+    
+    $('#anopheles_jentik_tanggal').val(row.tanggal);
+    $('#anopheles_jentik_hari_label').text(getHariIndo(row.tanggal));
+    $('#anopheles_jentik_wilker').val(row.id_wilayah_kerja);
+    $('#anopheles_jentik_lokasi').val(row.lokasi);
+    $('#anopheles_jentik_keterangan').val(row.keterangan || '');
+
+    // Jenis Habitat
+    $('.chk-jenis-habitat').prop('checked', false);
+    if(row.jenis_habitat) {
+      let habList = row.jenis_habitat.split(',');
+      $('.chk-jenis-habitat').each(function() {
+        if(habList.includes($(this).val())) $(this).prop('checked', true);
+      });
+    }
+    if (row.jenis_habitat_lainnya) {
+      $('#chk_anopheles_jentik_lainnya').prop('checked', true);
+      $('#txt_anopheles_jentik_lainnya').prop('disabled', false).val(row.jenis_habitat_lainnya);
+    } else {
+      $('#chk_anopheles_jentik_lainnya').prop('checked', false);
+      $('#txt_anopheles_jentik_lainnya').prop('disabled', true).val('');
+    }
+
+    // Kondisi Pencahayaan
+    $('input[name="kondisi_pencahayaan[]"]').prop('checked', false);
+    if (row.kondisi_pencahayaan) {
+      let cahList = row.kondisi_pencahayaan.split(',');
+      $('input[name="kondisi_pencahayaan[]"]').each(function() {
+        if (cahList.includes($(this).val())) $(this).prop('checked', true);
+      });
+    }
+
+    // Kondisi Vegetasi
+    $('input[name="kondisi_vegetasi[]"]').prop('checked', false);
+    if (row.kondisi_vegetasi) {
+      let vegList = row.kondisi_vegetasi.split(',');
+      $('input[name="kondisi_vegetasi[]"]').each(function() {
+        if (vegList.includes($(this).val())) $(this).prop('checked', true);
+      });
+    }
+
+    // Kondisi Air
+    $('input[name="kondisi_air[]"]').prop('checked', false);
+    if (row.kondisi_air) {
+      let airList = row.kondisi_air.split(',');
+      $('input[name="kondisi_air[]"]').each(function() {
+        if (airList.includes($(this).val())) $(this).prop('checked', true);
+      });
+    }
+
+    $('#anopheles_jml_disurvei').val(row.jml_habitat_disurvei || 0);
+    $('#anopheles_jml_positif').val(row.jml_habitat_positif || 0);
+    hitungIndeksAnophelesJentik();
+
+    $('#modal-anopheles-jentik').modal('show');
+  });
+
+  $(document).on('submit', '#form-anopheles-jentik', function(e) {
+    e.preventDefault();
+    $.ajax({
+      url: '/prl/simpan_sivera_anopheles_jentik',
+      type: 'POST',
+      data: $(this).serialize(),
+      dataType: 'json',
+      success: function(res) {
+        if(res.status == 'success') {
+          Swal.fire('Berhasil!', 'Data Jentik Anopheles berhasil disimpan', 'success');
+          $('#modal-anopheles-jentik').modal('hide');
+          $('.modal-backdrop').remove();
+          loadAnophelesJentik();
+        } else {
+          Swal.fire('Gagal!', res.msg, 'error');
+        }
+      }
+    });
+  });
+
+  $(document).on('click', '.btn-hapus-anopheles-jentik', function() {
+    let id = $(this).data('id');
+    Swal.fire({
+      title: 'Hapus data ini?',
+      text: "Data surveilans Jentik Anopheles akan dihapus permanen!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Ya, hapus!'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        $.ajax({
+          url: '/prl/hapus_sivera_anopheles_jentik/' + id,
+          type: 'DELETE',
+          dataType: 'json',
+          success: function(res) {
+            if(res.status == 'success') {
+              Swal.fire('Terhapus!', 'Data berhasil dihapus.', 'success');
+              loadAnophelesJentik();
+            } else {
+              Swal.fire('Gagal!', res.msg, 'error');
+            }
+          }
+        });
+      }
+    });
+  });
+
+  // --- Nyamuk Anopheles Handlers ---
+  $(document).on('change', '#anopheles_nyamuk_tanggal', function() {
+    $('#anopheles_nyamuk_hari_label').text(getHariIndo($(this).val()));
+  });
+
+  $(document).on('input', '#anopheles_nyamuk_spesies', function() {
+    let val = $(this).val().trim() || 'Anopheles sp';
+    $('#matrix_label_spesies').text(val);
+  });
+
+  function hitungMatrixNyamukAnopheles() {
+    let sumDalam = 0;
+    $('.jam-dalam').each(function() {
+      sumDalam += parseInt($(this).val()) || 0;
+    });
+    $('#total_dalam_val').text(sumDalam);
+
+    let sumLuar = 0;
+    $('.jam-luar').each(function() {
+      sumLuar += parseInt($(this).val()) || 0;
+    });
+    $('#total_luar_val').text(sumLuar);
+
+    let grandTotal = sumDalam + sumLuar;
+    $('#total_keseluruhan_val').text(grandTotal);
+    $('#anopheles_jml_tertangkap_display').text(grandTotal + ' ekor');
+
+    let kolektor = parseInt($('#anopheles_jml_penangkap').val()) || 0;
+    let lama = parseFloat($('#anopheles_lama_penangkapan').val()) || 0;
+    let manHours = (kolektor * lama);
+
+    let mhdDalam = manHours > 0 ? (sumDalam / manHours).toFixed(4) : '0.0000';
+    let mhdLuar = manHours > 0 ? (sumLuar / manHours).toFixed(4) : '0.0000';
+    let totalMbrMhd = manHours > 0 ? (grandTotal / manHours).toFixed(4) : '0.0000';
+
+    $('#mhd_dalam_val').text(mhdDalam);
+    $('#mhd_luar_val').text(mhdLuar);
+    $('#total_mhd_mbr_val').text(totalMbrMhd);
+    $('#mbr_display_val').text(totalMbrMhd);
+    $('#mhd_display_val').text(totalMbrMhd);
+
+    if (parseFloat(totalMbrMhd) > 0.025) {
+      $('#mbr_status_badge').removeClass('badge-success').addClass('badge-danger').html('&gt; 0.025 (TMS)');
+    } else {
+      $('#mbr_status_badge').removeClass('badge-danger').addClass('badge-success').html('&lt; 0.025 (MS)');
+    }
+
+    if (grandTotal > 0) {
+      $('#anopheles_ada_select').val('Ya');
+      $('#interpretasi_ya').prop('checked', true);
+    } else {
+      $('#anopheles_ada_select').val('Tidak');
+      $('#interpretasi_tidak').prop('checked', true);
+    }
+  }
+
+  $(document).on('input change', '.matrix-nyamuk-input, .calc-nyamuk-trigger', function() {
+    hitungMatrixNyamukAnopheles();
+  });
+
+  $(document).on('click', '.btn-tambah-anopheles-nyamuk', function() {
+    if (!$('#modal-anopheles-nyamuk').length) {
+      loadAnophelesNyamuk(function() {
+        $('.btn-tambah-anopheles-nyamuk').trigger('click');
+      });
+      return;
+    }
+    if($('#form-anopheles-nyamuk').length) $('#form-anopheles-nyamuk')[0].reset();
+    $('#id_anopheles_nyamuk_form').val('');
+    $('#modal-anopheles-nyamuk-title').html('<i class="fas fa-mosquito mr-2"></i> Tambah Data Nyamuk Anopheles');
+    $('#modal-anopheles-nyamuk-header').removeClass('bg-info').addClass('bg-success');
+    $('#anopheles_nyamuk_hari_label').text('');
+    $('#anopheles_nyamuk_spesies').val('Anopheles sp').trigger('input');
+    $('#anopheles_jml_penangkap').val(5);
+    $('#anopheles_lama_penangkapan').val(12);
+    $('.matrix-nyamuk-input').val(0);
+    hitungMatrixNyamukAnopheles();
+    $('#modal-anopheles-nyamuk').modal('show');
+  });
+
+  $(document).on('click', '.btn-edit-anopheles-nyamuk', function() {
+    let row = $(this).data('row');
+    if($('#form-anopheles-nyamuk').length) $('#form-anopheles-nyamuk')[0].reset();
+    
+    $('#id_anopheles_nyamuk_form').val(row.id_anopheles_nyamuk);
+    $('#modal-anopheles-nyamuk-title').html('<i class="fas fa-edit mr-2"></i> Edit Data Nyamuk Anopheles');
+    $('#modal-anopheles-nyamuk-header').removeClass('bg-success').addClass('bg-info');
+    
+    $('#anopheles_nyamuk_tanggal').val(row.tanggal);
+    $('#anopheles_nyamuk_hari_label').text(getHariIndo(row.tanggal));
+    $('#anopheles_nyamuk_wilker').val(row.id_wilayah_kerja);
+    $('#anopheles_nyamuk_lokasi').val(row.lokasi);
+    $('#anopheles_nyamuk_spesies').val(row.spesies || 'Anopheles sp').trigger('input');
+    
+    $('#anopheles_jml_penangkap').val(row.jml_penangkap || 5);
+    $('#anopheles_lama_penangkapan').val(row.lama_penangkapan || 12);
+    $('#anopheles_kondisi_cuaca').val(row.kondisi_cuaca || '');
+    $('#anopheles_suhu').val(row.suhu !== null ? row.suhu : '');
+    $('#anopheles_kelembaban').val(row.kelembaban !== null ? row.kelembaban : '');
+    $('#anopheles_kecepatan_angin').val(row.kecepatan_angin !== null ? row.kecepatan_angin : '');
+
+    // Reset hourly inputs
+    $('.matrix-nyamuk-input').val(0);
+    $('#ket_dalam').val('');
+    $('#ket_luar').val('');
+
+    if (row.data_tangkapan) {
+      try {
+        let parsed = (typeof row.data_tangkapan === 'string') ? JSON.parse(row.data_tangkapan) : row.data_tangkapan;
+        if (parsed.dalam && parsed.dalam.jam) {
+          $.each(parsed.dalam.jam, function(k, v) {
+            $('input[name="tangkapan_dalam[' + k + ']"]').val(v);
+          });
+          if (parsed.dalam.ket) $('#ket_dalam').val(parsed.dalam.ket);
+        }
+        if (parsed.luar && parsed.luar.jam) {
+          $.each(parsed.luar.jam, function(k, v) {
+            $('input[name="tangkapan_luar[' + k + ']"]').val(v);
+          });
+          if (parsed.luar.ket) $('#ket_luar').val(parsed.luar.ket);
+        }
+      } catch(e) {
+        console.error('Error parsing data_tangkapan', e);
+      }
+    }
+
+    hitungMatrixNyamukAnopheles();
+
+    // Interpretasi selection
+    if (row.interpretasi && row.interpretasi.indexOf('Ditemukan Anopheles') !== -1) {
+      $('#interpretasi_ya').prop('checked', true);
+      $('#anopheles_ada_select').val('Ya');
+    } else {
+      $('#interpretasi_tidak').prop('checked', true);
+      $('#anopheles_ada_select').val('Tidak');
+    }
+
+    $('#modal-anopheles-nyamuk').modal('show');
+  });
+
+  $(document).on('click', '.btn-detail-anopheles-nyamuk', function() {
+    let row = $(this).data('row');
+    let parsed = {};
+    if (row.data_tangkapan) {
+      try {
+        parsed = (typeof row.data_tangkapan === 'string') ? JSON.parse(row.data_tangkapan) : row.data_tangkapan;
+      } catch(e) {
+        parsed = {};
+      }
+    }
+
+    const jamLabels = {
+      '18_19': '18⁰⁰-19⁰⁰', '19_20': '19⁰⁰-20⁰⁰', '20_21': '20⁰⁰-21⁰⁰', '21_22': '21⁰⁰-22⁰⁰',
+      '22_23': '22⁰⁰-23⁰⁰', '23_24': '23⁰⁰-24⁰⁰', '24_01': '24⁰⁰-01⁰⁰', '01_02': '01⁰⁰-02⁰⁰',
+      '02_03': '02⁰⁰-03⁰⁰', '03_04': '03⁰⁰-04⁰⁰', '04_05': '04⁰⁰-05⁰⁰', '05_06': '05⁰⁰-06⁰⁰'
+    };
+
+    let dalamJam = (parsed.dalam && parsed.dalam.jam) ? parsed.dalam.jam : {};
+    let luarJam = (parsed.luar && parsed.luar.jam) ? parsed.luar.jam : {};
+
+    let html = `
+      <div class="row mb-3">
+        <div class="col-md-3">
+          <div class="p-2 border rounded bg-light">
+            <small class="text-muted font-weight-bold d-block">TANGGAL & WILKER</small>
+            <b>${row.tanggal || '-'}</b><br>
+            <span class="text-primary">${row.wilker || '-'}</span>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="p-2 border rounded bg-light">
+            <small class="text-muted font-weight-bold d-block">LOKASI</small>
+            <b>${row.lokasi || '-'}</b><br>
+            <span class="text-muted">Spesies: ${row.spesies || 'Anopheles sp'}</span>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="p-2 border rounded bg-light">
+            <small class="text-muted font-weight-bold d-block">KOLEKTOR & WAKTU</small>
+            <b>${row.jml_penangkap || 0} org kolektor</b><br>
+            <span>${row.lama_penangkapan || 12} jam penangkapan</span>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="p-2 border rounded bg-light">
+            <small class="text-muted font-weight-bold d-block">DENSITAS (MBR / MHD)</small>
+            <b class="${parseFloat(row.mbr || 0) > 0.025 ? 'text-danger' : 'text-success'}">MBR: ${parseFloat(row.mbr || 0).toFixed(4)}</b><br>
+            <span>MHD: ${parseFloat(row.mhd || 0).toFixed(4)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-bordered table-sm text-center mb-2" style="font-size: 0.82rem;">
+          <thead class="bg-light">
+            <tr>
+              <th rowspan="2" class="align-middle">No</th>
+              <th rowspan="2" class="align-middle">Spesies</th>
+              <th rowspan="2" class="align-middle">Tempat</th>
+              <th colspan="12" class="text-center bg-white">Banyaknya Nyamuk Tertangkap per Jam</th>
+              <th rowspan="2" class="align-middle bg-light">Total</th>
+              <th rowspan="2" class="align-middle bg-light">MHD/MBR</th>
+              <th rowspan="2" class="align-middle">Ket</th>
+            </tr>
+            <tr>
+              ${Object.values(jamLabels).map(l => `<th class="p-1 text-muted" style="font-size: 0.72rem;">${l}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td rowspan="2" class="align-middle font-weight-bold">1</td>
+              <td rowspan="2" class="align-middle font-weight-bold font-italic">${row.spesies || 'Anopheles sp'}</td>
+              <td class="align-middle text-primary font-weight-bold">Dalam</td>
+              ${Object.keys(jamLabels).map(k => `<td>${dalamJam[k] || 0}</td>`).join('')}
+              <td class="font-weight-bold text-primary bg-light">${row.total_dalam || 0}</td>
+              <td class="font-weight-bold bg-light">${parsed.dalam && parsed.dalam.mhd_mbr !== undefined ? parseFloat(parsed.dalam.mhd_mbr).toFixed(4) : '-'}</td>
+              <td class="small text-muted">${parsed.dalam && parsed.dalam.ket ? parsed.dalam.ket : '-'}</td>
+            </tr>
+            <tr>
+              <td class="align-middle text-info font-weight-bold">Luar</td>
+              ${Object.keys(jamLabels).map(k => `<td>${luarJam[k] || 0}</td>`).join('')}
+              <td class="font-weight-bold text-info bg-light">${row.total_luar || 0}</td>
+              <td class="font-weight-bold bg-light">${parsed.luar && parsed.luar.mhd_mbr !== undefined ? parseFloat(parsed.luar.mhd_mbr).toFixed(4) : '-'}</td>
+              <td class="small text-muted">${parsed.luar && parsed.luar.ket ? parsed.luar.ket : '-'}</td>
+            </tr>
+          </tbody>
+          <tfoot class="bg-light font-weight-bold">
+            <tr>
+              <td colspan="3" class="text-right py-2">Total (Dalam + Luar) :</td>
+              <td colspan="12" class="text-center text-muted small">12 Jam Penangkapan</td>
+              <td class="text-center text-danger" style="font-size: 1rem;">${row.total_tertangkap || 0}</td>
+              <td class="text-center font-weight-bold text-dark">${parseFloat(row.mbr || 0).toFixed(4)}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="card mt-3 bg-light border-0">
+        <div class="card-body p-3">
+          <h6 class="font-weight-bold text-dark mb-1"><i class="fas fa-diagnoses text-info mr-1"></i> Interpretasi Hasil:</h6>
+          <p class="mb-0 text-dark">${row.interpretasi || '-'}</p>
+        </div>
+      </div>
+    `;
+
+    $('#detail-nyamuk-content').html(html);
+    $('#modal-detail-anopheles-nyamuk').modal('show');
+  });
+
+  $(document).on('submit', '#form-anopheles-nyamuk', function(e) {
+    e.preventDefault();
+    $.ajax({
+      url: '/prl/simpan_sivera_anopheles_nyamuk',
+      type: 'POST',
+      data: $(this).serialize(),
+      dataType: 'json',
+      success: function(res) {
+        if(res.status == 'success') {
+          Swal.fire('Berhasil!', 'Data Nyamuk Anopheles berhasil disimpan', 'success');
+          $('#modal-anopheles-nyamuk').modal('hide');
+          $('.modal-backdrop').remove();
+          loadAnophelesNyamuk();
+        } else {
+          Swal.fire('Gagal!', res.msg, 'error');
+        }
+      }
+    });
+  });
+
+  $(document).on('click', '.btn-hapus-anopheles-nyamuk', function() {
+    let id = $(this).data('id');
+    Swal.fire({
+      title: 'Hapus data ini?',
+      text: "Data surveilans Nyamuk Anopheles akan dihapus permanen!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Ya, hapus!'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        $.ajax({
+          url: '/prl/hapus_sivera_anopheles_nyamuk/' + id,
+          type: 'DELETE',
+          dataType: 'json',
+          success: function(res) {
+            if(res.status == 'success') {
+              Swal.fire('Terhapus!', 'Data berhasil dihapus.', 'success');
+              loadAnophelesNyamuk();
+            } else {
+              Swal.fire('Gagal!', res.msg, 'error');
+            }
+          }
+        });
+      }
+    });
   });
 
 });
