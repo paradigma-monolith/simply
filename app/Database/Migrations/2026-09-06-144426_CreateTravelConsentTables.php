@@ -30,7 +30,8 @@ class CreateTravelConsentTables extends Migration
             'petugas_kabin_nama' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
             'petugas_kabin_ttd' => ['type' => 'TEXT', 'null' => true],
             'petugas_bkk_nama' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
-            'petugas_bkk_ttd' => ['type' => 'TEXT', 'null' => true],
+            'petugas_bkk_ttd' => ['type' => 'LONGTEXT', 'null' => true],
+            'foto_geotagging' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
             'created_at' => ['type' => 'DATETIME', 'null' => true],
             'updated_at' => ['type' => 'DATETIME', 'null' => true],
             'deleted_at' => ['type' => 'DATETIME', 'null' => true],
@@ -49,9 +50,10 @@ class CreateTravelConsentTables extends Migration
             'items_p3k' => ['type' => 'TEXT', 'null' => true], // JSON array of items
             'items_emergensi' => ['type' => 'TEXT', 'null' => true], // JSON array of items
             'crew_nama' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
-            'crew_ttd' => ['type' => 'TEXT', 'null' => true],
+            'crew_ttd' => ['type' => 'LONGTEXT', 'null' => true],
             'pelapor_nama' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
-            'pelapor_ttd' => ['type' => 'TEXT', 'null' => true],
+            'pelapor_ttd' => ['type' => 'LONGTEXT', 'null' => true],
+            'foto_geotagging' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
             'created_at' => ['type' => 'DATETIME', 'null' => true],
             'updated_at' => ['type' => 'DATETIME', 'null' => true],
             'deleted_at' => ['type' => 'DATETIME', 'null' => true],
@@ -70,15 +72,43 @@ class CreateTravelConsentTables extends Migration
             'items_p3k' => ['type' => 'TEXT', 'null' => true], // JSON array of items
             'items_emergensi' => ['type' => 'TEXT', 'null' => true], // JSON array of items
             'crew_nama' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
-            'crew_ttd' => ['type' => 'TEXT', 'null' => true],
+            'crew_ttd' => ['type' => 'LONGTEXT', 'null' => true],
             'pelapor_nama' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
-            'pelapor_ttd' => ['type' => 'TEXT', 'null' => true],
+            'pelapor_ttd' => ['type' => 'LONGTEXT', 'null' => true],
+            'foto_geotagging' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
             'created_at' => ['type' => 'DATETIME', 'null' => true],
             'updated_at' => ['type' => 'DATETIME', 'null' => true],
             'deleted_at' => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);
         $this->forge->createTable('tc_obat', true);
+
+        // 4. Table for Sanitasi Kapal
+        $this->forge->addField([
+            'id' => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+            'pelabuhan' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            'tanggal' => ['type' => 'DATE', 'null' => true],
+            'sertifikat_mencatat' => ['type' => 'VARCHAR', 'constraint' => 100, 'null' => true],
+            'imo_no' => ['type' => 'VARCHAR', 'constraint' => 100, 'null' => true],
+            'jenis_kapal' => ['type' => 'VARCHAR', 'constraint' => 100, 'null' => true],
+            'detail_jenis_kapal' => ['type' => 'VARCHAR', 'constraint' => 100, 'null' => true],
+            'nama_kapal' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            'bendera' => ['type' => 'VARCHAR', 'constraint' => 100, 'null' => true],
+            'berat_gt' => ['type' => 'VARCHAR', 'constraint' => 100, 'null' => true],
+            'kondisi_palka' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            'nama_pemeriksa' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            'alamat_pemeriksa' => ['type' => 'TEXT', 'null' => true],
+            'area_diperiksa' => ['type' => 'LONGTEXT', 'null' => true],
+            'pejabat_penerbit' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            'keterangan' => ['type' => 'TEXT', 'null' => true],
+            'tanda_tangan' => ['type' => 'LONGTEXT', 'null' => true],
+            'foto_geotagging' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            'created_at' => ['type' => 'DATETIME', 'null' => true],
+            'updated_at' => ['type' => 'DATETIME', 'null' => true],
+            'deleted_at' => ['type' => 'DATETIME', 'null' => true],
+        ]);
+        $this->forge->addKey('id', true);
+        $this->forge->createTable('tc_sanitasi_kapal', true);
     }
 
     public function down()
@@ -86,5 +116,6 @@ class CreateTravelConsentTables extends Migration
         $this->forge->dropTable('tc_aircraft_sanitation', true);
         $this->forge->dropTable('tc_alat_kesehatan', true);
         $this->forge->dropTable('tc_obat', true);
+        $this->forge->dropTable('tc_sanitasi_kapal', true);
     }
 }

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>AIRCRAFT SANITATION INSPECTION CHECK LIST</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="<?= base_url('plugins/fontawesome-free/css/all.min.css') ?>">
     <style>
         body { font-size: 14px; }
         .kop-surat { text-align: center; margin-bottom: 20px; }
@@ -27,10 +28,19 @@
     <h5 class="text-center font-weight-bold mb-4"><u>AIRCRAFT SANITATION INSPECTION CHECK LIST</u></h5>
     
     <?php if(session()->getFlashdata('success')): ?>
-        <div class="alert alert-success"><?= session()->getFlashdata('success') ?></div>
+        <div class="alert alert-success shadow-sm d-flex justify-content-between align-items-center">
+            <div>
+                <i class="fas fa-check-circle mr-1"></i> <strong><?= session()->getFlashdata('success') ?></strong>
+            </div>
+            <?php if(session()->getFlashdata('doc_link')): ?>
+                <button type="button" class="btn btn-sm btn-light font-weight-bold" onclick="$('#modalDocLink').modal('show')">
+                    <i class="fas fa-link mr-1 text-success"></i> Lihat / Copy Link Dokumen
+                </button>
+            <?php endif; ?>
+        </div>
     <?php endif; ?>
 
-    <?php if(!$is_pdf): ?><form action="/travelconsent/submit_aircraft" method="post"><?php endif; ?>
+    <?php if(!$is_pdf): ?><form action="/travelconsent/submit_aircraft" method="post" enctype="multipart/form-data"><?php endif; ?>
         
         <table class="table borderless mb-3">
             <tr>
@@ -290,6 +300,30 @@
             &nbsp;&nbsp;&nbsp;&nbsp; <span class="italic-eng">Please tick &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Appropriate</span>
         </p>
 
+        <!-- Upload Foto Geotagging -->
+        <?php if(!$is_pdf): ?>
+        <div class="card mb-4 border-info shadow-sm">
+            <div class="card-header bg-light py-2">
+                <strong class="text-primary"><i class="fas fa-camera mr-1"></i> Foto Geotagging / Dokumentasi Pemeriksaan</strong><br>
+                <span class="italic-eng text-muted">Geotagged Inspection Photo Documentation</span>
+            </div>
+            <div class="card-body">
+                <div class="form-group mb-2">
+                    <label for="foto_geotagging" class="font-weight-bold">Upload Foto Geotagging:</label>
+                    <div class="custom-file">
+                        <input type="file" class="custom-file-input" name="foto_geotagging" id="foto_geotagging" accept="image/*" onchange="previewGeotag(this, 'geotag_preview')">
+                        <label class="custom-file-label" for="foto_geotagging">Pilih file foto geotagging...</label>
+                    </div>
+                    <small class="form-text text-muted">Format: JPG, JPEG, PNG (Maks 10MB). Pastikan foto memuat stempel geotag/koordinat lokasi & waktu.</small>
+                </div>
+                <div id="geotag_preview_wrapper" class="mt-3 text-center" style="display:none;">
+                    <p class="mb-1 text-muted small font-weight-bold">Preview Foto Geotagging:</p>
+                    <img id="geotag_preview" src="" alt="Preview Geotagging" class="img-thumbnail shadow-sm" style="max-height: 450px; max-width: 100%;">
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <div class="row mt-5 text-center">
             <div class="col-6">
                 <p><u>Petugas Kabin</u><br><span class="italic-eng">Cabin Crew</span></p>
@@ -325,13 +359,95 @@
     <?php if(!$is_pdf): ?></form><?php endif; ?>
 </div>
 
-<?php if(!$is_pdf): ?><script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script><?php endif; ?>
+<?php if(!$is_pdf && session()->getFlashdata('doc_link')): ?>
+<!-- Modal Popup Link Dokumen Publik -->
+<div class="modal fade" id="modalDocLink" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title font-weight-bold"><i class="fas fa-check-circle mr-2"></i>Form Berhasil Disubmit</h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <div class="mb-3 text-success">
+                    <i class="fas fa-file-alt fa-3x"></i>
+                </div>
+                <h6 class="font-weight-bold mb-2"><?= session()->getFlashdata('success') ?></h6>
+                <p class="text-muted small mb-3">Salin link publik di bawah ini untuk melihat atau mencetak dokumen yang telah disubmit:</p>
+                <div class="input-group">
+                    <input type="text" id="publicDocLinkInput" class="form-control bg-light text-dark font-weight-bold" value="<?= esc(session()->getFlashdata('doc_link')) ?>" readonly>
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-dark font-weight-bold" onclick="copySubmittedDocLink(this)">
+                            <i class="fas fa-copy mr-1"></i> Copy Link
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between bg-light">
+                <a href="<?= esc(session()->getFlashdata('doc_link')) ?>" target="_blank" class="btn btn-primary font-weight-bold">
+                    <i class="fas fa-external-link-alt mr-1"></i> Lihat Dokumen
+                </a>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if(!$is_pdf): ?>
+<script src="<?= base_url('plugins/jquery/jquery.min.js') ?>"></script>
+<script src="<?= base_url('plugins/bootstrap/js/bootstrap.bundle.min.js') ?>"></script>
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+<?php endif; ?>
 <?php if(!$is_pdf): ?><script>
+    <?php if(session()->getFlashdata('doc_link')): ?>
+    $(document).ready(function() {
+        $('#modalDocLink').modal('show');
+    });
+    <?php endif; ?>
     if(document.getElementById('pad_kabin')) {
         var padKabin = new SignaturePad(document.getElementById('pad_kabin'));
     }
     if(document.getElementById('pad_bkk')) {
         var padBkk = new SignaturePad(document.getElementById('pad_bkk'));
+    }
+
+    function copySubmittedDocLink(btn) {
+        var input = document.getElementById('publicDocLinkInput');
+        if (!input) return;
+        input.select();
+        input.setSelectionRange(0, 99999);
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(input.value);
+        } else {
+            document.execCommand('copy');
+        }
+        var originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check mr-1"></i> Tersalin!';
+        setTimeout(function() {
+            btn.innerHTML = originalHtml;
+        }, 2000);
+    }
+
+    function previewGeotag(input, targetId) {
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var img = document.getElementById(targetId);
+                if (img) {
+                    img.src = e.target.result;
+                    var wrapper = document.getElementById(targetId + '_wrapper');
+                    if (wrapper) wrapper.style.display = 'block';
+                }
+            };
+            reader.readAsDataURL(input.files[0]);
+            var label = input.nextElementSibling;
+            if (label && label.classList.contains('custom-file-label')) {
+                label.textContent = input.files[0].name;
+            }
+        }
     }
 
     document.querySelector('form').addEventListener('submit', function(e) {

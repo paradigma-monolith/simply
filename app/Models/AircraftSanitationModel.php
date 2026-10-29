@@ -19,7 +19,8 @@ class AircraftSanitationModel extends Model
         'kabin_penumpang', 'kompartemen_toilet', 'galley', 'dokumen_kesehatan', 
         'pembuangan_kotoran', 'penanganan_air', 'keadaan_makanan', 'binatang_pengganggu', 
         'surat_sanitasi', 'kesimpulan', 'rekomendasi', 'tindakan', 
-        'petugas_kabin_nama', 'petugas_kabin_ttd', 'petugas_bkk_nama', 'petugas_bkk_ttd'
+        'petugas_kabin_nama', 'petugas_kabin_ttd', 'petugas_bkk_nama', 'petugas_bkk_ttd',
+        'foto_geotagging'
     ];
 
     // Dates

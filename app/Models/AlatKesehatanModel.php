@@ -16,7 +16,8 @@ class AlatKesehatanModel extends Model
     protected $protectFields    = true;
     protected $allowedFields    = [
         'penerbangan_haji_h', 'penerbangan_haji_m', 'embarkasi', 'nomor_kloter', 'no_kontak',
-        'items_p3k', 'items_emergensi', 'crew_nama', 'crew_ttd', 'pelapor_nama', 'pelapor_ttd'
+        'items_p3k', 'items_emergensi', 'crew_nama', 'crew_ttd', 'pelapor_nama', 'pelapor_ttd',
+        'foto_geotagging'
     ];
 
     // Dates

@@ -1,9 +1,45 @@
 <?php
 $areas = isset($sanitasi['area_diperiksa']) ? json_decode($sanitasi['area_diperiksa'], true) : [];
-$maxIndex = 0;
-if(is_array($areas) && count($areas) > 0) {
-    foreach($areas as $idx => $area) {
-        $maxIndex = max($maxIndex, (int)$idx);
+$allAreas = [
+    'Dapur',
+    'Ruang rakit makanan',
+    'Gudang',
+    'Palka',
+    'Ruang tidur',
+    'ABK',
+    'Perwira',
+    'Penumpang',
+    'Geladak',
+    'Air bersih',
+    'Limbah cair',
+    'Tangki air Ballast',
+    'Sampah medik dan sampah padat',
+    'Air permukaan',
+    'Kamar mesin',
+    'Fasilitas medik',
+    'Area lainnya',
+    'Sumber Makanan',
+    'Penyimpanan Makanan',
+    'Penyiapan Makanan',
+    'Penyajian Makanan',
+    'Sumber Air',
+    'Penyimpanan Air',
+    'Distribusi Air',
+    'Penanganan Sampah',
+    'Perlakuan Sampah',
+    'Pembuangan Sampah',
+    'Pengoperasian Kolam Renang',
+    'Perlengkapan dan alat-alat medis',
+    'Pengoperasian Fasilitas Medik',
+    'Obat-obatan',
+    'Bagian lainnya yang diperiksa'
+];
+$savedAreasByName = [];
+if (is_array($areas)) {
+    foreach ($areas as $area) {
+        if (!empty($area['nama'])) {
+            $savedAreasByName[$area['nama']] = $area;
+        }
     }
 }
 ?>
@@ -41,19 +77,19 @@ if(is_array($areas) && count($areas) > 0) {
             to { opacity: 1; transform: translateY(0); }
         }
 
+        .table-print { width: 100%; border-collapse: collapse; margin-bottom: 15px; background: #fff; }
+        .table-print th, .table-print td { border: 1px solid #000; padding: 6px; vertical-align: top; }
+        .table-print th { background-color: #e9ecef !important; -webkit-print-color-adjust: exact; text-align: center; font-weight: bold; }
+        .table-borderless td { border: none !important; padding: 4px; }
+
         /* Print Mode Styles */
         @media print {
             @page { size: A4 landscape; margin: 15mm; }
             body { background-color: #fff !important; color: #000; font-size: 11px; }
             .wrapper, .content-wrapper { background: #fff !important; margin: 0 !important; padding: 0 !important; }
             
-            .screen-only { display: none !important; }
+            .screen-only, .d-print-none { display: none !important; }
             .print-only { display: block !important; }
-            
-            .table-print { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-            .table-print th, .table-print td { border: 1px solid #000; padding: 6px; vertical-align: top; }
-            .table-print th { background-color: #e9ecef !important; -webkit-print-color-adjust: exact; text-align: center; font-weight: bold; }
-            .table-borderless td { border: none !important; padding: 4px; }
             
             .kop-surat { margin-top: 0; margin-bottom: 15px; }
             .kop-surat img { width: 100% !important; max-width: 100% !important; max-height: none !important; }
@@ -61,8 +97,76 @@ if(is_array($areas) && count($areas) > 0) {
             p { margin: 2px 0; }
         }
         
+        <?php if(empty($is_print)): ?>
         @media screen {
             .print-only { display: none !important; }
+        }
+        <?php endif; ?>
+
+        /* Responsive Mobile Styles for Document View */
+        @media screen and (max-width: 767.98px) {
+            body { font-size: 12px; }
+            .kop-surat { margin-top: 8px !important; margin-bottom: 10px !important; }
+            .kop-surat img { max-height: 70px; }
+            .kop-surat h4 { font-size: 14px; margin-top: 6px; margin-bottom: 2px; }
+            .kop-surat p { font-size: 11px; margin-bottom: 0; }
+            .print-only { padding-left: 8px !important; padding-right: 8px !important; padding-bottom: 20px !important; }
+            .table-info-umum, .table-info-umum tbody { display: block; width: 100%; border: none; }
+            .table-info-umum tr { display: flex; flex-wrap: wrap; width: 100%; }
+            .table-info-umum td {
+                box-sizing: border-box;
+                font-size: 11.5px;
+                padding: 4px 6px;
+                border: 1px solid #000;
+                margin-top: -1px;
+                word-break: break-word;
+            }
+            .table-info-umum td:nth-child(odd) {
+                width: 42% !important;
+                background-color: #f8f9fa;
+            }
+            .table-info-umum td:nth-child(even) {
+                width: 58% !important;
+                margin-left: -1px;
+            }
+            .table-area-scroll {
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin-bottom: 12px;
+                border: 1px solid #000;
+            }
+            .table-area-print {
+                min-width: 680px;
+                margin-bottom: 0;
+                font-size: 11px;
+                border: none;
+            }
+            .table-area-print th, .table-area-print td {
+                padding: 4px 5px;
+            }
+            .table-ket-ttd, .table-ket-ttd tbody, .table-ket-ttd tr {
+                display: block;
+                width: 100%;
+            }
+            .table-ket-ttd td:nth-child(1) {
+                display: block;
+                width: 100% !important;
+                padding-bottom: 2px !important;
+            }
+            .table-ket-ttd td:nth-child(2) {
+                display: block;
+                width: 100% !important;
+                padding-top: 0 !important;
+                padding-bottom: 10px !important;
+                margin-bottom: 10px;
+                border-bottom: 1px dashed #ccc !important;
+            }
+            .table-ket-ttd td:nth-child(3) {
+                display: block;
+                width: 100% !important;
+                text-align: center;
+            }
         }
     </style>
 </head>
@@ -74,8 +178,7 @@ if(is_array($areas) && count($areas) > 0) {
         <div class="container-fluid">
             <div class="kop-surat mt-3">
                 <img src="<?= base_url('dist/img/Kop_BKK_bandung.png') ?>" alt="Kop Surat" style="max-width: 100%; height: auto;">
-                <h4 class="font-weight-bold">SERTIFIKAT PENGENDALIAN SANITASI KAPAL</h4>
-                <p class="text-muted"><i>Ship Sanitation Control Certificate</i></p>
+                <h4 class="font-weight-bold mt-2">SERTIFIKAT PENGENDALIAN SANITASI KAPAL</h4>
             </div>
         </div>
 
@@ -83,86 +186,102 @@ if(is_array($areas) && count($areas) > 0) {
         <!-- ============================================== -->
         <!-- PRINT ONLY LAYOUT (COMPACT & TABULAR)          -->
         <!-- ============================================== -->
-        <div class="container-fluid print-only px-4">
+        <div class="container-fluid print-only px-4 pb-5">
+            <div class="text-right mb-3 d-print-none">
+                <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">
+                    <i class="fas fa-print mr-1"></i> Cetak / Simpan PDF
+                </button>
+            </div>
             
             <!-- Informasi Umum -->
-            <table class="table-print">
+            <table class="table-print table-info-umum">
                 <tr>
-                    <td width="15%"><b>Nama Pelabuhan</b><br><i>Port of</i></td>
+                    <td width="15%"><b>Nama Pelabuhan</b></td>
                     <td width="20%"><?= $sanitasi['pelabuhan'] ?? '' ?></td>
-                    <td width="15%"><b>Tanggal</b><br><i>Date</i></td>
+                    <td width="15%"><b>Tanggal</b></td>
                     <td width="15%"><?= !empty($sanitasi['tanggal']) ? date('d M Y', strtotime($sanitasi['tanggal'])) : '' ?></td>
-                    <td width="15%"><b>Sertifikat</b><br><i>Certificate</i></td>
+                    <td width="15%"><b>Sertifikat</b></td>
                     <td width="20%"><?= $sanitasi['sertifikat_mencatat'] ?? '' ?></td>
                 </tr>
                 <tr>
-                    <td><b>Nama Kapal</b><br><i>Name of ship</i></td>
+                    <td><b>Nama Kapal</b></td>
                     <td><?= $sanitasi['nama_kapal'] ?? '' ?></td>
-                    <td><b>IMO No</b><br><i>Registration</i></td>
+                    <td><b>Nomor Registrasi / IMO</b></td>
                     <td><?= $sanitasi['imo_no'] ?? '' ?></td>
-                    <td><b>Bendera</b><br><i>Flag</i></td>
+                    <td><b>Bendera</b></td>
                     <td><?= $sanitasi['bendera'] ?? '' ?></td>
                 </tr>
                 <tr>
-                    <td><b>Jenis Kapal</b><br><i>Ship Type</i></td>
+                    <td><b>Jenis Kapal</b></td>
                     <td><?= $sanitasi['jenis_kapal'] ?? '' ?> (<?= $sanitasi['detail_jenis_kapal'] ?? '' ?>)</td>
-                    <td><b>Berat (GT)</b><br><i>Gross Tonnage</i></td>
+                    <td><b>Berat (GT)</b></td>
                     <td><?= $sanitasi['berat_gt'] ?? '' ?></td>
-                    <td><b>Kondisi Palka</b><br><i>Holds</i></td>
+                    <td><b>Kondisi Palka</b></td>
                     <td><?= $sanitasi['kondisi_palka'] ?? '' ?></td>
                 </tr>
                 <tr>
-                    <td><b>Nama Pemeriksa</b><br><i>Inspector Name</i></td>
+                    <td><b>Nama Pemeriksa</b></td>
                     <td colspan="2"><?= $sanitasi['nama_pemeriksa'] ?? '' ?></td>
-                    <td><b>Alamat</b><br><i>Address</i></td>
+                    <td><b>Alamat</b></td>
                     <td colspan="2"><?= $sanitasi['alamat_pemeriksa'] ?? '' ?></td>
                 </tr>
             </table>
 
             <!-- Area Pemeriksaan -->
-            <h6 class="font-weight-bold mt-3 mb-2">Hasil Pemeriksaan Area / Fasilitas <i>(Inspection Results)</i></h6>
-            <table class="table-print">
-                <thead>
-                    <tr>
-                        <th width="3%">No</th>
-                        <th width="15%">Area / Fasilitas<br><i>Areas / Facilities</i></th>
-                        <th width="8%">Status</th>
-                        <th width="16%">Bukti Ditemukan<br><i>Evidence Found</i></th>
-                        <th width="12%">Hasil Sampel<br><i>Sample Result</i></th>
-                        <th width="14%">Dokumen Diperiksa<br><i>Documents</i></th>
-                        <th width="12%">Tindakan Pengendalian<br><i>Control Measures</i></th>
-                        <th width="10%">Tgl Ulang<br><i>Re-inspect</i></th>
-                        <th width="10%">Komentar<br><i>Comments</i></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if(count($areas) > 0): $no=1; foreach($areas as $area): ?>
-                    <tr>
-                        <td class="text-center"><?= $no++ ?></td>
-                        <td><b><?= $area['nama'] ?? '' ?></b></td>
-                        <td class="text-center"><?= $area['status'] ?? '' ?></td>
-                        <td><?= $area['bukti'] ?? '-' ?></td>
-                        <td><?= $area['sampel'] ?? '-' ?></td>
-                        <td><?= $area['dokumen'] ?? '-' ?></td>
-                        <td><?= $area['tindakan'] ?? '-' ?></td>
-                        <td class="text-center"><?= !empty($area['tanggal_ulang']) ? date('d/m/Y', strtotime($area['tanggal_ulang'])) : '-' ?></td>
-                        <td><?= $area['komentar'] ?? '-' ?></td>
-                    </tr>
-                    <?php endforeach; else: ?>
-                    <tr>
-                        <td colspan="9" class="text-center py-3">Tidak ada data area yang dicatat</td>
-                    </tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+            <h6 class="font-weight-bold mt-3 mb-1">Hasil Pemeriksaan Area / Fasilitas</h6>
+            <small class="text-muted d-block d-md-none mb-1 d-print-none"><i class="fas fa-arrows-alt-h mr-1"></i>Geser tabel ke samping untuk melihat detail seluruh kolom</small>
+            <div class="table-area-scroll">
+                <table class="table-print table-area-print">
+                    <thead>
+                        <tr>
+                            <th width="3%">No</th>
+                            <th width="15%">Area / Fasilitas</th>
+                            <th width="13%">Status Pemeriksaan</th>
+                            <th width="14%">Bukti Ditemukan</th>
+                            <th width="11%">Hasil Sampel</th>
+                            <th width="13%">Dokumen Diperiksa</th>
+                            <th width="13%">Tindakan Pengendalian</th>
+                            <th width="9%">Tgl Pemeriksaan Ulang</th>
+                            <th width="9%">Komentar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php $no = 1; foreach ($allAreas as $areaName):
+                            $area = $savedAreasByName[$areaName] ?? [];
+                            $rawStatus = $area['status'] ?? '';
+                            if ($rawStatus === 'Tidak Ditemukan' || $rawStatus === '') {
+                                $displayStatus = $rawStatus === '' ? '-' : 'Tidak Ditemukan Faktor Risiko';
+                            } elseif ($rawStatus === 'Ya') {
+                                $displayStatus = 'Ditemukan Faktor Risiko';
+                            } elseif ($rawStatus === 'N/A') {
+                                $displayStatus = 'Tidak Ada';
+                            } else {
+                                $displayStatus = $rawStatus;
+                            }
+                        ?>
+                        <tr>
+                            <td class="text-center"><?= $no++ ?></td>
+                            <td><b><?= esc($areaName) ?></b></td>
+                            <td class="text-center"><?= esc($displayStatus) ?></td>
+                            <td><?= !empty($area['bukti']) ? esc($area['bukti']) : '-' ?></td>
+                            <td><?= !empty($area['sampel']) ? esc($area['sampel']) : '-' ?></td>
+                            <td><?= !empty($area['dokumen']) ? esc($area['dokumen']) : '-' ?></td>
+                            <td><?= !empty($area['tindakan']) ? esc($area['tindakan']) : '-' ?></td>
+                            <td class="text-center"><?= !empty($area['tanggal_ulang']) ? date('d/m/Y', strtotime($area['tanggal_ulang'])) : '-' ?></td>
+                            <td><?= !empty($area['komentar']) ? esc($area['komentar']) : '-' ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
 
             <!-- Keterangan & TTD -->
-            <table class="table-print table-borderless mt-3">
+            <table class="table-print table-borderless table-ket-ttd mt-3">
                 <tr>
                     <td width="15%"><b>Keterangan :</b></td>
                     <td width="55%"><?= nl2br($sanitasi['keterangan'] ?? '-') ?></td>
                     <td width="30%" class="text-center">
-                        <p class="mb-5">Mengetahui / Pejabat Penerbit,<br><i>Issuing Authority</i></p>
+                        <p class="mb-3">Mengetahui / Pejabat Penerbit,</p>
                         <?php if(!empty($sanitasi['tanda_tangan'])): ?>
                             <img src="<?= $sanitasi['tanda_tangan'] ?>" style="max-height: 80px; margin-bottom: 10px;" alt="Tanda Tangan">
                         <?php else: ?>
@@ -173,6 +292,13 @@ if(is_array($areas) && count($areas) > 0) {
                 </tr>
             </table>
 
+            <?php if(!empty($sanitasi['foto_geotagging'])): ?>
+            <div class="mt-4 text-center" style="page-break-inside: avoid;">
+                <p class="font-weight-bold mb-2" style="font-size: 13px;"><u>Lampiran: Bukti Foto Geotagging</u></p>
+                <img src="<?= base_url($sanitasi['foto_geotagging']) ?>" style="max-height: 550px; max-width: 100%; border: 1px solid #ddd; padding: 4px;" alt="Bukti Foto Geotagging">
+            </div>
+            <?php endif; ?>
+
         </div>
         
         <?php else: ?>
@@ -180,8 +306,8 @@ if(is_array($areas) && count($areas) > 0) {
         <!-- SCREEN ONLY LAYOUT (FORM EDIT)                 -->
         <!-- ============================================== -->
         <div class="content pb-5 screen-only">
-            <div class="container">
-                <form action="<?= base_url('travelconsent/update_sanitasi/' . $sanitasi['id']) ?>" method="POST" id="formSanitasi">
+            <div class="container-fluid" style="max-width: 1400px;">
+                <form action="<?= base_url('travelconsent/update_sanitasi/' . $sanitasi['id']) ?>" method="POST" id="formSanitasi" enctype="multipart/form-data">
                     
                     <!-- BAGIAN 1: INFORMASI UMUM -->
                     <div class="card card-primary">
@@ -206,8 +332,8 @@ if(is_array($areas) && count($areas) > 0) {
                                     <label>Sertifikat ini mencatat pemeriksaan dan: <span class="text-danger">*</span></label>
                                     <select name="sertifikat_mencatat" class="form-control" required>
                                         <option value="">-- Pilih --</option>
-                                        <option value="Pembebasan" <?= ($sanitasi['sertifikat_mencatat'] ?? '') == 'Pembebasan' ? 'selected' : '' ?>>Pembebasan (Exemption)</option>
-                                        <option value="Pengendalian" <?= ($sanitasi['sertifikat_mencatat'] ?? '') == 'Pengendalian' ? 'selected' : '' ?>>Pengendalian (Control)</option>
+                                        <option value="Pembebasan" <?= ($sanitasi['sertifikat_mencatat'] ?? '') == 'Pembebasan' ? 'selected' : '' ?>>Pembebasan</option>
+                                        <option value="Pengendalian" <?= ($sanitasi['sertifikat_mencatat'] ?? '') == 'Pengendalian' ? 'selected' : '' ?>>Pengendalian</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6 form-group">
@@ -238,12 +364,36 @@ if(is_array($areas) && count($areas) > 0) {
                                 </div>
                                 <div class="col-md-6 form-group">
                                     <label>Bendera</label>
+                                    <?php
+                                    $countries = [
+                                        'Afganistan', 'Afrika Selatan', 'Afrika Tengah', 'Albania', 'Aljazair', 'Amerika Serikat', 'Andorra', 'Angola', 'Antigua dan Barbuda', 'Arab Saudi',
+                                        'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahama', 'Bahrain', 'Bangladesh', 'Barbados', 'Belanda',
+                                        'Belarus', 'Belgia', 'Belize', 'Benin', 'Bermuda', 'Bhutan', 'Bolivia', 'Bosnia dan Herzegovina', 'Botswana', 'Brasil',
+                                        'Brunei Darussalam', 'Bulgaria', 'Burkina Faso', 'Burundi', 'Ceko', 'Chad', 'Chili', 'China', 'Cook Islands', 'Curacao',
+                                        'Denmark', 'Djibouti', 'Dominika', 'Ekuador', 'El Salvador', 'Eritrea', 'Estonia', 'Eswatini', 'Ethiopia', 'Fiji',
+                                        'Filipina', 'Finlandia', 'Gabon', 'Gambia', 'Georgia', 'Ghana', 'Gibraltar', 'Grenada', 'Guatemala', 'Guinea',
+                                        'Guinea Khatulistiwa', 'Guinea-Bissau', 'Guyana', 'Haiti', 'Honduras', 'Hong Kong', 'Hungaria', 'India', 'Indonesia', 'Inggris (Britania Raya)',
+                                        'Irak', 'Iran', 'Irlandia', 'Islandia', 'Israel', 'Italia', 'Jamaika', 'Jepang', 'Jerman', 'Kamboja',
+                                        'Kamerun', 'Kanada', 'Kazakhstan', 'Kenya', 'Kepulauan Cayman', 'Kepulauan Faroe', 'Kepulauan Marshall', 'Kepulauan Solomon', 'Kirgizstan', 'Kiribati',
+                                        'Kolombia', 'Komoro', 'Kongo', 'Korea Selatan', 'Korea Utara', 'Kosta Rika', 'Kroasia', 'Kuba', 'Kuwait', 'Laos',
+                                        'Latvia', 'Lebanon', 'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lituania', 'Luksemburg', 'Madagaskar', 'Makau',
+                                        'Makedonia Utara', 'Maladewa', 'Malawi', 'Malaysia', 'Mali', 'Malta', 'Maroko', 'Mauritania', 'Mauritius', 'Meksiko',
+                                        'Mesir', 'Mikronesia', 'Moldova', 'Monako', 'Mongolia', 'Montenegro', 'Mozambik', 'Myanmar', 'Namibia', 'Nauru',
+                                        'Nepal', 'Niger', 'Nigeria', 'Nikaragua', 'Norwegia', 'Oman', 'Pakistan', 'Palau', 'Palestina', 'Panama',
+                                        'Pantai Gading', 'Papua Nugini', 'Paraguay', 'Prancis', 'Peru', 'Polandia', 'Portugal', 'Qatar', 'Republik Demokratik Kongo', 'Republik Dominika',
+                                        'Rumania', 'Rusia', 'Rwanda', 'Saint Kitts dan Nevis', 'Saint Lucia', 'Saint Vincent dan Grenadines', 'Samoa', 'San Marino', 'Sao Tome dan Principe', 'Selandia Baru',
+                                        'Senegal', 'Serbia', 'Seychelles', 'Sierra Leone', 'Singapura', 'Siprus', 'Slovakia', 'Slovenia', 'Somalia', 'Spanyol',
+                                        'Sri Lanka', 'Sudan', 'Sudan Selatan', 'Suriah', 'Suriname', 'Swedia', 'Swiss', 'Taiwan', 'Tajikistan', 'Tanjung Verde',
+                                        'Tanzania', 'Thailand', 'Timor Leste', 'Togo', 'Tonga', 'Trinidad dan Tobago', 'Tunisia', 'Turki', 'Turkmenistan', 'Tuvalu',
+                                        'Uganda', 'Ukraina', 'Uni Emirat Arab', 'Uruguay', 'Uzbekistan', 'Vanuatu', 'Vatikan', 'Venezuela', 'Vietnam', 'Yaman',
+                                        'Yordania', 'Yunani', 'Zambia', 'Zimbabwe'
+                                    ];
+                                    ?>
                                     <select name="bendera" class="form-control select2">
                                         <option value="">-- Pilih Bendera --</option>
-                                        <option value="Indonesia" <?= ($sanitasi['bendera'] ?? '') == 'Indonesia' ? 'selected' : '' ?>>Indonesia</option>
-                                        <option value="Singapura" <?= ($sanitasi['bendera'] ?? '') == 'Singapura' ? 'selected' : '' ?>>Singapura</option>
-                                        <option value="Malaysia" <?= ($sanitasi['bendera'] ?? '') == 'Malaysia' ? 'selected' : '' ?>>Malaysia</option>
-                                        <option value="Lainnya" <?= ($sanitasi['bendera'] ?? '') == 'Lainnya' ? 'selected' : '' ?>>Lainnya</option>
+                                        <?php foreach ($countries as $country): ?>
+                                            <option value="<?= $country ?>" <?= ($sanitasi['bendera'] ?? '') == $country ? 'selected' : '' ?>><?= $country ?></option>
+                                        <?php endforeach; ?>
                                     </select>
                                 </div>
                                 <div class="col-md-6 form-group">
@@ -270,117 +420,83 @@ if(is_array($areas) && count($areas) > 0) {
                         </div>
                     </div>
 
-                    <!-- BAGIAN 2: AREA / FASILITAS (DYNAMIC) -->
+                    <!-- BAGIAN 2: AREA / FASILITAS (TABLE) -->
                     <div class="card card-success">
-                        <div class="card-header">
-                            <h3 class="card-title">Bagian 2: Area / Fasilitas yang Diperiksa</h3>
-                        </div>
-                        <div class="card-body bg-light">
-                            <div class="row mb-4 align-items-end">
-                                <div class="col-md-8">
-                                    <label>Pilih Area/Fasilitas yang Diperiksa</label>
-                                    <select id="areaSelector" class="form-control select2">
-                                        <option value="">-- Pilih Area --</option>
-                                        <option value="Dapur">Dapur</option>
-                                        <option value="Ruang rakit makanan">Ruang rakit makanan</option>
-                                        <option value="Gudang">Gudang</option>
-                                        <option value="Palka">Palka</option>
-                                        <option value="Ruang tidur">Ruang tidur</option>
-                                        <option value="ABK">ABK</option>
-                                        <option value="Perwira">Perwira</option>
-                                        <option value="Penumpang">Penumpang</option>
-                                        <option value="Geladak">Geladak</option>
-                                        <option value="Air bersih">Air bersih</option>
-                                        <option value="Limbah cair">Limbah cair</option>
-                                        <option value="Tangki air Ballast">Tangki air Ballast</option>
-                                        <option value="Sampah medik dan sampah padat">Sampah medik dan sampah padat</option>
-                                        <option value="Air permukaan">Air permukaan</option>
-                                        <option value="Kamar mesin">Kamar mesin</option>
-                                        <option value="Fasilitas medik">Fasilitas medik</option>
-                                        <option value="Area lainnya">Area lainnya</option>
-                                        <option value="Sumber Makanan">Sumber Makanan</option>
-                                        <option value="Penyimpanan Makanan">Penyimpanan Makanan</option>
-                                        <option value="Penyiapan Makanan">Penyiapan Makanan</option>
-                                        <option value="Penyajian Makanan">Penyajian Makanan</option>
-                                        <option value="Sumber Air">Sumber Air</option>
-                                        <option value="Penyimpanan Air">Penyimpanan Air</option>
-                                        <option value="Distribusi Air">Distribusi Air</option>
-                                        <option value="Penanganan Sampah">Penanganan Sampah</option>
-                                        <option value="Perlakuan Sampah">Perlakuan Sampah</option>
-                                        <option value="Pembuangan Sampah">Pembuangan Sampah</option>
-                                        <option value="Pengoperasian Kolam Renang">Pengoperasian Kolam Renang</option>
-                                        <option value="Perlengkapan dan alat-alat medis">Perlengkapan dan alat-alat medis</option>
-                                        <option value="Pengoperasian Fasilitas Medik">Pengoperasian Fasilitas Medik</option>
-                                        <option value="Obat-obatan">Obat-obatan</option>
-                                        <option value="Bagian lainnya yang diperiksa">Bagian lainnya yang diperiksa</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <button type="button" id="btnAddArea" class="btn btn-primary btn-block"><i class="fas fa-plus mr-2"></i>Tambah Area</button>
-                                </div>
+                        <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+                            <h3 class="card-title"><i class="fas fa-tasks mr-1"></i> Bagian 2: Area / Fasilitas yang Diperiksa</h3>
+                            <div class="card-tools mt-2 mt-sm-0">
+                                <span class="text-white small mr-2">Atur Semua Status:</span>
+                                <button type="button" class="btn btn-xs btn-light font-weight-bold mr-1" onclick="setAllAreaStatus('Tidak Ditemukan Faktor Risiko')">Tidak Ditemukan Faktor Risiko</button>
+                                <button type="button" class="btn btn-xs btn-light font-weight-bold mr-1" onclick="setAllAreaStatus('Ditemukan Faktor Risiko')">Ditemukan Faktor Risiko</button>
+                                <button type="button" class="btn btn-xs btn-light font-weight-bold mr-1" onclick="setAllAreaStatus('Tidak Ada')">Tidak Ada</button>
+                                <button type="button" class="btn btn-xs btn-outline-light" onclick="setAllAreaStatus('')">Kosongkan</button>
                             </div>
-                            <hr>
-                            
-                            <!-- Container for Dynamic Cards -->
-                            <div id="dynamicAreaContainer">
-                                <?php if(count($areas) > 0): foreach($areas as $idx => $area): ?>
-                                    <div class="card card-outline card-info card-area" id="area-card-<?= $idx ?>">
-                                        <div class="card-header">
-                                            <h3 class="card-title font-weight-bold"><?= $area['nama'] ?? '' ?></h3>
-                                            <div class="card-tools">
-                                                <button type="button" class="btn btn-tool text-danger btn-remove-area" data-id="<?= $idx ?>">
-                                                    <i class="fas fa-trash fa-lg"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div class="card-body">
-                                            <input type="hidden" name="areas[<?= $idx ?>][nama]" value="<?= $area['nama'] ?? '' ?>">
-                                            
-                                            <div class="form-group mb-4 p-3 bg-light rounded border">
-                                                <label class="d-block mb-2">Status Pemeriksaan: <span class="text-danger">*</span></label>
-                                                <div class="icheck-primary d-inline mr-4">
-                                                    <input type="radio" id="status_ya_<?= $idx ?>" name="areas[<?= $idx ?>][status]" value="Ya" <?= ($area['status'] ?? '') == 'Ya' ? 'checked' : '' ?> required>
-                                                    <label for="status_ya_<?= $idx ?>">Ya</label>
-                                                </div>
-                                                <div class="icheck-primary d-inline mr-4">
-                                                    <input type="radio" id="status_tidak_<?= $idx ?>" name="areas[<?= $idx ?>][status]" value="Tidak Ditemukan" <?= ($area['status'] ?? '') == 'Tidak Ditemukan' ? 'checked' : '' ?>>
-                                                    <label for="status_tidak_<?= $idx ?>">Tidak Ditemukan</label>
-                                                </div>
-                                                <div class="icheck-primary d-inline">
-                                                    <input type="radio" id="status_na_<?= $idx ?>" name="areas[<?= $idx ?>][status]" value="N/A" <?= ($area['status'] ?? '') == 'N/A' ? 'checked' : '' ?>>
-                                                    <label for="status_na_<?= $idx ?>">Tidak ada (N/A)</label>
-                                                </div>
-                                            </div>
-
-                                            <div class="row">
-                                                <div class="col-md-6 form-group">
-                                                    <label>Bukti yang ditemukan</label>
-                                                    <input type="text" name="areas[<?= $idx ?>][bukti]" class="form-control" placeholder="Tuliskan bukti..." value="<?= $area['bukti'] ?? '' ?>">
-                                                </div>
-                                                <div class="col-md-6 form-group">
-                                                    <label>Hasil sampel</label>
-                                                    <input type="text" name="areas[<?= $idx ?>][sampel]" class="form-control" placeholder="Tuliskan hasil..." value="<?= $area['sampel'] ?? '' ?>">
-                                                </div>
-                                                <div class="col-md-6 form-group">
-                                                    <label>Dokumen yang diperiksa</label>
-                                                    <input type="text" name="areas[<?= $idx ?>][dokumen]" class="form-control" placeholder="Nama dokumen..." value="<?= $area['dokumen'] ?? '' ?>">
-                                                </div>
-                                                <div class="col-md-6 form-group">
-                                                    <label>Tindakan Pengendalian yang dilakukan</label>
-                                                    <input type="text" name="areas[<?= $idx ?>][tindakan]" class="form-control" placeholder="Tindakan..." value="<?= $area['tindakan'] ?? '' ?>">
-                                                </div>
-                                                <div class="col-md-6 form-group">
-                                                    <label>Tanggal pemeriksaan ulang</label>
-                                                    <input type="date" name="areas[<?= $idx ?>][tanggal_ulang]" class="form-control" value="<?= $area['tanggal_ulang'] ?? '' ?>">
-                                                </div>
-                                                <div class="col-md-6 form-group">
-                                                    <label>Komentar terhadap kondisi yang ditemukan</label>
-                                                    <input type="text" name="areas[<?= $idx ?>][komentar]" class="form-control" placeholder="Komentar..." value="<?= $area['komentar'] ?? '' ?>">
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                <?php endforeach; endif; ?>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-striped table-hover table-sm mb-0" style="min-width: 1150px;">
+                                    <thead class="bg-light text-center">
+                                        <tr>
+                                            <th class="align-middle" style="width: 40px;">No</th>
+                                            <th class="align-middle text-left" style="min-width: 200px;">Area / Fasilitas yang Diperiksa</th>
+                                            <th class="align-middle" style="min-width: 215px;">Status Pemeriksaan <span class="text-danger">*</span></th>
+                                            <th class="align-middle" style="min-width: 140px;">Bukti yang Ditemukan</th>
+                                            <th class="align-middle" style="min-width: 130px;">Hasil Sampel</th>
+                                            <th class="align-middle" style="min-width: 140px;">Dokumen yang Diperiksa</th>
+                                            <th class="align-middle" style="min-width: 150px;">Tindakan Pengendalian</th>
+                                            <th class="align-middle" style="width: 135px;">Tgl Pemeriksaan Ulang</th>
+                                            <th class="align-middle" style="min-width: 140px;">Komentar Kondisi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($allAreas as $idx => $areaName):
+                                            $index = $idx + 1;
+                                            $saved = $savedAreasByName[$areaName] ?? [];
+                                            $savedStatus = $saved['status'] ?? '';
+                                            if ($savedStatus === '' || $savedStatus === 'Tidak Ditemukan') {
+                                                $savedStatus = 'Tidak Ditemukan Faktor Risiko';
+                                            } elseif ($savedStatus === 'Ya') {
+                                                $savedStatus = 'Ditemukan Faktor Risiko';
+                                            } elseif ($savedStatus === 'N/A') {
+                                                $savedStatus = 'Tidak Ada';
+                                            }
+                                        ?>
+                                        <tr>
+                                            <td class="text-center align-middle font-weight-bold"><?= $index ?></td>
+                                            <td class="align-middle font-weight-bold">
+                                                <?= esc($areaName) ?>
+                                                <input type="hidden" name="areas[<?= $index ?>][nama]" value="<?= esc($areaName) ?>">
+                                            </td>
+                                            <td class="align-middle">
+                                                <select name="areas[<?= $index ?>][status]" class="form-control form-control-sm area-status-select" required>
+                                                    <option value="">-- Pilih Status --</option>
+                                                    <option value="Tidak Ditemukan Faktor Risiko" <?= $savedStatus === 'Tidak Ditemukan Faktor Risiko' ? 'selected' : '' ?>>Tidak Ditemukan Faktor Risiko</option>
+                                                    <option value="Ditemukan Faktor Risiko" <?= $savedStatus === 'Ditemukan Faktor Risiko' ? 'selected' : '' ?>>Ditemukan Faktor Risiko</option>
+                                                    <option value="Tidak Ada" <?= $savedStatus === 'Tidak Ada' ? 'selected' : '' ?>>Tidak Ada</option>
+                                                </select>
+                                            </td>
+                                            <td class="align-middle">
+                                                <input type="text" name="areas[<?= $index ?>][bukti]" class="form-control form-control-sm" placeholder="Bukti..." value="<?= esc($saved['bukti'] ?? '') ?>">
+                                            </td>
+                                            <td class="align-middle">
+                                                <input type="text" name="areas[<?= $index ?>][sampel]" class="form-control form-control-sm" placeholder="Hasil sampel..." value="<?= esc($saved['sampel'] ?? '') ?>">
+                                            </td>
+                                            <td class="align-middle">
+                                                <input type="text" name="areas[<?= $index ?>][dokumen]" class="form-control form-control-sm" placeholder="Nama dokumen..." value="<?= esc($saved['dokumen'] ?? '') ?>">
+                                            </td>
+                                            <td class="align-middle">
+                                                <input type="text" name="areas[<?= $index ?>][tindakan]" class="form-control form-control-sm" placeholder="Tindakan..." value="<?= esc($saved['tindakan'] ?? '') ?>">
+                                            </td>
+                                            <td class="align-middle">
+                                                <input type="date" name="areas[<?= $index ?>][tanggal_ulang]" class="form-control form-control-sm" value="<?= esc($saved['tanggal_ulang'] ?? '') ?>">
+                                            </td>
+                                            <td class="align-middle">
+                                                <input type="text" name="areas[<?= $index ?>][komentar]" class="form-control form-control-sm" placeholder="Komentar..." value="<?= esc($saved['komentar'] ?? '') ?>">
+                                            </td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -418,7 +534,7 @@ if(is_array($areas) && count($areas) > 0) {
                                             </div>
                                             <input type="hidden" name="tanda_tangan" id="tanda_tangan" <?= empty($sanitasi['tanda_tangan']) ? 'required' : '' ?>>
                                             <button type="button" class="btn btn-sm btn-danger mt-2" id="btnClearSignature">
-                                                <i class="fas fa-eraser mr-1"></i> Clear Tanda Tangan
+                                                <i class="fas fa-eraser mr-1"></i> Hapus Tanda Tangan
                                             </button>
                                             <?php if(!empty($sanitasi['tanda_tangan'])): ?>
                                                 <button type="button" class="btn btn-sm btn-secondary mt-2 ml-2" id="btnCancelSignature">Batal Ubah</button>
@@ -426,14 +542,46 @@ if(is_array($areas) && count($areas) > 0) {
                                         </div>
                                     </div>
                                 </div>
+                                <div class="col-md-12 form-group">
+                                    <label class="font-weight-bold"><i class="fas fa-camera mr-1 text-primary"></i> Foto Geotagging / Dokumentasi Pemeriksaan</label>
+                                    <?php if(!empty($sanitasi['foto_geotagging'])): ?>
+                                        <div class="mb-3 text-center">
+                                            <p class="mb-1 text-muted small font-weight-bold">Foto Geotagging Tersimpan:</p>
+                                            <a href="<?= base_url($sanitasi['foto_geotagging']) ?>" target="_blank" class="d-inline-block">
+                                                <img src="<?= base_url($sanitasi['foto_geotagging']) ?>" alt="Foto Geotagging" class="img-thumbnail shadow-sm" style="max-height: 450px; max-width: 100%;">
+                                            </a>
+                                            <div class="mt-1">
+                                                <a href="<?= base_url($sanitasi['foto_geotagging']) ?>" target="_blank" class="btn btn-sm btn-outline-info">
+                                                    <i class="fas fa-expand mr-1"></i> Buka Ukuran Penuh
+                                                </a>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
+                                    <div class="custom-file">
+                                        <input type="file" class="custom-file-input" name="foto_geotagging" id="foto_geotagging" accept="image/*" onchange="previewGeotag(this, 'geotag_preview')">
+                                        <label class="custom-file-label" for="foto_geotagging"><?= !empty($sanitasi['foto_geotagging']) ? 'Pilih file foto pengganti...' : 'Pilih file foto geotagging...' ?></label>
+                                    </div>
+                                    <small class="form-text text-muted">Format: JPG, JPEG, PNG (Maks 10MB). Biarkan kosong jika tidak ingin mengubah foto.</small>
+                                    <div id="geotag_preview_wrapper" class="mt-3 text-center" style="display:none;">
+                                        <p class="mb-1 text-muted small font-weight-bold">Pratinjau Foto Baru:</p>
+                                        <img id="geotag_preview" src="" alt="Pratinjau Geotagging" class="img-thumbnail shadow-sm" style="max-height: 450px; max-width: 100%;">
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- STICKY FOOTER -->
-                    <div class="sticky-footer d-flex justify-content-between align-items-center rounded mt-4">
+                    <div class="sticky-footer d-flex justify-content-between align-items-center flex-wrap rounded mt-4">
                         <a href="<?= base_url('travelconsent/index') ?>" class="btn btn-secondary px-4">Kembali</a>
-                        <button type="submit" class="btn btn-primary px-5 font-weight-bold">Update Sertifikat</button>
+                        <div class="d-flex align-items-center mt-2 mt-sm-0">
+                            <span id="statusProgressInfo" class="mr-3 small font-weight-bold text-danger">
+                                <i class="fas fa-exclamation-circle mr-1"></i>Status Pemeriksaan: <span id="statusFilledCount">0</span>/<?= count($allAreas) ?> terisi (Wajib diisi semua)
+                            </span>
+                            <div id="submitBtnWrapper" class="d-inline-block" style="cursor: not-allowed;">
+                                <button type="submit" id="btnSubmitSanitasi" class="btn btn-primary px-5 font-weight-bold" disabled style="pointer-events: none;">Submit form</button>
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -451,89 +599,99 @@ if(is_array($areas) && count($areas) > 0) {
 <script src="<?= base_url('plugins/select2/js/select2.full.min.js') ?>"></script>
 
 <script>
+function previewGeotag(input, targetId) {
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var img = document.getElementById(targetId);
+            if (img) {
+                img.src = e.target.result;
+                var wrapper = document.getElementById(targetId + '_wrapper');
+                if (wrapper) wrapper.style.display = 'block';
+            }
+        };
+        reader.readAsDataURL(input.files[0]);
+        var label = input.nextElementSibling;
+        if (label && label.classList.contains('custom-file-label')) {
+            label.textContent = input.files[0].name;
+        }
+    }
+}
+
+function setAllAreaStatus(statusVal) {
+    $('.area-status-select').val(statusVal).trigger('change');
+}
+
+function updateStatusProgress() {
+    var total = $('.area-status-select').length;
+    var filled = 0;
+    $('.area-status-select').each(function() {
+        if ($(this).val() !== '') {
+            filled++;
+            $(this).removeClass('is-invalid');
+        }
+    });
+
+    var infoEl = $('#statusProgressInfo');
+    var btnEl = $('#btnSubmitSanitasi');
+    var wrapperEl = $('#submitBtnWrapper');
+
+    if (filled === total && total > 0) {
+        btnEl.prop('disabled', false).css('pointer-events', 'auto');
+        wrapperEl.css('cursor', 'pointer');
+        infoEl.removeClass('text-danger').addClass('text-success')
+            .html('<i class="fas fa-check-circle mr-1"></i>Semua Status Pemeriksaan telah terisi (' + filled + '/' + total + ')');
+    } else {
+        btnEl.prop('disabled', true).css('pointer-events', 'none');
+        wrapperEl.css('cursor', 'not-allowed');
+        infoEl.removeClass('text-success').addClass('text-danger')
+            .html('<i class="fas fa-exclamation-circle mr-1"></i>Status Pemeriksaan: <span id="statusFilledCount">' + filled + '</span>/' + total + ' terisi (Wajib diisi semua)');
+    }
+    return filled === total;
+}
+
+function highlightUnfilledStatus() {
+    var total = $('.area-status-select').length;
+    var filled = 0;
+    var firstEmpty = null;
+
+    $('.area-status-select').each(function() {
+        if ($(this).val() === '') {
+            $(this).addClass('is-invalid');
+            if (!firstEmpty) firstEmpty = $(this);
+        } else {
+            $(this).removeClass('is-invalid');
+            filled++;
+        }
+    });
+
+    if (firstEmpty) {
+        alert('Tombol Submit form belum dapat diproses karena semua Status Pemeriksaan wajib diisi terlebih dahulu! (Baru terisi ' + filled + ' dari ' + total + ' area)');
+        $('html, body').animate({
+            scrollTop: firstEmpty.offset().top - 150
+        }, 300);
+        firstEmpty.focus();
+        return false;
+    }
+    return true;
+}
+
     $(document).ready(function() {
         <?php if(empty($is_print)): ?>
         $('.select2').select2({ theme: 'bootstrap4', width: '100%' });
 
-        let areaCount = <?= isset($maxIndex) ? $maxIndex : 0 ?>;
-
-        $('#btnAddArea').click(function() {
-            let areaName = $('#areaSelector').val();
-            if(!areaName) {
-                alert('Silakan pilih Area/Fasilitas terlebih dahulu!');
-                return;
-            }
-            areaCount++;
-            let index = areaCount;
-
-            let cardHtml = `
-                <div class="card card-outline card-info card-area" id="area-card-${index}">
-                    <div class="card-header">
-                        <h3 class="card-title font-weight-bold">${areaName}</h3>
-                        <div class="card-tools">
-                            <button type="button" class="btn btn-tool text-danger btn-remove-area" data-id="${index}">
-                                <i class="fas fa-trash fa-lg"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <input type="hidden" name="areas[${index}][nama]" value="${areaName}">
-                        
-                        <div class="form-group mb-4 p-3 bg-light rounded border">
-                            <label class="d-block mb-2">Status Pemeriksaan: <span class="text-danger">*</span></label>
-                            <div class="icheck-primary d-inline mr-4">
-                                <input type="radio" id="status_ya_${index}" name="areas[${index}][status]" value="Ya" required>
-                                <label for="status_ya_${index}">Ya</label>
-                            </div>
-                            <div class="icheck-primary d-inline mr-4">
-                                <input type="radio" id="status_tidak_${index}" name="areas[${index}][status]" value="Tidak Ditemukan">
-                                <label for="status_tidak_${index}">Tidak Ditemukan</label>
-                            </div>
-                            <div class="icheck-primary d-inline">
-                                <input type="radio" id="status_na_${index}" name="areas[${index}][status]" value="N/A">
-                                <label for="status_na_${index}">Tidak ada (N/A)</label>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6 form-group">
-                                <label>Bukti yang ditemukan</label>
-                                <input type="text" name="areas[${index}][bukti]" class="form-control" placeholder="Tuliskan bukti...">
-                            </div>
-                            <div class="col-md-6 form-group">
-                                <label>Hasil sampel</label>
-                                <input type="text" name="areas[${index}][sampel]" class="form-control" placeholder="Tuliskan hasil...">
-                            </div>
-                            <div class="col-md-6 form-group">
-                                <label>Dokumen yang diperiksa</label>
-                                <input type="text" name="areas[${index}][dokumen]" class="form-control" placeholder="Nama dokumen...">
-                            </div>
-                            <div class="col-md-6 form-group">
-                                <label>Tindakan Pengendalian yang dilakukan</label>
-                                <input type="text" name="areas[${index}][tindakan]" class="form-control" placeholder="Tindakan...">
-                            </div>
-                            <div class="col-md-6 form-group">
-                                <label>Tanggal pemeriksaan ulang</label>
-                                <input type="date" name="areas[${index}][tanggal_ulang]" class="form-control">
-                            </div>
-                            <div class="col-md-6 form-group">
-                                <label>Komentar terhadap kondisi yang ditemukan</label>
-                                <input type="text" name="areas[${index}][komentar]" class="form-control" placeholder="Komentar...">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            $('#dynamicAreaContainer').append(cardHtml);
-            $('#areaSelector').val('').trigger('change');
+        $(document).on('change', '.area-status-select', function() {
+            updateStatusProgress();
         });
 
-        $('#dynamicAreaContainer').on('click', '.btn-remove-area', function() {
-            let id = $(this).data('id');
-            if(confirm('Yakin ingin menghapus area ini dari form?')) {
-                $('#area-card-' + id).fadeOut(300, function() { $(this).remove(); });
+        $('#submitBtnWrapper').on('click', function(e) {
+            if ($('#btnSubmitSanitasi').prop('disabled')) {
+                e.preventDefault();
+                highlightUnfilledStatus();
             }
         });
+
+        updateStatusProgress();
 
         // --- SIGNATURE CANVAS SCRIPT ---
         const canvas = document.getElementById('signatureCanvas');
@@ -629,6 +787,10 @@ if(is_array($areas) && count($areas) > 0) {
 
         // Form Submit Validation
         $('#formSanitasi').on('submit', function(e) {
+            if (!highlightUnfilledStatus()) {
+                e.preventDefault();
+                return false;
+            }
             let requiredSig = $('#tanda_tangan').prop('required');
             if (requiredSig && !inputSignature.value) {
                 e.preventDefault();
@@ -640,7 +802,7 @@ if(is_array($areas) && count($areas) > 0) {
     });
 </script>
 
-<?php if(!empty($is_print)): ?>
+<?php if(!empty($is_print) && empty($is_public_doc)): ?>
 <script>
     // Langsung buka dialog print saat halaman cetak dimuat
     window.onload = function() {

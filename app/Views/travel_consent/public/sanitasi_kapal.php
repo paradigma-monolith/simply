@@ -43,22 +43,30 @@
                     <div class="col-sm-12 text-center mt-3">
                         <img src="<?= base_url('dist/img/Kop_BKK_bandung.png') ?>" alt="Kop Surat" style="max-width: 100%; height: auto;">
                         <h3 class="mt-4 font-weight-bold">SERTIFIKAT PENGENDALIAN SANITASI KAPAL</h3>
-                        <p class="text-muted">Ship Sanitation Control Certificate</p>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="content pb-5">
-            <div class="container">
+            <div class="container-fluid" style="max-width: 1400px;">
                 <?php if(session()->getFlashdata('success')): ?>
-                    <div class="alert alert-success alert-dismissible fade show">
-                        <button type="button" class="close" data-dismiss="alert">&times;</button>
-                        <?= session()->getFlashdata('success') ?>
+                    <div class="alert alert-success alert-dismissible fade show shadow-sm d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-check-circle mr-1"></i> <strong><?= session()->getFlashdata('success') ?></strong>
+                        </div>
+                        <div>
+                            <?php if(session()->getFlashdata('doc_link')): ?>
+                                <button type="button" class="btn btn-sm btn-light font-weight-bold mr-3" onclick="$('#modalDocLink').modal('show')">
+                                    <i class="fas fa-link mr-1 text-success"></i> Lihat / Copy Link Dokumen
+                                </button>
+                            <?php endif; ?>
+                            <button type="button" class="close" data-dismiss="alert">&times;</button>
+                        </div>
                     </div>
                 <?php endif; ?>
 
-                <form action="<?= base_url('travelconsent/submit_sanitasi') ?>" method="POST" id="formSanitasi">
+                <form action="<?= base_url('travelconsent/submit_sanitasi') ?>" method="POST" id="formSanitasi" enctype="multipart/form-data">
                     
                     <!-- BAGIAN 1: INFORMASI UMUM -->
                     <div class="card card-primary">
@@ -84,8 +92,8 @@
                                     <label>Sertifikat ini mencatat pemeriksaan dan: <span class="text-danger">*</span></label>
                                     <select name="sertifikat_mencatat" class="form-control" required>
                                         <option value="">-- Pilih --</option>
-                                        <option value="Pembebasan">Pembebasan (Exemption)</option>
-                                        <option value="Pengendalian">Pengendalian (Control)</option>
+                                        <option value="Pembebasan">Pembebasan</option>
+                                        <option value="Pengendalian">Pengendalian</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6 form-group">
@@ -116,12 +124,36 @@
                                 </div>
                                 <div class="col-md-6 form-group">
                                     <label>Bendera</label>
+                                    <?php
+                                    $countries = [
+                                        'Afganistan', 'Afrika Selatan', 'Afrika Tengah', 'Albania', 'Aljazair', 'Amerika Serikat', 'Andorra', 'Angola', 'Antigua dan Barbuda', 'Arab Saudi',
+                                        'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahama', 'Bahrain', 'Bangladesh', 'Barbados', 'Belanda',
+                                        'Belarus', 'Belgia', 'Belize', 'Benin', 'Bermuda', 'Bhutan', 'Bolivia', 'Bosnia dan Herzegovina', 'Botswana', 'Brasil',
+                                        'Brunei Darussalam', 'Bulgaria', 'Burkina Faso', 'Burundi', 'Ceko', 'Chad', 'Chili', 'China', 'Cook Islands', 'Curacao',
+                                        'Denmark', 'Djibouti', 'Dominika', 'Ekuador', 'El Salvador', 'Eritrea', 'Estonia', 'Eswatini', 'Ethiopia', 'Fiji',
+                                        'Filipina', 'Finlandia', 'Gabon', 'Gambia', 'Georgia', 'Ghana', 'Gibraltar', 'Grenada', 'Guatemala', 'Guinea',
+                                        'Guinea Khatulistiwa', 'Guinea-Bissau', 'Guyana', 'Haiti', 'Honduras', 'Hong Kong', 'Hungaria', 'India', 'Indonesia', 'Inggris (Britania Raya)',
+                                        'Irak', 'Iran', 'Irlandia', 'Islandia', 'Israel', 'Italia', 'Jamaika', 'Jepang', 'Jerman', 'Kamboja',
+                                        'Kamerun', 'Kanada', 'Kazakhstan', 'Kenya', 'Kepulauan Cayman', 'Kepulauan Faroe', 'Kepulauan Marshall', 'Kepulauan Solomon', 'Kirgizstan', 'Kiribati',
+                                        'Kolombia', 'Komoro', 'Kongo', 'Korea Selatan', 'Korea Utara', 'Kosta Rika', 'Kroasia', 'Kuba', 'Kuwait', 'Laos',
+                                        'Latvia', 'Lebanon', 'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lituania', 'Luksemburg', 'Madagaskar', 'Makau',
+                                        'Makedonia Utara', 'Maladewa', 'Malawi', 'Malaysia', 'Mali', 'Malta', 'Maroko', 'Mauritania', 'Mauritius', 'Meksiko',
+                                        'Mesir', 'Mikronesia', 'Moldova', 'Monako', 'Mongolia', 'Montenegro', 'Mozambik', 'Myanmar', 'Namibia', 'Nauru',
+                                        'Nepal', 'Niger', 'Nigeria', 'Nikaragua', 'Norwegia', 'Oman', 'Pakistan', 'Palau', 'Palestina', 'Panama',
+                                        'Pantai Gading', 'Papua Nugini', 'Paraguay', 'Prancis', 'Peru', 'Polandia', 'Portugal', 'Qatar', 'Republik Demokratik Kongo', 'Republik Dominika',
+                                        'Rumania', 'Rusia', 'Rwanda', 'Saint Kitts dan Nevis', 'Saint Lucia', 'Saint Vincent dan Grenadines', 'Samoa', 'San Marino', 'Sao Tome dan Principe', 'Selandia Baru',
+                                        'Senegal', 'Serbia', 'Seychelles', 'Sierra Leone', 'Singapura', 'Siprus', 'Slovakia', 'Slovenia', 'Somalia', 'Spanyol',
+                                        'Sri Lanka', 'Sudan', 'Sudan Selatan', 'Suriah', 'Suriname', 'Swedia', 'Swiss', 'Taiwan', 'Tajikistan', 'Tanjung Verde',
+                                        'Tanzania', 'Thailand', 'Timor Leste', 'Togo', 'Tonga', 'Trinidad dan Tobago', 'Tunisia', 'Turki', 'Turkmenistan', 'Tuvalu',
+                                        'Uganda', 'Ukraina', 'Uni Emirat Arab', 'Uruguay', 'Uzbekistan', 'Vanuatu', 'Vatikan', 'Venezuela', 'Vietnam', 'Yaman',
+                                        'Yordania', 'Yunani', 'Zambia', 'Zimbabwe'
+                                    ];
+                                    ?>
                                     <select name="bendera" class="form-control select2">
                                         <option value="">-- Pilih Bendera --</option>
-                                        <option value="Indonesia">Indonesia</option>
-                                        <option value="Singapura">Singapura</option>
-                                        <option value="Malaysia">Malaysia</option>
-                                        <option value="Lainnya">Lainnya</option>
+                                        <?php foreach ($countries as $country): ?>
+                                            <option value="<?= $country ?>"><?= $country ?></option>
+                                        <?php endforeach; ?>
                                     </select>
                                 </div>
                                 <div class="col-md-6 form-group">
@@ -148,63 +180,109 @@
                         </div>
                     </div>
 
-                    <!-- BAGIAN 2: AREA / FASILITAS (DYNAMIC) -->
+                    <!-- BAGIAN 2: AREA / FASILITAS (TABEL LENGKAP) -->
+                    <?php
+                    $allAreas = [
+                        'Dapur',
+                        'Ruang rakit makanan',
+                        'Gudang',
+                        'Palka',
+                        'Ruang tidur',
+                        'ABK',
+                        'Perwira',
+                        'Penumpang',
+                        'Geladak',
+                        'Air bersih',
+                        'Limbah cair',
+                        'Tangki air Ballast',
+                        'Sampah medik dan sampah padat',
+                        'Air permukaan',
+                        'Kamar mesin',
+                        'Fasilitas medik',
+                        'Area lainnya',
+                        'Sumber Makanan',
+                        'Penyimpanan Makanan',
+                        'Penyiapan Makanan',
+                        'Penyajian Makanan',
+                        'Sumber Air',
+                        'Penyimpanan Air',
+                        'Distribusi Air',
+                        'Penanganan Sampah',
+                        'Perlakuan Sampah',
+                        'Pembuangan Sampah',
+                        'Pengoperasian Kolam Renang',
+                        'Perlengkapan dan alat-alat medis',
+                        'Pengoperasian Fasilitas Medik',
+                        'Obat-obatan',
+                        'Bagian lainnya yang diperiksa'
+                    ];
+                    ?>
                     <div class="card card-success">
-                        <div class="card-header">
-                            <h3 class="card-title">Bagian 2: Area / Fasilitas yang Diperiksa</h3>
+                        <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+                            <h3 class="card-title mb-1 mb-md-0"><i class="fas fa-tasks mr-2"></i>Bagian 2: Area / Fasilitas yang Diperiksa</h3>
+                            <div class="card-tools ml-auto">
+                                <span class="small mr-2">Atur Semua Status:</span>
+                                <button type="button" class="btn btn-xs btn-light text-dark font-weight-bold mr-1" onclick="setAllAreaStatus('Tidak Ditemukan Faktor Risiko')">Tidak Ditemukan Faktor Risiko</button>
+                                <button type="button" class="btn btn-xs btn-light text-dark font-weight-bold mr-1" onclick="setAllAreaStatus('Ditemukan Faktor Risiko')">Ditemukan Faktor Risiko</button>
+                                <button type="button" class="btn btn-xs btn-light text-dark font-weight-bold mr-1" onclick="setAllAreaStatus('Tidak Ada')">Tidak Ada</button>
+                                <button type="button" class="btn btn-xs btn-outline-light" onclick="setAllAreaStatus('')">Kosongkan</button>
+                            </div>
                         </div>
-                        <div class="card-body bg-light">
-                            <div class="row mb-4 align-items-end">
-                                <div class="col-md-8">
-                                    <label>Pilih Area/Fasilitas yang Diperiksa</label>
-                                    <select id="areaSelector" class="form-control select2">
-                                        <option value="">-- Pilih Area --</option>
-                                        <option value="Dapur">Dapur</option>
-                                        <option value="Ruang rakit makanan">Ruang rakit makanan</option>
-                                        <option value="Gudang">Gudang</option>
-                                        <option value="Palka">Palka</option>
-                                        <option value="Ruang tidur">Ruang tidur</option>
-                                        <option value="ABK">ABK</option>
-                                        <option value="Perwira">Perwira</option>
-                                        <option value="Penumpang">Penumpang</option>
-                                        <option value="Geladak">Geladak</option>
-                                        <option value="Air bersih">Air bersih</option>
-                                        <option value="Limbah cair">Limbah cair</option>
-                                        <option value="Tangki air Ballast">Tangki air Ballast</option>
-                                        <option value="Sampah medik dan sampah padat">Sampah medik dan sampah padat</option>
-                                        <option value="Air permukaan">Air permukaan</option>
-                                        <option value="Kamar mesin">Kamar mesin</option>
-                                        <option value="Fasilitas medik">Fasilitas medik</option>
-                                        <option value="Area lainnya">Area lainnya</option>
-                                        <option value="Sumber Makanan">Sumber Makanan</option>
-                                        <option value="Penyimpanan Makanan">Penyimpanan Makanan</option>
-                                        <option value="Penyiapan Makanan">Penyiapan Makanan</option>
-                                        <option value="Penyajian Makanan">Penyajian Makanan</option>
-                                        <option value="Sumber Air">Sumber Air</option>
-                                        <option value="Penyimpanan Air">Penyimpanan Air</option>
-                                        <option value="Distribusi Air">Distribusi Air</option>
-                                        <option value="Penanganan Sampah">Penanganan Sampah</option>
-                                        <option value="Perlakuan Sampah">Perlakuan Sampah</option>
-                                        <option value="Pembuangan Sampah">Pembuangan Sampah</option>
-                                        <option value="Pengoperasian Kolam Renang">Pengoperasian Kolam Renang</option>
-                                        <option value="Perlengkapan dan alat-alat medis">Perlengkapan dan alat-alat medis</option>
-                                        <option value="Pengoperasian Fasilitas Medik">Pengoperasian Fasilitas Medik</option>
-                                        <option value="Obat-obatan">Obat-obatan</option>
-                                        <option value="Bagian lainnya yang diperiksa">Bagian lainnya yang diperiksa</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <button type="button" id="btnAddArea" class="btn btn-primary btn-block"><i class="fas fa-plus mr-2"></i>Tambah Area</button>
-                                </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-striped table-hover table-sm mb-0" style="font-size: 13px;">
+                                    <thead class="thead-light text-center">
+                                        <tr>
+                                            <th class="align-middle" style="width: 40px;">No</th>
+                                            <th class="align-middle text-left" style="min-width: 200px;">Area / Fasilitas yang Diperiksa</th>
+                                            <th class="align-middle" style="min-width: 215px;">Status Pemeriksaan <span class="text-danger">*</span></th>
+                                            <th class="align-middle" style="min-width: 145px;">Bukti yang Ditemukan</th>
+                                            <th class="align-middle" style="min-width: 135px;">Hasil Sampel</th>
+                                            <th class="align-middle" style="min-width: 145px;">Dokumen yang Diperiksa</th>
+                                            <th class="align-middle" style="min-width: 150px;">Tindakan Pengendalian</th>
+                                            <th class="align-middle" style="min-width: 135px;">Tgl Pemeriksaan Ulang</th>
+                                            <th class="align-middle" style="min-width: 145px;">Komentar Kondisi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($allAreas as $i => $areaName): $idx = $i + 1; ?>
+                                        <tr>
+                                            <td class="text-center align-middle font-weight-bold"><?= $idx ?></td>
+                                            <td class="align-middle font-weight-bold">
+                                                <?= esc($areaName) ?>
+                                                <input type="hidden" name="areas[<?= $idx ?>][nama]" value="<?= esc($areaName) ?>">
+                                            </td>
+                                            <td class="align-middle">
+                                                <select name="areas[<?= $idx ?>][status]" class="form-control form-control-sm area-status-select" required>
+                                                    <option value="">-- Pilih --</option>
+                                                    <option value="Tidak Ditemukan Faktor Risiko" selected>Tidak Ditemukan Faktor Risiko</option>
+                                                    <option value="Ditemukan Faktor Risiko">Ditemukan Faktor Risiko</option>
+                                                    <option value="Tidak Ada">Tidak Ada</option>
+                                                </select>
+                                            </td>
+                                            <td class="align-middle">
+                                                <input type="text" name="areas[<?= $idx ?>][bukti]" class="form-control form-control-sm" placeholder="Bukti...">
+                                            </td>
+                                            <td class="align-middle">
+                                                <input type="text" name="areas[<?= $idx ?>][sampel]" class="form-control form-control-sm" placeholder="Hasil sampel...">
+                                            </td>
+                                            <td class="align-middle">
+                                                <input type="text" name="areas[<?= $idx ?>][dokumen]" class="form-control form-control-sm" placeholder="Nama dokumen...">
+                                            </td>
+                                            <td class="align-middle">
+                                                <input type="text" name="areas[<?= $idx ?>][tindakan]" class="form-control form-control-sm" placeholder="Tindakan...">
+                                            </td>
+                                            <td class="align-middle">
+                                                <input type="date" name="areas[<?= $idx ?>][tanggal_ulang]" class="form-control form-control-sm">
+                                            </td>
+                                            <td class="align-middle">
+                                                <input type="text" name="areas[<?= $idx ?>][komentar]" class="form-control form-control-sm" placeholder="Komentar...">
+                                            </td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
                             </div>
-                            
-                            <hr>
-                            
-                            <!-- Container for Dynamic Cards -->
-                            <div id="dynamicAreaContainer">
-                                <!-- Cards will be appended here via jQuery -->
-                            </div>
-                            
                         </div>
                     </div>
 
@@ -230,17 +308,36 @@
                                     </div>
                                     <input type="hidden" name="tanda_tangan" id="tanda_tangan" required>
                                     <button type="button" class="btn btn-sm btn-danger mt-2" id="btnClearSignature">
-                                        <i class="fas fa-eraser mr-1"></i> Clear Tanda Tangan
+                                        <i class="fas fa-eraser mr-1"></i> Hapus Tanda Tangan
                                     </button>
+                                </div>
+                                <div class="col-md-12 form-group">
+                                    <label class="font-weight-bold"><i class="fas fa-camera mr-1 text-primary"></i> Unggah Foto Geotagging</label>
+                                    <div class="custom-file">
+                                        <input type="file" class="custom-file-input" name="foto_geotagging" id="foto_geotagging" accept="image/*" onchange="previewGeotag(this, 'geotag_preview')">
+                                        <label class="custom-file-label" for="foto_geotagging">Pilih file foto geotagging...</label>
+                                    </div>
+                                    <small class="form-text text-muted">Format: JPG, JPEG, PNG (Maks 10MB). Pastikan foto memuat stempel geotag/koordinat lokasi & waktu.</small>
+                                    <div id="geotag_preview_wrapper" class="mt-3 text-center" style="display:none;">
+                                        <p class="mb-1 text-muted small font-weight-bold">Pratinjau Foto Geotagging:</p>
+                                        <img id="geotag_preview" src="" alt="Pratinjau Geotagging" class="img-thumbnail shadow-sm" style="max-height: 450px; max-width: 100%;">
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- STICKY FOOTER -->
-                    <div class="sticky-footer d-flex justify-content-between align-items-center rounded mt-4">
+                    <div class="sticky-footer d-flex justify-content-between align-items-center flex-wrap rounded mt-4">
                         <a href="<?= base_url('travelconsent/home') ?>" class="btn btn-secondary px-4">Batal</a>
-                        <button type="submit" class="btn btn-primary px-5 font-weight-bold">Simpan Sertifikat</button>
+                        <div class="d-flex align-items-center mt-2 mt-sm-0">
+                            <span id="statusProgressInfo" class="mr-3 small font-weight-bold text-danger">
+                                <i class="fas fa-exclamation-circle mr-1"></i>Status Pemeriksaan: <span id="statusFilledCount">0</span>/<?= count($allAreas) ?> terisi (Wajib diisi semua)
+                            </span>
+                            <div id="submitBtnWrapper" class="d-inline-block" style="cursor: not-allowed;">
+                                <button type="submit" id="btnSubmitSanitasi" class="btn btn-primary px-5 font-weight-bold" disabled style="pointer-events: none;">Submit form</button>
+                            </div>
+                        </div>
                     </div>
 
                 </form>
@@ -248,6 +345,43 @@
         </div>
     </div>
 </div>
+
+<?php if(session()->getFlashdata('doc_link')): ?>
+<!-- Modal Popup Link Dokumen Publik -->
+<div class="modal fade" id="modalDocLink" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title font-weight-bold"><i class="fas fa-check-circle mr-2"></i>Form Berhasil Disubmit</h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <div class="mb-3 text-success">
+                    <i class="fas fa-file-alt fa-3x"></i>
+                </div>
+                <h6 class="font-weight-bold mb-2"><?= session()->getFlashdata('success') ?></h6>
+                <p class="text-muted small mb-3">Salin link publik di bawah ini untuk melihat atau mencetak dokumen yang telah disubmit:</p>
+                <div class="input-group">
+                    <input type="text" id="publicDocLinkInput" class="form-control bg-light text-dark font-weight-bold" value="<?= esc(session()->getFlashdata('doc_link')) ?>" readonly>
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-dark font-weight-bold" onclick="copySubmittedDocLink(this)">
+                            <i class="fas fa-copy mr-1"></i> Copy Link
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between bg-light">
+                <a href="<?= esc(session()->getFlashdata('doc_link')) ?>" target="_blank" class="btn btn-primary font-weight-bold">
+                    <i class="fas fa-external-link-alt mr-1"></i> Lihat Dokumen
+                </a>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <!-- jQuery -->
 <script src="<?= base_url('plugins/jquery/jquery.min.js') ?>"></script>
@@ -257,101 +391,127 @@
 <script src="<?= base_url('plugins/select2/js/select2.full.min.js') ?>"></script>
 
 <script>
-    $(document).ready(function() {
+<?php if(session()->getFlashdata('doc_link')): ?>
+$(document).ready(function() {
+    $('#modalDocLink').modal('show');
+});
+<?php endif; ?>
+
+function copySubmittedDocLink(btn) {
+    var input = document.getElementById('publicDocLinkInput');
+    if (!input) return;
+    input.select();
+    input.setSelectionRange(0, 99999);
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(input.value);
+    } else {
+        document.execCommand('copy');
+    }
+    var originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check mr-1"></i> Tersalin!';
+    setTimeout(function() {
+        btn.innerHTML = originalHtml;
+    }, 2000);
+}
+
+function previewGeotag(input, targetId) {
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var img = document.getElementById(targetId);
+            if (img) {
+                img.src = e.target.result;
+                var wrapper = document.getElementById(targetId + '_wrapper');
+                if (wrapper) wrapper.style.display = 'block';
+            }
+        };
+        reader.readAsDataURL(input.files[0]);
+        var label = input.nextElementSibling;
+        if (label && label.classList.contains('custom-file-label')) {
+            label.textContent = input.files[0].name;
+        }
+    }
+}
+
+function setAllAreaStatus(statusVal) {
+    $('.area-status-select').val(statusVal).trigger('change');
+}
+
+function updateStatusProgress() {
+    var total = $('.area-status-select').length;
+    var filled = 0;
+    $('.area-status-select').each(function() {
+        if ($(this).val() !== '') {
+            filled++;
+            $(this).removeClass('is-invalid');
+        }
+    });
+
+    var infoEl = $('#statusProgressInfo');
+    var btnEl = $('#btnSubmitSanitasi');
+    var wrapperEl = $('#submitBtnWrapper');
+
+    if (filled === total && total > 0) {
+        btnEl.prop('disabled', false).css('pointer-events', 'auto');
+        wrapperEl.css('cursor', 'pointer');
+        infoEl.removeClass('text-danger').addClass('text-success')
+            .html('<i class="fas fa-check-circle mr-1"></i>Semua Status Pemeriksaan telah terisi (' + filled + '/' + total + ')');
+    } else {
+        btnEl.prop('disabled', true).css('pointer-events', 'none');
+        wrapperEl.css('cursor', 'not-allowed');
+        infoEl.removeClass('text-success').addClass('text-danger')
+            .html('<i class="fas fa-exclamation-circle mr-1"></i>Status Pemeriksaan: <span id="statusFilledCount">' + filled + '</span>/' + total + ' terisi (Wajib diisi semua)');
+    }
+    return filled === total;
+}
+
+function highlightUnfilledStatus() {
+    var total = $('.area-status-select').length;
+    var filled = 0;
+    var firstEmpty = null;
+
+    $('.area-status-select').each(function() {
+        if ($(this).val() === '') {
+            $(this).addClass('is-invalid');
+            if (!firstEmpty) firstEmpty = $(this);
+        } else {
+            $(this).removeClass('is-invalid');
+            filled++;
+        }
+    });
+
+    if (firstEmpty) {
+        alert('Tombol Submit form belum dapat diproses karena semua Status Pemeriksaan wajib diisi terlebih dahulu! (Baru terisi ' + filled + ' dari ' + total + ' area)');
+        $('html, body').animate({
+            scrollTop: firstEmpty.offset().top - 150
+        }, 300);
+        firstEmpty.focus();
+        return false;
+    }
+    return true;
+}
+
+$(document).ready(function() {
         // Initialize Select2
         $('.select2').select2({
             theme: 'bootstrap4',
             width: '100%'
         });
 
-        let areaCount = 0;
-
-        // Function to add new Area Card
-        $('#btnAddArea').click(function() {
-            let areaName = $('#areaSelector').val();
-            
-            if(!areaName) {
-                alert('Silakan pilih Area/Fasilitas terlebih dahulu!');
-                return;
-            }
-
-            areaCount++;
-            let index = areaCount; // Unique index for array
-
-            let cardHtml = `
-                <div class="card card-outline card-info card-area" id="area-card-${index}">
-                    <div class="card-header">
-                        <h3 class="card-title font-weight-bold">${areaName}</h3>
-                        <div class="card-tools">
-                            <button type="button" class="btn btn-tool text-danger btn-remove-area" data-id="${index}">
-                                <i class="fas fa-trash fa-lg"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <input type="hidden" name="areas[${index}][nama]" value="${areaName}">
-                        
-                        <div class="form-group mb-4 p-3 bg-light rounded border">
-                            <label class="d-block mb-2">Status Pemeriksaan: <span class="text-danger">*</span></label>
-                            <div class="icheck-primary d-inline mr-4">
-                                <input type="radio" id="status_ya_${index}" name="areas[${index}][status]" value="Ya" required>
-                                <label for="status_ya_${index}">Ya</label>
-                            </div>
-                            <div class="icheck-primary d-inline mr-4">
-                                <input type="radio" id="status_tidak_${index}" name="areas[${index}][status]" value="Tidak Ditemukan">
-                                <label for="status_tidak_${index}">Tidak Ditemukan</label>
-                            </div>
-                            <div class="icheck-primary d-inline">
-                                <input type="radio" id="status_na_${index}" name="areas[${index}][status]" value="N/A">
-                                <label for="status_na_${index}">Tidak ada (N/A)</label>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6 form-group">
-                                <label>Bukti yang ditemukan</label>
-                                <input type="text" name="areas[${index}][bukti]" class="form-control" placeholder="Tuliskan bukti...">
-                            </div>
-                            <div class="col-md-6 form-group">
-                                <label>Hasil sampel</label>
-                                <input type="text" name="areas[${index}][sampel]" class="form-control" placeholder="Tuliskan hasil...">
-                            </div>
-                            <div class="col-md-6 form-group">
-                                <label>Dokumen yang diperiksa</label>
-                                <input type="text" name="areas[${index}][dokumen]" class="form-control" placeholder="Nama dokumen...">
-                            </div>
-                            <div class="col-md-6 form-group">
-                                <label>Tindakan Pengendalian yang dilakukan</label>
-                                <input type="text" name="areas[${index}][tindakan]" class="form-control" placeholder="Tindakan...">
-                            </div>
-                            <div class="col-md-6 form-group">
-                                <label>Tanggal pemeriksaan ulang</label>
-                                <input type="date" name="areas[${index}][tanggal_ulang]" class="form-control">
-                            </div>
-                            <div class="col-md-6 form-group">
-                                <label>Komentar terhadap kondisi yang ditemukan</label>
-                                <input type="text" name="areas[${index}][komentar]" class="form-control" placeholder="Komentar...">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            $('#dynamicAreaContainer').append(cardHtml);
-            
-            // Reset dropdown
-            $('#areaSelector').val('').trigger('change');
+        // Monitor perubahan Status Pemeriksaan
+        $(document).on('change', '.area-status-select', function() {
+            updateStatusProgress();
         });
 
-        // Delegate event for dynamic remove buttons
-        $('#dynamicAreaContainer').on('click', '.btn-remove-area', function() {
-            let id = $(this).data('id');
-            if(confirm('Yakin ingin menghapus area ini dari form?')) {
-                $('#area-card-' + id).fadeOut(300, function() {
-                    $(this).remove();
-                });
+        // Klik pada tombol submit yang masih terkunci (disabled)
+        $('#submitBtnWrapper').on('click', function(e) {
+            if ($('#btnSubmitSanitasi').prop('disabled')) {
+                e.preventDefault();
+                highlightUnfilledStatus();
             }
         });
+
+        updateStatusProgress();
 
         // --- SIGNATURE CANVAS SCRIPT ---
         const canvas = document.getElementById('signatureCanvas');
@@ -434,6 +594,10 @@
 
         // Form Submit Validation
         $('#formSanitasi').on('submit', function(e) {
+            if (!highlightUnfilledStatus()) {
+                e.preventDefault();
+                return false;
+            }
             if (!inputSignature.value) {
                 e.preventDefault();
                 alert('Silakan isi tanda tangan terlebih dahulu!');

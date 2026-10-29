@@ -29,6 +29,7 @@ class SanitasiKapalModel extends Model
         'pejabat_penerbit',
         'keterangan',
         'tanda_tangan',
+        'foto_geotagging',
         'created_at',
         'updated_at'
     ];

@@ -971,6 +971,12 @@ $routes->group('travelconsent', function ($routes) {
     $routes->get('public_sanitasi', 'TravelConsent::public_sanitasi');
     $routes->post('submit_sanitasi', 'TravelConsent::submit_sanitasi');
 
+    // Public document view routes
+    $routes->get('doc_aircraft/(:num)', 'TravelConsent::doc_aircraft/$1');
+    $routes->get('doc_alat/(:num)', 'TravelConsent::doc_alat/$1');
+    $routes->get('doc_obat/(:num)', 'TravelConsent::doc_obat/$1');
+    $routes->get('doc_sanitasi/(:num)', 'TravelConsent::doc_sanitasi/$1');
+
     // Admin routes
     $routes->get('index', 'TravelConsent::index', ['filter' => 'auth']);
     $routes->get('delete_aircraft/(:num)', 'TravelConsent::delete_aircraft/$1', ['filter' => 'auth']);
@@ -988,13 +994,13 @@ $routes->group('travelconsent', function ($routes) {
     $routes->get('excel_alat/(:num)', 'TravelConsent::excel_alat/$1', ['filter' => 'auth']);
     $routes->get('excel_obat/(:num)', 'TravelConsent::excel_obat/$1', ['filter' => 'auth']);
 
-    $routes->get('print_aircraft/(:num)', 'TravelConsent::print_aircraft/$1', ['filter' => 'auth']);
-    $routes->get('print_alat/(:num)', 'TravelConsent::print_alat/$1', ['filter' => 'auth']);
-    $routes->get('print_obat/(:num)', 'TravelConsent::print_obat/$1', ['filter' => 'auth']);
+    $routes->get('print_aircraft/(:num)', 'TravelConsent::print_aircraft/$1');
+    $routes->get('print_alat/(:num)', 'TravelConsent::print_alat/$1');
+    $routes->get('print_obat/(:num)', 'TravelConsent::print_obat/$1');
     
     $routes->get('edit_sanitasi/(:num)', 'TravelConsent::edit_sanitasi/$1', ['filter' => 'auth']);
     $routes->get('delete_sanitasi/(:num)', 'TravelConsent::delete_sanitasi/$1', ['filter' => 'auth']);
-    $routes->get('print_sanitasi/(:num)', 'TravelConsent::print_sanitasi/$1', ['filter' => 'auth']);
+    $routes->get('print_sanitasi/(:num)', 'TravelConsent::print_sanitasi/$1');
     $routes->post('update_sanitasi/(:num)', 'TravelConsent::update_sanitasi/$1', ['filter' => 'auth']);
 });
 
