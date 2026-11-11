@@ -3,6 +3,7 @@
 namespace App\Controllers\Sinadi;
 
 use App\Controllers\BaseController;
+use App\Libraries\SinadiVerifikatorHelper;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -45,11 +46,8 @@ class Data extends BaseController
     $data['getPeserta'] = $this->sinadiPerjalananDinasPesertaModel
       ->where('id_perjalanan', $id)->findAll();
 
-    $data['pegawai'] = $this->dataPegawaiModel->select('nip')->findAll();
-    $data['pegawai'] = array_column($data['pegawai'], 'nip');
-    $data['all_pegawai'] = $this->dataPegawaiModel->orderBy('nama', 'ASC')->findAll();
-    
-    $data['all_pegawai'] = $this->dataPegawaiModel->orderBy('nama', 'ASC')->findAll();
+    $data['all_pegawai'] = $this->dataPegawaiModel->select('nama, nip')->orderBy('nama', 'ASC')->findAll();
+    $data['pegawai'] = array_column($data['all_pegawai'], 'nip');
 
     if ($data['getPeserta'][0]['kota'] == $data['getPeserta'][0]['kota_asal']) {
       $data['activeMenu'] = "dinasDalamKota";
@@ -75,9 +73,8 @@ class Data extends BaseController
     $data['getPeserta'] = $this->sinadiPerjalananDinasPesertaModel
       ->where('id_perjalanan', $id)->findAll();
 
-    $data['pegawai'] = $this->dataPegawaiModel->select('nip')->findAll();
-    $data['pegawai'] = array_column($data['pegawai'], 'nip');
-    $data['all_pegawai'] = $this->dataPegawaiModel->orderBy('nama', 'ASC')->findAll();
+    $data['all_pegawai'] = $this->dataPegawaiModel->select('nama, nip')->orderBy('nama', 'ASC')->findAll();
+    $data['pegawai'] = array_column($data['all_pegawai'], 'nip');
 
     if ($data['getPeserta'][0]['kota'] == $data['getPeserta'][0]['kota_asal']) {
       $data['activeMenu'] = "dinasDalamKota";
@@ -110,9 +107,8 @@ class Data extends BaseController
     $data['getPeserta'] = $this->sinadiPerjalananDinasPesertaModel
       ->where('id_perjalanan', $id)->findAll();
 
-    $data['pegawai'] = $this->dataPegawaiModel->select('nip')->findAll();
-    $data['pegawai'] = array_column($data['pegawai'], 'nip');
-    $data['all_pegawai'] = $this->dataPegawaiModel->orderBy('nama', 'ASC')->findAll();
+    $data['all_pegawai'] = $this->dataPegawaiModel->select('nama, nip')->orderBy('nama', 'ASC')->findAll();
+    $data['pegawai'] = array_column($data['all_pegawai'], 'nip');
 
     $data['lembarVerif'] = $this->sinadiLembarVerifikasiModel->where('id_perjalanan', $id)->first();
 
@@ -150,276 +146,120 @@ class Data extends BaseController
     $data['title'] = "Sinadi | Validasi Dokumen Perjalanan Dinas";
     $data['activeMenu'] = "sinadiBlockir";
     // Default submenu to APBN when no 'tipe' is provided
-    $data['tipe'] = strtoupper($this->request->getVar('tipe') ?? 'APBN');
+    $tipe = strtoupper((string) ($this->request->getVar('tipe') ?? 'APBN'));
+    $data['tipe'] = $tipe;
 
+    $username = session()->get('username');
     $superUser = $this->userModel
+      ->select('sinadi_akses.status')
       ->join('sinadi_akses', 'sinadi_akses.id_user=user.id_user')
-      ->where("user.username", session()->get('username'))
+      ->where('user.username', $username)
       ->first();
 
-    $ket = [];
-    $setStatus = 0;
-    if ($superUser && $superUser['status'] == "Akses Diterima") {
-      $data['activeMenu'] = "sinadiVerifikator";
-      $ket[$setStatus++] = [
-        'status' => 'Sebagai Super User'
-      ];
-    }
+    $isSuperUser = $superUser && ($superUser['status'] ?? '') === 'Akses Diterima';
 
     // Pilih konfigurasi verifikator berdasarkan submenu (APBN/RPL)
-    $cekVerifikator = null;
-    if (($data['tipe'] ?? '') === 'APBN') {
-      try {
-        $cekVerifikator = $this->sinadiVerifikatorApbnModel->orderBy('created_at', 'desc')->first();
-      } catch (\Throwable $e) {
-        $cekVerifikator = null;
-      }
-    } elseif (($data['tipe'] ?? '') === 'RPL') {
-      try {
-        $cekVerifikator = $this->sinadiVerifikatorRplModel->orderBy('created_at', 'desc')->first();
-      } catch (\Throwable $e) {
-        $cekVerifikator = null;
-      }
-    }
-    // Fallback ke konfigurasi default jika tidak tersedia
-    if (!$cekVerifikator) {
-      $cekVerifikator = $this->sinadiVerifikatorModel->orderBy('created_at', 'desc')->first();
-    }
+    $cekVerifikator = SinadiVerifikatorHelper::getConfigByTipe(
+      $tipe,
+      $this->sinadiVerifikatorApbnModel,
+      $this->sinadiVerifikatorRplModel,
+      $this->sinadiVerifikatorModel
+    );
 
-    // Normalisasi verifikator_1 menjadi array aman
-    $verifikator1 = @unserialize($cekVerifikator['verifikator_1']);
-    if ($verifikator1 === false) {
-      $verifikator1 = [];
-      if (!empty($cekVerifikator['verifikator_1'])) {
-        $verifikator1 = [$cekVerifikator['verifikator_1']];
-      }
-    }
-    $verifikator2 = $cekVerifikator['verifikator_2'];
-    $verifikator3 = $cekVerifikator['verifikator_3'];
-    $verifikator4 = $cekVerifikator['verifikator_4'];
-    $verifikator5 = $cekVerifikator['verifikator_5'];
-    // Normalisasi verifikator_6 (multi user) menjadi array aman
-    $verifikator6 = @unserialize($cekVerifikator['verifikator_6']);
-    if ($verifikator6 === false) {
-      $verifikator6 = [];
-      if (!empty($cekVerifikator['verifikator_6'])) {
-        $verifikator6 = [$cekVerifikator['verifikator_6']];
-      }
-    }
+    // Ambil ID pegawai milik user aktif dalam 1 query, lalu cocokan role 1..6 tanpa query berulang
+    $myPegawaiIds = SinadiVerifikatorHelper::getUserPegawaiIds($this->dataPegawaiModel, $username);
+    $roles = SinadiVerifikatorHelper::resolveUserRoles($cekVerifikator, $myPegawaiIds, $isSuperUser);
 
-    $first = true;
-    $this->dataPegawaiModel->join('user', 'id_user');
-    for ($i = 0; $i < count($verifikator1); $i++) {
-      if ($first) {
-        $first = false;
-        $this->dataPegawaiModel
-          ->groupStart()
-          ->where('id_data_pegawai', $verifikator1[$i])
-          ->where('username', session()->get('username'))
-          ->groupEnd();
-      } else {
-        $this->dataPegawaiModel
-          ->orGroupStart()
-          ->where('id_data_pegawai', $verifikator1[$i])
-          ->where('username', session()->get('username'))
-          ->groupEnd();
-      }
-    }
-    $cek1 = $this->dataPegawaiModel->first();
-    $data['urut_verif'] = [];
-    
-    if ($cek1) {
-      $ket[$setStatus++] = [
-        'status' => 'Sebagai Verifikator ke-1',
-      ];
-      $data['urut_verif'][] = '1';
-    }
-
-    $this->dataPegawaiModel->join('user', 'id_user')
-      ->where('id_data_pegawai', $verifikator2)
-      ->where('username', session()->get('username'));
-    $cek2 = $this->dataPegawaiModel->first();
-    if ($cek2) {
-      $ket[$setStatus++] = [
-        'status' => 'Sebagai Verifikator ke-2',
-      ];
-      $data['urut_verif'][] = '2';
-    }
-
-    $this->dataPegawaiModel->join('user', 'id_user')
-      ->where('id_data_pegawai', $verifikator3)
-      ->where('username', session()->get('username'));
-    $cek3 = $this->dataPegawaiModel->first();
-    if ($cek3) {
-      $ket[$setStatus++] = [
-        'status' => 'Sebagai Verifikator ke-3',
-      ];
-      $data['urut_verif'][] = '3';
-    }
-
-    $this->dataPegawaiModel->join('user', 'id_user')
-      ->where('id_data_pegawai', $verifikator4)
-      ->where('username', session()->get('username'));
-    $cek4 = $this->dataPegawaiModel->first();
-    if ($cek4) {
-      $ket[$setStatus++] = [
-        'status' => 'Sebagai Verifikator ke-4',
-      ];
-      $data['urut_verif'][] = '4';
-    }
-
-    $this->dataPegawaiModel->join('user', 'id_user')
-      ->where('id_data_pegawai', $verifikator5)
-      ->where('username', session()->get('username'));
-    $cek5 = $this->dataPegawaiModel->first();
-    if ($cek5) {
-      $ket[$setStatus++] = [
-        'status' => 'Sebagai Verifikator ke-5',
-      ];
-      $data['urut_verif'][] = '5';
-    }
-
-
-    $first = true;
-    $this->dataPegawaiModel->join('user', 'id_user');
-    for ($i = 0; $i < count($verifikator6); $i++) {
-      if ($first) {
-        $first = false;
-        $this->dataPegawaiModel
-          ->groupStart()
-          ->where('id_data_pegawai', $verifikator6[$i])
-          ->where('username', session()->get('username'))
-          ->groupEnd();
-      } else {
-        $this->dataPegawaiModel
-          ->orGroupStart()
-          ->where('id_data_pegawai', $verifikator6[$i])
-          ->where('username', session()->get('username'))
-          ->groupEnd();
-      }
-    }
-    $cek6 = $this->dataPegawaiModel->first();
-    if ($cek6) {
-      $ket[$setStatus++] = [
-        'status' => 'Sebagai Petugas Konfirmasi Pembayaran'
-      ];
-      $data['urut_verif'][] = '6';
-    }
-
-    $data['verifikator'] = $ket;
-    if ($ket != []) {
+    $data['urut_verif'] = $roles['urut_verif'];
+    $data['verifikator'] = $roles['keterangan'];
+    if (!empty($data['verifikator'])) {
       $data['activeMenu'] = "sinadiVerifikator";
     }
-    // Dataset gabungan (legacy)
-    $data['getData'] = $this->sinadiPerjalananDinasModel
-      ->where('status_surat', 'Diajukan')
-      ->orWhere('status_surat', 'Dalam Verifikasi')
-      ->orWhere('status_surat', 'Perlu Revisi')
-      ->find();
 
-    // Dataset terpisah berdasarkan sumber anggaran
-    $data['getDataAPBN'] = $this->sinadiPerjalananDinasModel
-      ->groupStart()
-        ->where('status_surat', 'Diajukan')
-        ->orWhere('status_surat', 'Dalam Verifikasi')
-        ->orWhere('status_surat', 'Perlu Revisi')
-      ->groupEnd()
-      ->where('sumber_anggaran', 'APBN')
-      ->find();
-    $data['getDataRPL'] = $this->sinadiPerjalananDinasModel
-      ->groupStart()
-        ->where('status_surat', 'Diajukan')
-        ->orWhere('status_surat', 'Dalam Verifikasi')
-        ->orWhere('status_surat', 'Perlu Revisi')
-      ->groupEnd()
-      ->where('sumber_anggaran', 'RPL')
-      ->find();
-      
-    // Uncomment the date filters if you want to limit to current month only
-    // $today = new \DateTime();
-    // $startOfMonth = $today->modify('first day of this month')->setTime(0, 0, 0)->format('Y-m-d H:i:s');
-    // $endOfMonth = $today->modify('last day of this month')->setTime(23, 59, 59)->format('Y-m-d H:i:s');
-    
-    $data['getDataAll'] = $this->sinadiPerjalananDinasModel
-        ->groupStart()
-            ->where('status_surat', 'Diajukan')
-            ->orWhere('status_surat', 'Dalam Verifikasi')
-            ->orWhere('status_surat', 'Perlu Revisi')
-            ->orWhere('status_surat', 'Disetujui')
-        ->groupEnd()
-        // Remove date filtering to show all records regardless of creation date
-        // ->groupStart()
-        //     ->where('created_at >=', $startOfMonth)
-        //     ->where('created_at <=', $endOfMonth)
-        // ->groupEnd()
-        ->orderBy('created_at', 'desc')
-        ->find();
+    // Hitung jumlah dokumen aktif APBN & RPL via 1 query agregasi ringan untuk badge tab
+    $data['countAPBN'] = 0;
+    $data['countRPL'] = 0;
+    $countsByTipe = $this->sinadiPerjalananDinasModel
+      ->select('sumber_anggaran, COUNT(*) AS total')
+      ->whereIn('status_surat', ['Diajukan', 'Dalam Verifikasi', 'Perlu Revisi'])
+      ->whereIn('sumber_anggaran', ['APBN', 'RPL'])
+      ->groupBy('sumber_anggaran')
+      ->findAll();
+    foreach ($countsByTipe as $cntRow) {
+      if (($cntRow['sumber_anggaran'] ?? '') === 'APBN') {
+        $data['countAPBN'] = (int) $cntRow['total'];
+      } elseif (($cntRow['sumber_anggaran'] ?? '') === 'RPL') {
+        $data['countRPL'] = (int) $cntRow['total'];
+      }
+    }
 
-    // Dataset upload bukti terpisah berdasarkan sumber anggaran
-    $data['getDataAllAPBN'] = $this->sinadiPerjalananDinasModel
-        ->groupStart()
-            ->where('status_surat', 'Diajukan')
-            ->orWhere('status_surat', 'Dalam Verifikasi')
-            ->orWhere('status_surat', 'Perlu Revisi')
-            ->orWhere('status_surat', 'Disetujui')
-        ->groupEnd()
-        ->where('sumber_anggaran', 'APBN')
-        ->orderBy('created_at', 'desc')
-        ->find();
-    $data['getDataAllRPL'] = $this->sinadiPerjalananDinasModel
-        ->groupStart()
-            ->where('status_surat', 'Diajukan')
-            ->orWhere('status_surat', 'Dalam Verifikasi')
-            ->orWhere('status_surat', 'Perlu Revisi')
-            ->orWhere('status_surat', 'Disetujui')
-        ->groupEnd()
-        ->where('sumber_anggaran', 'RPL')
-        ->orderBy('created_at', 'desc')
-        ->find();
-        
-    $data['daftarVerifikator'] = [];
+    // Ambil hanya baris dokumen aktif pada tab terpilih & proyeksi kolom yang diperlukan
+    $data['tahap1Rows'] = [];
+    $data['tahap2Rows'] = [];
+    $data['tahap3Rows'] = [];
+    if (in_array($tipe, ['APBN', 'RPL'], true)) {
+      $activeRows = $this->sinadiPerjalananDinasModel
+        ->select('id_perjalanan, nama_kegiatan, mata_anggaran, tgl_pelaksanaan, tgl_pelaksanaan_akhir, tempat_perjalanan, status_surat, verifikator_1, verifikator_2')
+        ->where('sumber_anggaran', $tipe)
+        ->whereIn('status_surat', ['Diajukan', 'Dalam Verifikasi'])
+        ->findAll();
 
+      foreach ($activeRows as $row) {
+        $status = $row['status_surat'] ?? '';
+        $verif1Raw = $row['verifikator_1'] ?? null;
+        $verif2Raw = $row['verifikator_2'] ?? null;
+        unset($row['verifikator_1'], $row['verifikator_2']);
+
+        if ($status === 'Diajukan') {
+          $data['tahap1Rows'][] = $row;
+        } elseif ($status === 'Dalam Verifikasi') {
+          $time1 = SinadiVerifikatorHelper::extractLatestTime($verif1Raw);
+          $time2 = SinadiVerifikatorHelper::extractLatestTime($verif2Raw);
+          if ($time1 >= $time2) {
+            $data['tahap2Rows'][] = $row;
+          } else {
+            $data['tahap3Rows'][] = $row;
+          }
+        }
+      }
+    }
+
+    // Kumpulkan semua id_data_pegawai verifikator lalu fetch nama sekaligus (hindari N+1)
+    $verifikatorIdsPerRole = [];
+    $allVerifikatorIds = [];
     for ($i = 1; $i <= 6; $i++) {
-        $field = "verifikator_{$i}";
-    
-        // Lewati jika field kosong
-        if (empty($cekVerifikator[$field])) {
-            $data['daftarVerifikator'][] = [
-                'verifikator' => "Verifikator {$i}",
-                'anggota'     => null
-            ];
-            continue;
+      $ids = SinadiVerifikatorHelper::normalizeIds($cekVerifikator["verifikator_{$i}"] ?? null, $i === 1 || $i === 6);
+      $verifikatorIdsPerRole[$i] = $ids;
+      foreach ($ids as $idPegawai) {
+        $allVerifikatorIds[] = $idPegawai;
+      }
+    }
+
+    $pegawaiById = [];
+    $uniqueIds = array_values(array_unique($allVerifikatorIds));
+    if (!empty($uniqueIds)) {
+      $pegawaiRows = $this->dataPegawaiModel
+        ->select('id_data_pegawai, nama')
+        ->whereIn('id_data_pegawai', $uniqueIds)
+        ->findAll();
+      foreach ($pegawaiRows as $peg) {
+        $pegawaiById[(string) $peg['id_data_pegawai']] = $peg['nama'];
+      }
+    }
+
+    $data['daftarVerifikator'] = [];
+    for ($i = 1; $i <= 6; $i++) {
+      $label = ($i === 6) ? 'Verifikator Upload Bukti Pembayaran' : "Verifikator {$i}";
+      $anggota = [];
+      foreach ($verifikatorIdsPerRole[$i] as $idPegawai) {
+        if (isset($pegawaiById[$idPegawai])) {
+          $anggota[] = ['nama' => $pegawaiById[$idPegawai]];
         }
-    
-        $ids = $cekVerifikator[$field];
-    
-        // unserialize jika verifikator_1 atau verifikator_6
-        if ($i === 1 || $i === 6) {
-            $ids = @unserialize($ids);
-            if (!is_array($ids)) {
-                $data['daftarVerifikator'][] = [
-                    'verifikator' => ($i == 6 ? 'Verifikator Upload Bukti Pembayaran' : "Verifikator {$i}"),
-                    'anggota'     => null
-                ];
-                continue;
-            }
-        } else {
-            $ids = [$ids]; // jadikan array agar bisa di-loop
-        }
-    
-        $anggota = [];
-        foreach ($ids as $id) {
-            $pegawai = $this->dataPegawaiModel->where('id_data_pegawai', $id)->first();
-            if ($pegawai) {
-                $anggota[] = ['nama' => $pegawai['nama']];
-            }
-        }
-    
-        // Jika anggota kosong, set anggota = null
-        $data['daftarVerifikator'][] = [
-            'verifikator' => ($i == 6 ? 'Verifikator Upload Bukti Pembayaran' : "Verifikator {$i}"),
-            'anggota'     => !empty($anggota) ? $anggota : null
-        ];
+      }
+      $data['daftarVerifikator'][] = [
+        'verifikator' => $label,
+        'anggota'     => !empty($anggota) ? $anggota : null,
+      ];
     }
 
     return view('sinadi/sinadi_verifikasi', $data);

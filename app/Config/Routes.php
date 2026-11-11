@@ -336,6 +336,7 @@ $routes->get('/sinadi/export/lembar_verifikator/pdf/(:num)', 'Export\Pdf::sinadi
 $routes->post('/sinadi/setUploadBuktiPembayaran', 'Sinadi\Crud::setUploadBuktiPembayaran');
 $routes->post('/sinadi/set/verifikator', 'Sinadi\Crud::set_verifikator');
 $routes->get('/sinadi/verifikasiSurat', 'Sinadi\Data::verifikasiSurat');
+$routes->post('/sinadi/verifikasiBuktiPembayaran', 'Sinadi\Ajax::verifikasiBuktiPembayaran');
 $routes->get('/sinadi/validasi_data/view/(:num)', 'Sinadi\Data::validasiSuratView/$1');
 $routes->get('/sinadi/validasi_data/(:num)', 'Sinadi\Data::validasiSurat/$1');
 $routes->get('/sinadi/previewBuktiBerkas/(:any)', 'Sinadi\Data::previewBuktiBerkas/$1');

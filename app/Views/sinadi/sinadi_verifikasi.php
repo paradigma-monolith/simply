@@ -58,22 +58,85 @@
       <div class="btn-group" role="group" aria-label="Submenu Validasi">
         <a href="/sinadi/verifikasiSurat?tipe=APBN" class="btn btn-sm <?= ($tipe=='APBN'?'btn-primary':'btn-outline-primary'); ?>">
           <i class="fas fa-coins mr-1"></i> APBN
-          <span class="badge badge-light ml-1"><?= isset($getDataAPBN) ? count($getDataAPBN) : 0; ?></span>
+          <span class="badge badge-light ml-1"><?= isset($countAPBN) ? (int) $countAPBN : 0; ?></span>
         </a>
         <a href="/sinadi/verifikasiSurat?tipe=RPL" class="btn btn-sm <?= ($tipe=='RPL'?'btn-success':'btn-outline-success'); ?>">
           <i class="fas fa-hand-holding-usd mr-1"></i> RPL
-          <span class="badge badge-light ml-1"><?= isset($getDataRPL) ? count($getDataRPL) : 0; ?></span>
+          <span class="badge badge-light ml-1"><?= isset($countRPL) ? (int) $countRPL : 0; ?></span>
         </a>
       </div>
       <small class="text-muted">Status yang ditampilkan: Diajukan, Dalam Verifikasi, Perlu Revisi.</small>
     </div>
-    <?php if($tipe=='APBN'): ?>
+
+    <?php if ($tipe === 'APBN' || $tipe === 'RPL'): ?>
+    <?php
+    $tahapCards = [
+      [
+        'title'      => 'Verifikator Pertama',
+        'icon'       => 'fas fa-check-circle text-primary',
+        'cardClass'  => 'card-primary',
+        'badgeClass' => 'badge-primary',
+        'badgeLabel' => 'Tahap 1',
+        'tahapNo'    => '1',
+        'rows'       => $tahap1Rows ?? [],
+      ],
+      [
+        'title'      => 'Verifikator Kedua',
+        'icon'       => 'fas fa-check-double text-info',
+        'cardClass'  => 'card-info',
+        'badgeClass' => 'badge-info',
+        'badgeLabel' => 'Tahap 2',
+        'tahapNo'    => '2',
+        'rows'       => $tahap2Rows ?? [],
+      ],
+      [
+        'title'      => 'Verifikator Ketiga',
+        'icon'       => 'fas fa-clipboard-check text-success',
+        'cardClass'  => 'card-success',
+        'badgeClass' => 'badge-success',
+        'badgeLabel' => 'Tahap 3',
+        'tahapNo'    => '3',
+        'rows'       => $tahap3Rows ?? [],
+      ],
+    ];
+    ?>
+    <style>
+      #tableBuktiPembayaran_wrapper {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      #tableBuktiPembayaran_wrapper .sinadi-dt-scroll {
+        flex: 1 1 auto;
+        overflow-y: auto;
+      }
+      #tableBuktiPembayaran_wrapper .dataTables_info {
+        padding-top: 0;
+        margin-left: 0.5rem;
+      }
+      #tableBuktiPembayaran_wrapper .dataTables_length label {
+        margin-bottom: 0;
+        font-weight: normal;
+      }
+      #tableBuktiPembayaran_wrapper .pagination {
+        margin-bottom: 0;
+      }
+      #tableBuktiPembayaran_wrapper .pagination .page-link {
+        padding: 0.2rem 0.45rem;
+        font-size: 0.78rem;
+      }
+    </style>
     <div class="row">
+      <?php foreach ($tahapCards as $card): ?>
+      <?php $canVerifyStage = in_array($card['tahapNo'], $urut_verif, true); ?>
       <div class="col-lg-6">
-        <div class="card card-primary card-outline shadow-sm">
+        <div class="card <?= $card['cardClass']; ?> card-outline shadow-sm">
           <div class="card-header bg-light d-flex justify-content-between align-items-center">
-            <h3 class="card-title"><i class="fas fa-check-circle mr-2 text-primary"></i>Verifikator Pertama</h3>
-            <div class="d-flex align-items-center"><input type="text" class="form-control form-control-sm mr-2 search-table" placeholder="Cari..." style="width: 150px;"><span class="badge badge-primary">Tahap 1</span></div>
+            <h3 class="card-title"><i class="<?= $card['icon']; ?> mr-2"></i><?= $card['title']; ?></h3>
+            <div class="d-flex align-items-center">
+              <input type="text" class="form-control form-control-sm mr-2 search-table" placeholder="Cari..." style="width: 150px;">
+              <span class="badge <?= $card['badgeClass']; ?>"><?= $card['badgeLabel']; ?></span>
+            </div>
           </div>
           <div class="card-body table-responsive p-0" style="height: 400px;">
             <table class="table table-sm table-bordered table-hover">
@@ -87,34 +150,29 @@
                 </tr>
               </thead>
               <tbody>
-                <?php
-                $nomor = 1;
-                $ada_data = false;
-                foreach ($getDataAPBN as $data): ?>
-                  <?php if ($data['status_surat'] == "Diajukan"): 
-                    $ada_data = true;
-                  ?>
+                <?php if (!empty($card['rows'])): ?>
+                  <?php $nomor = 1; ?>
+                  <?php foreach ($card['rows'] as $data): ?>
                     <tr>
                       <td class="text-center align-middle"><?= $nomor++; ?></td>
                       <td class="align-middle">
-                        <?= $data['nama_kegiatan']; ?>
-                        <br><small class="text-muted"><i class="fas fa-tag mr-1"></i><strong>MAK:</strong> <?= !empty($data['mata_anggaran']) ? $data['mata_anggaran'] : '-'; ?></small>
+                        <?= esc($data['nama_kegiatan']); ?>
+                        <br><small class="text-muted"><i class="fas fa-tag mr-1"></i><strong>MAK:</strong> <?= !empty($data['mata_anggaran']) ? esc($data['mata_anggaran']) : '-'; ?></small>
                       </td>
                       <td class="align-middle">
-                        <i class="far fa-calendar-alt mr-1 text-muted"></i> <?= $data['tgl_pelaksanaan'] == $data['tgl_pelaksanaan_akhir'] ? mediumdate_indo($data['tgl_pelaksanaan']) : mediumdate_indo($data['tgl_pelaksanaan'])  . ' s.d. ' . mediumdate_indo($data['tgl_pelaksanaan_akhir']); ?>
+                        <i class="far fa-calendar-alt mr-1 text-muted"></i> <?= $data['tgl_pelaksanaan'] == $data['tgl_pelaksanaan_akhir'] ? mediumdate_indo($data['tgl_pelaksanaan']) : mediumdate_indo($data['tgl_pelaksanaan']) . ' s.d. ' . mediumdate_indo($data['tgl_pelaksanaan_akhir']); ?>
                       </td>
                       <td class="align-middle">
-                        <i class="fas fa-map-marker-alt mr-1 text-muted"></i> <?= $data['tempat_perjalanan']; ?>
+                        <i class="fas fa-map-marker-alt mr-1 text-muted"></i> <?= esc($data['tempat_perjalanan']); ?>
                       </td>
                       <td class="text-center align-middle">
-                        <a href="<?= in_array("1", $urut_verif) ? "/sinadi/verifikasi_data/1/" . $data['id_perjalanan'] : "javascript:void(0)"; ?>" class="btn btn-xs btn-warning <?= in_array("1", $urut_verif) ? "" : "disabled"; ?>" style="<?= in_array("1", $urut_verif) ? "" : "cursor: not-allowed; pointer-events: all;"; ?>" title="Verifikasi" data-toggle="tooltip">
+                        <a href="<?= $canVerifyStage ? '/sinadi/verifikasi_data/' . $card['tahapNo'] . '/' . $data['id_perjalanan'] : 'javascript:void(0)'; ?>" class="btn btn-xs btn-warning <?= $canVerifyStage ? '' : 'disabled'; ?>" style="<?= $canVerifyStage ? '' : 'cursor: not-allowed; pointer-events: all;'; ?>" title="Verifikasi" data-toggle="tooltip">
                           <i class="fas fa-tasks"></i>
                         </a>
                       </td>
                     </tr>
-                  <?php endif; ?>
-                <?php endforeach; ?>
-                <?php if (!$ada_data): ?>
+                  <?php endforeach; ?>
+                <?php else: ?>
                   <tr>
                     <td colspan="5" class="text-center text-muted py-3"><i class="fas fa-info-circle mr-1"></i> Tidak ada data</td>
                   </tr>
@@ -124,150 +182,19 @@
           </div>
         </div>
       </div>
-      <div class="col-lg-6">
-        <div class="card card-info card-outline shadow-sm">
-          <div class="card-header bg-light d-flex justify-content-between align-items-center">
-            <h3 class="card-title"><i class="fas fa-check-double mr-2 text-info"></i>Verifikator Kedua</h3>
-            <div class="d-flex align-items-center"><input type="text" class="form-control form-control-sm mr-2 search-table" placeholder="Cari..." style="width: 150px;"><span class="badge badge-info">Tahap 2</span></div>
-          </div>
-          <div class="card-body table-responsive p-0" style="height: 400px;">
-            <table class="table table-sm table-bordered table-hover">
-              <thead class="thead-light">
-                <tr class="text-center">
-                  <th width="5%">No</th>
-                  <th width="35%">Kegiatan</th>
-                  <th width="25%">Tanggal</th>
-                  <th width="25%">Tujuan</th>
-                  <th width="10%">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php
-                $time = "2022-01-01 01:01:01";
-                $nomor = 1;
-                $ada_data = false;
-                foreach ($getDataAPBN as $data):
-                  $time_1 = $time;
-                  $time_2 = $time;
-                  if ($data['verifikator_1'] != null) {
-                    $array1 = unserialize($data['verifikator_1']);
-                    $time_1 = $array1[count($array1) - 1]['time'];
-                  }
-                  if ($data['verifikator_2'] != null) {
-                    $array2 = unserialize($data['verifikator_2']);
-                    $time_2 = $array2[count($array2) - 1]['time'];
-                  }
-                ?>
-                  <?php if ($data['status_surat'] == "Dalam Verifikasi" && ($time_1 >= $time_2)):
-                    $ada_data = true;
-                  ?>
-                    <tr>
-                      <td class="text-center align-middle"><?= $nomor++; ?></td>
-                      <td class="align-middle">
-                        <?= $data['nama_kegiatan']; ?>
-                        <br><small class="text-muted"><i class="fas fa-tag mr-1"></i><strong>MAK:</strong> <?= !empty($data['mata_anggaran']) ? $data['mata_anggaran'] : '-'; ?></small>
-                      </td>
-                      <td class="align-middle">
-                        <i class="far fa-calendar-alt mr-1 text-muted"></i> <?= $data['tgl_pelaksanaan'] == $data['tgl_pelaksanaan_akhir'] ? mediumdate_indo($data['tgl_pelaksanaan']) : mediumdate_indo($data['tgl_pelaksanaan'])  . ' s.d. ' . mediumdate_indo($data['tgl_pelaksanaan_akhir']); ?>
-                      </td>
-                      <td class="align-middle">
-                        <i class="fas fa-map-marker-alt mr-1 text-muted"></i> <?= $data['tempat_perjalanan']; ?>
-                      </td>
-                      <td class="text-center align-middle">
-                        <a href="<?= in_array("2", $urut_verif) ? "/sinadi/verifikasi_data/2/" . $data['id_perjalanan'] : "javascript:void(0)"; ?>" class="btn btn-xs btn-warning <?= in_array("2", $urut_verif) ? "" : "disabled"; ?>" style="<?= in_array("2", $urut_verif) ? "" : "cursor: not-allowed; pointer-events: all;"; ?>" title="Verifikasi" data-toggle="tooltip">
-                          <i class="fas fa-tasks"></i>
-                        </a>
-                      </td>
-                    </tr>
-                  <?php endif; ?>
-                <?php endforeach; ?>
-                <?php if (!$ada_data): ?>
-                  <tr>
-                    <td colspan="5" class="text-center text-muted py-3"><i class="fas fa-info-circle mr-1"></i> Tidak ada data</td>
-                  </tr>
-                <?php endif; ?>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      <div class="col-lg-6">
-        <div class="card card-success card-outline shadow-sm">
-          <div class="card-header bg-light d-flex justify-content-between align-items-center">
-            <h3 class="card-title"><i class="fas fa-clipboard-check mr-2 text-success"></i>Verifikator Ketiga</h3>
-            <div class="d-flex align-items-center"><input type="text" class="form-control form-control-sm mr-2 search-table" placeholder="Cari..." style="width: 150px;"><span class="badge badge-success">Tahap 3</span></div>
-          </div>
-          <div class="card-body table-responsive p-0" style="height: 400px;">
-            <table class="table table-sm table-bordered table-hover">
-              <thead class="thead-light">
-                <tr class="text-center">
-                  <th width="5%">No</th>
-                  <th width="35%">Kegiatan</th>
-                  <th width="25%">Tanggal</th>
-                  <th width="25%">Tujuan</th>
-                  <th width="10%">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php
-                $nomor = 1;
-                $array1 = null;
-                $array2 = null;
-                $array3 = null;
-                $ada_data = false;
-                foreach ($getDataAPBN as $data):
-                  $time_1 = $time;
-                  $time_2 = $time;
-                  if ($data['verifikator_1'] != null) {
-                    $array1 = unserialize($data['verifikator_1']);
-                    $time_1 = $array1[count($array1) - 1]['time'];
-                  }
-                  if ($data['verifikator_2'] != null) {
-                    $array2 = unserialize($data['verifikator_2']);
-                    $time_2 = $array2[count($array2) - 1]['time'];
-                  }
-                ?>
-                  <?php if ($data['status_surat'] == "Dalam Verifikasi" && ($time_1 < $time_2)):
-                    $ada_data = true;
-                  ?>
-                    <tr>
-                      <td class="text-center align-middle"><?= $nomor++; ?></td>
-                      <td class="align-middle">
-                        <?= $data['nama_kegiatan']; ?>
-                        <br><small class="text-muted"><i class="fas fa-tag mr-1"></i><strong>MAK:</strong> <?= !empty($data['mata_anggaran']) ? $data['mata_anggaran'] : '-'; ?></small>
-                      </td>
-                      <td class="align-middle">
-                        <i class="far fa-calendar-alt mr-1 text-muted"></i> <?= $data['tgl_pelaksanaan'] == $data['tgl_pelaksanaan_akhir'] ? mediumdate_indo($data['tgl_pelaksanaan']) : mediumdate_indo($data['tgl_pelaksanaan'])  . ' s.d. ' . mediumdate_indo($data['tgl_pelaksanaan_akhir']); ?>
-                      </td>
-                      <td class="align-middle">
-                        <i class="fas fa-map-marker-alt mr-1 text-muted"></i> <?= $data['tempat_perjalanan']; ?>
-                      </td>
-                      <td class="text-center align-middle">
-                        <a href="<?= in_array("3", $urut_verif) ? "/sinadi/verifikasi_data/3/" . $data['id_perjalanan'] : "javascript:void(0)"; ?>" class="btn btn-xs btn-warning <?= in_array("3", $urut_verif) ? "" : "disabled"; ?>" style="<?= in_array("3", $urut_verif) ? "" : "cursor: not-allowed; pointer-events: all;"; ?>" title="Verifikasi" data-toggle="tooltip">
-                          <i class="fas fa-tasks"></i>
-                        </a>
-                      </td>
-                    </tr>
-                  <?php endif; ?>
-                <?php endforeach; ?>
-                <?php if (!$ada_data): ?>
-                  <tr>
-                    <td colspan="5" class="text-center text-muted py-3"><i class="fas fa-info-circle mr-1"></i> Tidak ada data</td>
-                  </tr>
-                <?php endif; ?>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+      <?php endforeach; ?>
+
       <div class="col-lg-6">
         <div class="card card-warning card-outline shadow-sm">
           <div class="card-header bg-light d-flex justify-content-between align-items-center">
             <h3 class="card-title"><i class="fas fa-money-check-alt mr-2 text-warning"></i>Verifikator Upload Bukti Pembayaran</h3>
-            <div class="d-flex align-items-center"><input type="text" class="form-control form-control-sm mr-2 search-table" placeholder="Cari..." style="width: 150px;"><span class="badge badge-warning text-white">Bukti Pembayaran</span></div>
+            <div class="d-flex align-items-center">
+              <input type="text" id="searchBuktiPembayaran" class="form-control form-control-sm mr-2" placeholder="Cari..." style="width: 150px;">
+              <span class="badge badge-warning text-white">Bukti Pembayaran</span>
+            </div>
           </div>
-          <div class="card-body table-responsive p-0" style="height: 400px;">
-            <table class="table table-sm table-bordered table-hover">
+          <div class="card-body p-0" style="height: 400px; overflow: hidden;">
+            <table id="tableBuktiPembayaran" class="table table-sm table-bordered table-hover mb-0 w-100">
               <thead class="thead-light">
                 <tr class="text-center">
                   <th width="5%">No</th>
@@ -279,453 +206,235 @@
                   <th width="10%">Lembar</th>
                 </tr>
               </thead>
-              <tbody>
-                <?php
-                $nomor = 1;
-                $ada_data = false;
-                foreach ($getDataAllAPBN as $data): 
-                  $ada_data = true;
-                ?>
-                <tr>
-                  <td class="text-center align-middle"><?= $nomor++; ?></td>
-                  <td class="align-middle">
-                        <?= $data['nama_kegiatan']; ?>
-                        <br><small class="text-muted"><i class="fas fa-tag mr-1"></i><strong>MAK:</strong> <?= !empty($data['mata_anggaran']) ? $data['mata_anggaran'] : '-'; ?></small>
-                      </td>
-                  <td class="align-middle">
-                    <i class="far fa-calendar-alt mr-1 text-muted"></i> <?= $data['tgl_pelaksanaan'] == $data['tgl_pelaksanaan_akhir'] ? mediumdate_indo($data['tgl_pelaksanaan']) : mediumdate_indo($data['tgl_pelaksanaan'])  . ' s.d. ' . mediumdate_indo($data['tgl_pelaksanaan_akhir']); ?>
-                  </td>
-                  <td class="align-middle">
-                    <i class="fas fa-map-marker-alt mr-1 text-muted"></i> <?= $data['tempat_perjalanan']; ?>
-                  </td>
-                  <td class="text-center align-middle">
-                      <?php if ($data['status_surat'] == "Draft"): ?>
-                        <span class="badge badge-secondary"><i class="fas fa-pencil-alt mr-1"></i> <?= $data['status_surat']; ?></span>
-                      <?php elseif ($data['status_surat'] == "Diajukan"): ?>
-                        <span class="badge badge-primary"><i class="fas fa-paper-plane mr-1"></i> <?= $data['status_surat']; ?></span>
-                      <?php elseif ($data['status_surat'] == "Dalam Verifikasi"): ?>
-                        <span class="badge badge-info"><i class="fas fa-spinner mr-1"></i> <?= $data['status_surat']; ?></span>
-                      <?php elseif ($data['status_surat'] == "Perlu Revisi"): ?>
-                        <span class="badge badge-warning"><i class="fas fa-edit mr-1"></i> <?= $data['status_surat']; ?></span>
-                      <?php elseif ($data['status_surat'] == "Disetujui"): ?>
-                        <span class="badge badge-success"><i class="fas fa-check mr-1"></i> <?= $data['status_surat']; ?></span>
-                      <?php elseif ($data['status_surat'] == "Ditolak"): ?>
-                        <span class="badge badge-danger"><i class="fas fa-times mr-1"></i> <?= $data['status_surat']; ?></span>
-                      <?php endif; ?>
-                  </td>
-                  <td class="text-center align-middle">
-                    <div class="btn-group">
-                      <a data-id="<?= $data['id_perjalanan']; ?>" href="javascript:void(0)" class="btn btn-xs <?= $data['bukti_pembayaran'] == null ? 'btn-warning' : 'btn-success' ; ?> <?= in_array("6", $urut_verif) ? "sinadi-set-pembayaran" : "disabled"; ?>" style="<?= in_array("6", $urut_verif) ? "" : "cursor: not-allowed; pointer-events: all;"; ?>" title="<?= $data['bukti_pembayaran'] == null ? 'Upload Bukti' : 'Bukti Terupload' ; ?>" data-toggle="tooltip">
-                      <?php if($data['bukti_pembayaran'] == null): ?>
-                        <i class="fas fa-upload"></i>
-                      <?php else: ?>
-                        <i class="fas fa-check"></i>
-                      <?php endif; ?>
-                      </a>
-                      <?php if($data['bukti_pembayaran'] != null): ?>
-                      <a href="javascript:void(0)" data-file="<?= '/sinadi/previewBuktiBerkas/' . $data['bukti_pembayaran']; ?>" class="fileSinadi btn btn-xs btn-info" title="Lihat Bukti" data-toggle="tooltip">
-                        <i class="fas fa-eye"></i>
-                      </a>
-                      <?php endif; ?>
-                    </div>
-                  </td>
-                  <td class="text-center align-middle">
-                    <div class="btn-group">
-                      <a href="/sinadi/export/lembar_verifikator/<?= $data['id_perjalanan']; ?>" class="btn btn-xs btn-success <?= $data['status_surat'] == "Diajukan" ? "disabled" : ""; ?>" title="Download Excel" data-toggle="tooltip">
-                        <i class="far fa-file-excel"></i>
-                      </a>
-                      <a href="/sinadi/export/lembar_verifikator/pdf/<?= $data['id_perjalanan']; ?>" class="btn btn-xs btn-danger <?= $data['status_surat'] == "Diajukan" ? "disabled" : ""; ?>" title="Download PDF" data-toggle="tooltip">
-                        <i class="far fa-file-pdf"></i>
-                      </a>
-                    </div>
-                  </td>
-                </tr>
-                <?php endforeach; ?>
-                <?php if (!$ada_data): ?>
-                  <tr>
-                    <td colspan="7" class="text-center text-muted py-3"><i class="fas fa-info-circle mr-1"></i> Tidak ada data</td>
-                  </tr>
-                <?php endif; ?>
-              </tbody>
+              <tbody></tbody>
             </table>
           </div>
-        </div>
-        </div>
-      </div>
-    </div>
-    <?php endif; ?>
-    <?php if($tipe=='RPL'): ?>
-    <div class="row mt-4">
-      <div class="col-lg-6">
-        <div class="card card-primary card-outline shadow-sm">
-          <div class="card-header bg-light d-flex justify-content-between align-items-center">
-            <h3 class="card-title"><i class="fas fa-check-circle mr-2 text-primary"></i>Verifikator Pertama</h3>
-            <div class="d-flex align-items-center"><input type="text" class="form-control form-control-sm mr-2 search-table" placeholder="Cari..." style="width: 150px;"><span class="badge badge-primary">Tahap 1</span></div>
-          </div>
-          <div class="card-body table-responsive p-0" style="height: 400px;">
-            <table class="table table-sm table-bordered table-hover">
-              <thead class="thead-light">
-                <tr class="text-center">
-                  <th width="5%">No</th>
-                  <th width="35%">Kegiatan</th>
-                  <th width="25%">Tanggal</th>
-                  <th width="25%">Tujuan</th>
-                  <th width="10%">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php
-                $nomor = 1;
-                $ada_data = false;
-                foreach ($getDataRPL as $data): ?>
-                  <?php if ($data['status_surat'] == "Diajukan"): 
-                    $ada_data = true;
-                  ?>
-                    <tr>
-                      <td class="text-center align-middle"><?= $nomor++; ?></td>
-                      <td class="align-middle">
-                        <?= $data['nama_kegiatan']; ?>
-                        <br><small class="text-muted"><i class="fas fa-tag mr-1"></i><strong>MAK:</strong> <?= !empty($data['mata_anggaran']) ? $data['mata_anggaran'] : '-'; ?></small>
-                      </td>
-                      <td class="align-middle">
-                        <i class="far fa-calendar-alt mr-1 text-muted"></i> <?= $data['tgl_pelaksanaan'] == $data['tgl_pelaksanaan_akhir'] ? mediumdate_indo($data['tgl_pelaksanaan']) : mediumdate_indo($data['tgl_pelaksanaan'])  . ' s.d. ' . mediumdate_indo($data['tgl_pelaksanaan_akhir']); ?>
-                      </td>
-                      <td class="align-middle">
-                        <i class="fas fa-map-marker-alt mr-1 text-muted"></i> <?= $data['tempat_perjalanan']; ?>
-                      </td>
-                      <td class="text-center align-middle">
-                        <a href="<?= in_array("1", $urut_verif) ? "/sinadi/verifikasi_data/1/" . $data['id_perjalanan'] : "javascript:void(0)"; ?>" class="btn btn-xs btn-warning <?= in_array("1", $urut_verif) ? "" : "disabled"; ?>" style="<?= in_array("1", $urut_verif) ? "" : "cursor: not-allowed; pointer-events: all;"; ?>" title="Verifikasi" data-toggle="tooltip">
-                          <i class="fas fa-tasks"></i>
-                        </a>
-                      </td>
-                    </tr>
-                  <?php endif; ?>
-                <?php endforeach; ?>
-                <?php if (!$ada_data): ?>
-                  <tr>
-                    <td colspan="5" class="text-center text-muted py-3"><i class="fas fa-info-circle mr-1"></i> Tidak ada data</td>
-                  </tr>
-                <?php endif; ?>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      <div class="col-lg-6">
-        <div class="card card-info card-outline shadow-sm">
-          <div class="card-header bg-light d-flex justify-content-between align-items-center">
-            <h3 class="card-title"><i class="fas fa-check-double mr-2 text-info"></i>Verifikator Kedua</h3>
-            <div class="d-flex align-items-center"><input type="text" class="form-control form-control-sm mr-2 search-table" placeholder="Cari..." style="width: 150px;"><span class="badge badge-info">Tahap 2</span></div>
-          </div>
-          <div class="card-body table-responsive p-0" style="height: 400px;">
-            <table class="table table-sm table-bordered table-hover">
-              <thead class="thead-light">
-                <tr class="text-center">
-                  <th width="5%">No</th>
-                  <th width="35%">Kegiatan</th>
-                  <th width="25%">Tanggal</th>
-                  <th width="25%">Tujuan</th>
-                  <th width="10%">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php
-                $time = "2022-01-01 01:01:01";
-                $nomor = 1;
-                $ada_data = false;
-                foreach ($getDataRPL as $data):
-                  $time_1 = $time;
-                  $time_2 = $time;
-                  if ($data['verifikator_1'] != null) {
-                    $array1 = unserialize($data['verifikator_1']);
-                    $time_1 = $array1[count($array1) - 1]['time'];
-                  }
-                  if ($data['verifikator_2'] != null) {
-                    $array2 = unserialize($data['verifikator_2']);
-                    $time_2 = $array2[count($array2) - 1]['time'];
-                  }
-                ?>
-                  <?php if ($data['status_surat'] == "Dalam Verifikasi" && ($time_1 >= $time_2)):
-                    $ada_data = true;
-                  ?>
-                    <tr>
-                      <td class="text-center align-middle"><?= $nomor++; ?></td>
-                      <td class="align-middle">
-                        <?= $data['nama_kegiatan']; ?>
-                        <br><small class="text-muted"><i class="fas fa-tag mr-1"></i><strong>MAK:</strong> <?= !empty($data['mata_anggaran']) ? $data['mata_anggaran'] : '-'; ?></small>
-                      </td>
-                      <td class="align-middle">
-                        <i class="far fa-calendar-alt mr-1 text-muted"></i> <?= $data['tgl_pelaksanaan'] == $data['tgl_pelaksanaan_akhir'] ? mediumdate_indo($data['tgl_pelaksanaan']) : mediumdate_indo($data['tgl_pelaksanaan'])  . ' s.d. ' . mediumdate_indo($data['tgl_pelaksanaan_akhir']); ?>
-                      </td>
-                      <td class="align-middle">
-                        <i class="fas fa-map-marker-alt mr-1 text-muted"></i> <?= $data['tempat_perjalanan']; ?>
-                      </td>
-                      <td class="text-center align-middle">
-                        <a href="<?= in_array("2", $urut_verif) ? "/sinadi/verifikasi_data/2/" . $data['id_perjalanan'] : "javascript:void(0)"; ?>" class="btn btn-xs btn-warning <?= in_array("2", $urut_verif) ? "" : "disabled"; ?>" style="<?= in_array("2", $urut_verif) ? "" : "cursor: not-allowed; pointer-events: all;"; ?>" title="Verifikasi" data-toggle="tooltip">
-                          <i class="fas fa-tasks"></i>
-                        </a>
-                      </td>
-                    </tr>
-                  <?php endif; ?>
-                <?php endforeach; ?>
-                <?php if (!$ada_data): ?>
-                  <tr>
-                    <td colspan="5" class="text-center text-muted py-3"><i class="fas fa-info-circle mr-1"></i> Tidak ada data</td>
-                  </tr>
-                <?php endif; ?>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      <div class="col-lg-6">
-        <div class="card card-success card-outline shadow-sm">
-          <div class="card-header bg-light d-flex justify-content-between align-items-center">
-            <h3 class="card-title"><i class="fas fa-clipboard-check mr-2 text-success"></i>Verifikator Ketiga</h3>
-            <div class="d-flex align-items-center"><input type="text" class="form-control form-control-sm mr-2 search-table" placeholder="Cari..." style="width: 150px;"><span class="badge badge-success">Tahap 3</span></div>
-          </div>
-          <div class="card-body table-responsive p-0" style="height: 400px;">
-            <table class="table table-sm table-bordered table-hover">
-              <thead class="thead-light">
-                <tr class="text-center">
-                  <th width="5%">No</th>
-                  <th width="35%">Kegiatan</th>
-                  <th width="25%">Tanggal</th>
-                  <th width="25%">Tujuan</th>
-                  <th width="10%">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php
-                $nomor = 1;
-                $array1 = null;
-                $array2 = null;
-                $array3 = null;
-                $ada_data = false;
-                foreach ($getDataRPL as $data):
-                  $time_1 = $time;
-                  $time_2 = $time;
-                  if ($data['verifikator_1'] != null) {
-                    $array1 = unserialize($data['verifikator_1']);
-                    $time_1 = $array1[count($array1) - 1]['time'];
-                  }
-                  if ($data['verifikator_2'] != null) {
-                    $array2 = unserialize($data['verifikator_2']);
-                    $time_2 = $array2[count($array2) - 1]['time'];
-                  }
-                ?>
-                  <?php if ($data['status_surat'] == "Dalam Verifikasi" && ($time_1 < $time_2)):
-                    $ada_data = true;
-                  ?>
-                    <tr>
-                      <td class="text-center align-middle"><?= $nomor++; ?></td>
-                      <td class="align-middle">
-                        <?= $data['nama_kegiatan']; ?>
-                        <br><small class="text-muted"><i class="fas fa-tag mr-1"></i><strong>MAK:</strong> <?= !empty($data['mata_anggaran']) ? $data['mata_anggaran'] : '-'; ?></small>
-                      </td>
-                      <td class="align-middle">
-                        <i class="far fa-calendar-alt mr-1 text-muted"></i> <?= $data['tgl_pelaksanaan'] == $data['tgl_pelaksanaan_akhir'] ? mediumdate_indo($data['tgl_pelaksanaan']) : mediumdate_indo($data['tgl_pelaksanaan'])  . ' s.d. ' . mediumdate_indo($data['tgl_pelaksanaan_akhir']); ?>
-                      </td>
-                      <td class="align-middle">
-                        <i class="fas fa-map-marker-alt mr-1 text-muted"></i> <?= $data['tempat_perjalanan']; ?>
-                      </td>
-                      <td class="text-center align-middle">
-                        <a href="<?= in_array("3", $urut_verif) ? "/sinadi/verifikasi_data/3/" . $data['id_perjalanan'] : "javascript:void(0)"; ?>" class="btn btn-xs btn-warning <?= in_array("3", $urut_verif) ? "" : "disabled"; ?>" style="<?= in_array("3", $urut_verif) ? "" : "cursor: not-allowed; pointer-events: all;"; ?>" title="Verifikasi" data-toggle="tooltip">
-                          <i class="fas fa-tasks"></i>
-                        </a>
-                      </td>
-                    </tr>
-                  <?php endif; ?>
-                <?php endforeach; ?>
-                <?php if (!$ada_data): ?>
-                  <tr>
-                    <td colspan="5" class="text-center text-muted py-3"><i class="fas fa-info-circle mr-1"></i> Tidak ada data</td>
-                  </tr>
-                <?php endif; ?>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      <div class="col-lg-6">
-        <div class="card card-warning card-outline shadow-sm">
-          <div class="card-header bg-light d-flex justify-content-between align-items-center">
-            <h3 class="card-title"><i class="fas fa-money-check-alt mr-2 text-warning"></i>Verifikator Upload Bukti Pembayaran</h3>
-            <div class="d-flex align-items-center"><input type="text" class="form-control form-control-sm mr-2 search-table" placeholder="Cari..." style="width: 150px;"><span class="badge badge-warning text-white">Bukti Pembayaran</span></div>
-          </div>
-          <div class="card-body table-responsive p-0" style="height: 400px;">
-            <table class="table table-sm table-bordered table-hover">
-              <thead class="thead-light">
-                <tr class="text-center">
-                  <th width="5%">No</th>
-                  <th width="25%">Kegiatan</th>
-                  <th width="20%">Tanggal</th>
-                  <th width="20%">Tujuan</th>
-                  <th width="10%">Status</th>
-                  <th width="10%">Bukti</th>
-                  <th width="10%">Lembar</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php
-                $nomor = 1;
-                $ada_data = false;
-                foreach ($getDataAllRPL as $data): 
-                  $ada_data = true;
-                ?>
-                <tr>
-                  <td class="text-center align-middle"><?= $nomor++; ?></td>
-                  <td class="align-middle">
-                        <?= $data['nama_kegiatan']; ?>
-                        <br><small class="text-muted"><i class="fas fa-tag mr-1"></i><strong>MAK:</strong> <?= !empty($data['mata_anggaran']) ? $data['mata_anggaran'] : '-'; ?></small>
-                      </td>
-                  <td class="align-middle">
-                    <i class="far fa-calendar-alt mr-1 text-muted"></i> <?= $data['tgl_pelaksanaan'] == $data['tgl_pelaksanaan_akhir'] ? mediumdate_indo($data['tgl_pelaksanaan']) : mediumdate_indo($data['tgl_pelaksanaan'])  . ' s.d. ' . mediumdate_indo($data['tgl_pelaksanaan_akhir']); ?>
-                  </td>
-                  <td class="align-middle">
-                    <i class="fas fa-map-marker-alt mr-1 text-muted"></i> <?= $data['tempat_perjalanan']; ?>
-                  </td>
-                  <td class="text-center align-middle">
-                      <?php if ($data['status_surat'] == "Draft"): ?>
-                        <span class="badge badge-secondary"><i class="fas fa-pencil-alt mr-1"></i> <?= $data['status_surat']; ?></span>
-                      <?php elseif ($data['status_surat'] == "Diajukan"): ?>
-                        <span class="badge badge-primary"><i class="fas fa-paper-plane mr-1"></i> <?= $data['status_surat']; ?></span>
-                      <?php elseif ($data['status_surat'] == "Dalam Verifikasi"): ?>
-                        <span class="badge badge-info"><i class="fas fa-spinner mr-1"></i> <?= $data['status_surat']; ?></span>
-                      <?php elseif ($data['status_surat'] == "Perlu Revisi"): ?>
-                        <span class="badge badge-warning"><i class="fas fa-edit mr-1"></i> <?= $data['status_surat']; ?></span>
-                      <?php elseif ($data['status_surat'] == "Disetujui"): ?>
-                        <span class="badge badge-success"><i class="fas fa-check mr-1"></i> <?= $data['status_surat']; ?></span>
-                      <?php elseif ($data['status_surat'] == "Ditolak"): ?>
-                        <span class="badge badge-danger"><i class="fas fa-times mr-1"></i> <?= $data['status_surat']; ?></span>
-                      <?php endif; ?>
-                  </td>
-                  <td class="text-center align-middle">
-                    <div class="btn-group">
-                      <a data-id="<?= $data['id_perjalanan']; ?>" href="javascript:void(0)" class="btn btn-xs <?= $data['bukti_pembayaran'] == null ? 'btn-warning' : 'btn-success' ; ?> <?= in_array("6", $urut_verif) ? "sinadi-set-pembayaran" : "disabled"; ?>" style="<?= in_array("6", $urut_verif) ? "" : "cursor: not-allowed; pointer-events: all;"; ?>" title="<?= $data['bukti_pembayaran'] == null ? 'Upload Bukti' : 'Bukti Terupload' ; ?>" data-toggle="tooltip">
-                      <?php if($data['bukti_pembayaran'] == null): ?>
-                        <i class="fas fa-upload"></i>
-                      <?php else: ?>
-                        <i class="fas fa-check"></i>
-                      <?php endif; ?>
-                      </a>
-                      <?php if($data['bukti_pembayaran'] != null): ?>
-                      <a href="javascript:void(0)" data-file="<?= '/sinadi/previewBuktiBerkas/' . $data['bukti_pembayaran']; ?>" class="fileSinadi btn btn-xs btn-info" title="Lihat Bukti" data-toggle="tooltip">
-                        <i class="fas fa-eye"></i>
-                      </a>
-                      <?php endif; ?>
-                    </div>
-                  </td>
-                  <td class="text-center align-middle">
-                    <div class="btn-group">
-                      <a href="/sinadi/export/lembar_verifikator/<?= $data['id_perjalanan']; ?>" class="btn btn-xs btn-success <?= $data['status_surat'] == "Diajukan" ? "disabled" : ""; ?>" title="Download Excel" data-toggle="tooltip">
-                        <i class="far fa-file-excel"></i>
-                      </a>
-                      <a href="/sinadi/export/lembar_verifikator/pdf/<?= $data['id_perjalanan']; ?>" class="btn btn-xs btn-danger <?= $data['status_surat'] == "Diajukan" ? "disabled" : ""; ?>" title="Download PDF" data-toggle="tooltip">
-                        <i class="far fa-file-pdf"></i>
-                      </a>
-                    </div>
-                  </td>
-                </tr>
-                <?php endforeach; ?>
-                <?php if (!$ada_data): ?>
-                  <tr>
-                    <td colspan="7" class="text-center text-muted py-3"><i class="fas fa-info-circle mr-1"></i> Tidak ada data</td>
-                  </tr>
-                <?php endif; ?>
-              </tbody>
-            </table>
-          </div>
-        </div>
         </div>
       </div>
     </div>
     <?php endif; ?>
   </div>
 </section>
+
+<?php if ($tipe === 'APBN' || $tipe === 'RPL'): ?>
+  <script>
+    $(function () {
+      function escHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      var statusBadgeMap = {
+        'Draft': { cls: 'badge-secondary', icon: 'fas fa-pencil-alt' },
+        'Diajukan': { cls: 'badge-primary', icon: 'fas fa-paper-plane' },
+        'Dalam Verifikasi': { cls: 'badge-info', icon: 'fas fa-spinner' },
+        'Perlu Revisi': { cls: 'badge-warning', icon: 'fas fa-edit' },
+        'Disetujui': { cls: 'badge-success', icon: 'fas fa-check' },
+        'Ditolak': { cls: 'badge-danger', icon: 'fas fa-times' }
+      };
+
+      var tableBukti = $('#tableBuktiPembayaran').DataTable({
+        processing: true,
+        serverSide: true,
+        searching: true,
+        ordering: false,
+        autoWidth: false,
+        deferRender: true,
+        pageLength: 25,
+        lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+        dom: "<'table-responsive sinadi-dt-scroll'tr><'border-top bg-light px-2 py-1 d-flex flex-wrap justify-content-between align-items-center'<'d-flex align-items-center small text-muted'li><''p>>",
+        ajax: {
+          url: '/sinadi/verifikasiBuktiPembayaran',
+          type: 'POST',
+          data: function (d) {
+            d.tipe = '<?= esc($tipe, 'js'); ?>';
+          }
+        },
+        language: {
+          processing: 'Memuat data...',
+          zeroRecords: '<div class="text-center text-muted py-3"><i class="fas fa-info-circle mr-1"></i> Tidak ada data</div>',
+          emptyTable: '<div class="text-center text-muted py-3"><i class="fas fa-info-circle mr-1"></i> Tidak ada data</div>',
+          info: '_START_-_END_ / _TOTAL_',
+          infoEmpty: '0 data',
+          infoFiltered: '(dari _MAX_)',
+          lengthMenu: '_MENU_',
+          paginate: {
+            previous: '&laquo;',
+            next: '&raquo;'
+          }
+        },
+        columns: [
+          {
+            data: 'no',
+            className: 'text-center align-middle'
+          },
+          {
+            data: 'nama_kegiatan',
+            className: 'align-middle',
+            render: function (val, type, row) {
+              var mak = row.mata_anggaran ? escHtml(row.mata_anggaran) : '-';
+              return escHtml(val) + '<br><small class="text-muted"><i class="fas fa-tag mr-1"></i><strong>MAK:</strong> ' + mak + '</small>';
+            }
+          },
+          {
+            data: 'tanggal',
+            className: 'align-middle',
+            render: function (val) {
+              return '<i class="far fa-calendar-alt mr-1 text-muted"></i> ' + escHtml(val);
+            }
+          },
+          {
+            data: 'tempat_perjalanan',
+            className: 'align-middle',
+            render: function (val) {
+              return '<i class="fas fa-map-marker-alt mr-1 text-muted"></i> ' + escHtml(val);
+            }
+          },
+          {
+            data: 'status_surat',
+            className: 'text-center align-middle',
+            render: function (status) {
+              var cfg = statusBadgeMap[status];
+              if (!cfg) return escHtml(status);
+              return '<span class="badge ' + cfg.cls + '"><i class="' + cfg.icon + ' mr-1"></i> ' + escHtml(status) + '</span>';
+            }
+          },
+          {
+            data: null,
+            className: 'text-center align-middle',
+            render: function (_, __, row) {
+              var hasFile = !!row.bukti_pembayaran;
+              var btnClass = hasFile ? 'btn-success' : 'btn-warning';
+              var actionClass = row.can_upload ? 'sinadi-set-pembayaran' : 'disabled';
+              var styleAttr = row.can_upload ? '' : ' style="cursor: not-allowed; pointer-events: all;"';
+              var titleAttr = hasFile ? 'Bukti Terupload' : 'Upload Bukti';
+              var iconHtml = hasFile ? '<i class="fas fa-check"></i>' : '<i class="fas fa-upload"></i>';
+
+              var html = '<div class="btn-group">' +
+                '<a data-id="' + row.id_perjalanan + '" href="javascript:void(0)" class="btn btn-xs ' + btnClass + ' ' + actionClass + '"' + styleAttr + ' title="' + titleAttr + '" data-toggle="tooltip">' +
+                iconHtml +
+                '</a>';
+
+              if (hasFile) {
+                var fileUrl = '/sinadi/previewBuktiBerkas/' + encodeURIComponent(row.bukti_pembayaran);
+                html += '<a href="javascript:void(0)" data-file="' + escHtml(fileUrl) + '" class="fileSinadi btn btn-xs btn-info" title="Lihat Bukti" data-toggle="tooltip">' +
+                  '<i class="fas fa-eye"></i>' +
+                  '</a>';
+              }
+
+              html += '</div>';
+              return html;
+            }
+          },
+          {
+            data: null,
+            className: 'text-center align-middle',
+            render: function (_, __, row) {
+              var disabledCls = row.status_surat === 'Diajukan' ? ' disabled' : '';
+              return '<div class="btn-group">' +
+                '<a href="/sinadi/export/lembar_verifikator/' + row.id_perjalanan + '" class="btn btn-xs btn-success' + disabledCls + '" title="Download Excel" data-toggle="tooltip">' +
+                '<i class="far fa-file-excel"></i>' +
+                '</a>' +
+                '<a href="/sinadi/export/lembar_verifikator/pdf/' + row.id_perjalanan + '" class="btn btn-xs btn-danger' + disabledCls + '" title="Download PDF" data-toggle="tooltip">' +
+                '<i class="far fa-file-pdf"></i>' +
+                '</a>' +
+                '</div>';
+            }
+          }
+        ]
+      });
+
+      var searchTimer = null;
+      $('#searchBuktiPembayaran').on('keyup input', function () {
+        var value = this.value;
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function () {
+          if (tableBukti.search() !== value) {
+            tableBukti.search(value).draw();
+          }
+        }, 300);
+      });
+
+      // Delegasi tooltip khusus baris AJAX agar tidak memicu binding ribuan elemen di onload
+      $('#tableBuktiPembayaran').tooltip({
+        selector: '[data-toggle="tooltip"]',
+        trigger: 'hover'
+      });
+
+      $('#tableBuktiPembayaran').on('preXhr.dt', function () {
+        $('#tableBuktiPembayaran [data-toggle="tooltip"]').tooltip('hide');
+      });
+
+      $('.search-table').on('keyup', function () {
+        var value = $(this).val().toLowerCase();
+        $(this).closest('.card').find('tbody tr').filter(function () {
+          $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1);
+        });
+      });
+    });
+  </script>
+<?php endif; ?>
+
 <?php if ($activeMenu != "sinadiBlockir"): ?>
   <script>
-      $('.sinadi-set-pembayaran').click(function () {
-          let elementId = $(this).data('id');
-        
-          // Kosongkan modal-body terlebih dahulu
-          $('.modal-body').empty();
-        
-          // Buat form
-          let form = $('<form>', {
-            action: '/sinadi/setUploadBuktiPembayaran',
-            method: 'POST',
-            enctype: 'multipart/form-data'
-          });
-        
-          // Input hidden untuk id
-          let inputId = $('<input>', {
-            type: 'hidden',
-            name: 'id',
-            value: elementId
-          });
-        
-          // Input file upload
-          let inputFile = $('<div>').append(
-            $('<label>', {
-              class: 'font-weight-bold mb-2'
-            }).text('Unggah Bukti Pembayaran'),
-            $('<input>', {
-              type: 'file',
-              name: 'bukti_pembayaran',
-              required: true,
-              class: 'form-control'
-            })
-          );
-        
-          // Tombol submit
-          let submitButton = $('<button>', {
-            type: 'submit',
-            class: 'btn btn-success mt-3 float-right'
-          });
-            
-          // Tambahkan ikon dan teks ke dalam tombol
-           submitButton.html('<i class="fas fa-save"></i> Simpan');
-        
-          // Tambahkan elemen-elemen ke form
-          form.append(inputId, inputFile, submitButton);
-        
-          // Masukkan form ke modal-body
-          $('.modal-body').append(form);
-        
-          // Tampilkan modal
-          $('#modal-md').modal('show');
-        });
-  </script>
-  <script>
-    $(".fileSinadi").on('click', function() {
-
-      var file = $(this).data('file');
-
-      if (file !== "#") {
-        var fullUrl = '<?= base_url(); ?>/' + file;
-        // var iframeSrc = 'https://drive.google.com/viewerng/viewer?embedded=true&url=' + encodeURIComponent(fullUrl);
-
-        $("#modal-xl").find('.modal-body').html(
-          '<iframe src="' + fullUrl + '" frameborder="0" style="width: 100%; height: 80vh;"></iframe>'
-        );
-        $("#modal-xl").modal('show');
-      }
-    });
-  </script>
-  <script>
-    // Aktifkan tooltip
     $(function () {
-      $('[data-toggle="tooltip"]').tooltip();
-    });
-  </script>
-  <script>
-    $(document).ready(function(){
-      $('.search-table').on('keyup', function() {
-        var value = $(this).val().toLowerCase();
-        $(this).closest('.card').find('tbody tr').filter(function() {
-          $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+      $(document).on('click', '.sinadi-set-pembayaran', function () {
+        var elementId = $(this).data('id');
+        var modalBody = $('#modal-md .modal-body');
+
+        modalBody.empty();
+
+        var form = $('<form>', {
+          action: '/sinadi/setUploadBuktiPembayaran',
+          method: 'POST',
+          enctype: 'multipart/form-data'
         });
+
+        var inputId = $('<input>', {
+          type: 'hidden',
+          name: 'id',
+          value: elementId
+        });
+
+        var inputFile = $('<div>').append(
+          $('<label>', {
+            class: 'font-weight-bold mb-2'
+          }).text('Unggah Bukti Pembayaran'),
+          $('<input>', {
+            type: 'file',
+            name: 'bukti_pembayaran',
+            required: true,
+            class: 'form-control'
+          })
+        );
+
+        var submitButton = $('<button>', {
+          type: 'submit',
+          class: 'btn btn-success mt-3 float-right'
+        }).html('<i class="fas fa-save"></i> Simpan');
+
+        form.append(inputId, inputFile, submitButton);
+        modalBody.append(form);
+        $('#modal-md').modal('show');
+      });
+
+      $(document).on('click', '.fileSinadi', function () {
+        var file = $(this).data('file');
+
+        if (file && file !== '#') {
+          var normalizedPath = file.charAt(0) === '/' ? file : '/' + file;
+          var fullUrl = '<?= rtrim(base_url(), "/"); ?>' + normalizedPath;
+
+          $('#modal-xl').find('.modal-body').html(
+            '<iframe src="' + fullUrl + '" frameborder="0" style="width: 100%; height: 80vh;"></iframe>'
+          );
+          $('#modal-xl').modal('show');
+        }
       });
     });
   </script>

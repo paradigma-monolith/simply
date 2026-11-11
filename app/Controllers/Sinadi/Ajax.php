@@ -326,4 +326,108 @@ class Ajax extends BaseController
         // reset index array
         return $this->response->setJSON(array_values($result));
     }
+
+  /**
+   * Endpoint DataTables server-side untuk tabel Upload Bukti Pembayaran pada SINADI Validasi Dokumen.
+   */
+  public function verifikasiBuktiPembayaran()
+  {
+    $username = session()->get('username');
+    if (empty($username)) {
+      return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+    }
+
+    $draw = (int) ($this->request->getPost('draw') ?? 1);
+    $start = max(0, (int) ($this->request->getPost('start') ?? 0));
+    $length = (int) ($this->request->getPost('length') ?? 25);
+    $length = ($length > 0 && $length <= 100) ? $length : 25;
+
+    $searchParam = $this->request->getPost('search');
+    $search = is_array($searchParam) ? trim((string) ($searchParam['value'] ?? '')) : '';
+
+    $tipe = strtoupper((string) ($this->request->getPost('tipe') ?? 'APBN'));
+    if (!in_array($tipe, ['APBN', 'RPL'], true)) {
+      return $this->response->setJSON([
+        'draw'            => $draw,
+        'recordsTotal'    => 0,
+        'recordsFiltered' => 0,
+        'data'            => [],
+      ]);
+    }
+
+    $allowedStatuses = ['Diajukan', 'Dalam Verifikasi', 'Perlu Revisi', 'Disetujui'];
+
+    $cekVerifikator = \App\Libraries\SinadiVerifikatorHelper::getConfigByTipe(
+      $tipe,
+      $this->sinadiVerifikatorApbnModel,
+      $this->sinadiVerifikatorRplModel,
+      $this->sinadiVerifikatorModel
+    );
+    $myPegawaiIds = \App\Libraries\SinadiVerifikatorHelper::getUserPegawaiIds($this->dataPegawaiModel, $username);
+    $verifikator6Ids = \App\Libraries\SinadiVerifikatorHelper::normalizeIds($cekVerifikator['verifikator_6'] ?? null, true);
+    $canUploadBukti = !empty($verifikator6Ids) && !empty(array_intersect($myPegawaiIds, $verifikator6Ids));
+
+    $recordsTotal = $this->sinadiPerjalananDinasModel->builder()
+      ->where('sumber_anggaran', $tipe)
+      ->whereIn('status_surat', $allowedStatuses)
+      ->countAllResults();
+
+    $builder = $this->sinadiPerjalananDinasModel->builder();
+    $builder->where('sumber_anggaran', $tipe)
+      ->whereIn('status_surat', $allowedStatuses);
+
+    if ($search !== '') {
+      $builder->groupStart()
+        ->like('nama_kegiatan', $search)
+        ->orLike('mata_anggaran', $search)
+        ->orLike('tempat_perjalanan', $search)
+        ->orLike('status_surat', $search)
+        ->orLike('tgl_pelaksanaan', $search)
+        ->orLike('tgl_pelaksanaan_akhir', $search)
+        ->groupEnd();
+      $recordsFiltered = $builder->countAllResults(false);
+    } else {
+      $recordsFiltered = $recordsTotal;
+    }
+
+    $rows = $builder
+      ->select('id_perjalanan, nama_kegiatan, mata_anggaran, tgl_pelaksanaan, tgl_pelaksanaan_akhir, tempat_perjalanan, status_surat, bukti_pembayaran')
+      ->orderBy('created_at', 'DESC')
+      ->orderBy('id_perjalanan', 'DESC')
+      ->limit($length, $start)
+      ->get()
+      ->getResultArray();
+
+    $data = [];
+    foreach ($rows as $idx => $row) {
+      $tglMulai = $row['tgl_pelaksanaan'] ?? '';
+      $tglAkhir = $row['tgl_pelaksanaan_akhir'] ?? '';
+      if ($tglMulai !== '') {
+        $tanggalFormatted = ($tglMulai === $tglAkhir || $tglAkhir === '')
+          ? mediumdate_indo($tglMulai)
+          : mediumdate_indo($tglMulai) . ' s.d. ' . mediumdate_indo($tglAkhir);
+      } else {
+        $tanggalFormatted = '-';
+      }
+
+      $data[] = [
+        'no'               => $start + $idx + 1,
+        'id_perjalanan'    => (int) $row['id_perjalanan'],
+        'nama_kegiatan'    => (string) ($row['nama_kegiatan'] ?? ''),
+        'mata_anggaran'    => (string) ($row['mata_anggaran'] ?? ''),
+        'tanggal'          => $tanggalFormatted,
+        'tempat_perjalanan'=> (string) ($row['tempat_perjalanan'] ?? ''),
+        'status_surat'     => (string) ($row['status_surat'] ?? ''),
+        'bukti_pembayaran' => $row['bukti_pembayaran'] ?: null,
+        'can_upload'       => $canUploadBukti,
+      ];
+    }
+
+    return $this->response->setJSON([
+      'draw'            => $draw,
+      'recordsTotal'    => $recordsTotal,
+      'recordsFiltered' => $recordsFiltered,
+      'data'            => $data,
+    ]);
+  }
 }
