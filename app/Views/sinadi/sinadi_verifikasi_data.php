@@ -124,17 +124,71 @@
                 </div>
               </div>
               <div class="col-xl-7">
-                <h3 class="card-title mb-2"><strong><u>Berkas Perjalanan Dinas</u></strong></h3>
-                <?php if($getData['berkas'] == NULL || $getData['berkas'] == ""): ?>
-                    <h3 class="card-title mb-2"><strong class="text-danger"><u>Berkas Perjalanan Dinas Belum Terlampir/ Gagal dimuat! Silahkan melakukan pengeditan data dan tambahkan ulang berkas!</u></strong></h3>
-                <?php endif ?>
-                <a href="#" data-file="<?= '/sinadi/previewBuktiBerkas/' . $getData['berkas']; ?>" class="btn float-right btn-sm mb-1 btn-info fileNotaDinas"><i class="fas fa-eye"></i></a>
-                <iframe
-                  src="<?= base_url('sinadi/previewBuktiBerkas/' . $getData['berkas']); ?>"
-                  width="100%"
-                  height="600px"
-                  title="Pratinjau File">
-                </iframe>
+                <?php
+                  $berkasName = $berkasInfo['name'] ?? trim((string) ($getData['berkas'] ?? ''));
+                  $berkasExists = !empty($berkasInfo['exists']);
+                  $berkasSizeBytes = (int) ($berkasInfo['size_bytes'] ?? 0);
+                  $berkasSizeLabel = '';
+                  if ($berkasExists && $berkasSizeBytes > 0) {
+                    if ($berkasSizeBytes >= 1048576) {
+                      $berkasSizeLabel = number_format($berkasSizeBytes / 1048576, 1) . ' MB';
+                    } elseif ($berkasSizeBytes >= 1024) {
+                      $berkasSizeLabel = number_format($berkasSizeBytes / 1024, 0) . ' KB';
+                    } else {
+                      $berkasSizeLabel = $berkasSizeBytes . ' B';
+                    }
+                  }
+                  $berkasPath = $berkasExists ? '/sinadi/previewBuktiBerkas/' . rawurlencode($berkasName) : '#';
+                  $berkasUrl = $berkasExists ? base_url('sinadi/previewBuktiBerkas/' . rawurlencode($berkasName)) : '';
+                ?>
+                <div class="d-flex flex-wrap align-items-center justify-content-between mb-2" style="gap: 6px;">
+                  <div>
+                    <h3 class="card-title mb-0 float-none"><strong><u>Berkas Perjalanan Dinas</u></strong></h3>
+                    <?php if ($berkasSizeLabel !== ''): ?>
+                      <span class="badge badge-secondary ml-1" title="Ukuran file PDF"><?= esc($berkasSizeLabel); ?></span>
+                    <?php endif; ?>
+                  </div>
+                  <?php if ($berkasExists): ?>
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Aksi Berkas">
+                      <button type="button" id="btnReloadBerkasPdf" class="btn btn-outline-secondary" title="Muat ulang pratinjau PDF">
+                        <i class="fas fa-sync-alt"></i> Muat Ulang
+                      </button>
+                      <a href="<?= esc($berkasUrl); ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary" title="Buka di tab baru">
+                        <i class="fas fa-external-link-alt"></i> Tab Baru
+                      </a>
+                      <a href="#" data-file="<?= esc($berkasPath); ?>" class="btn btn-info fileNotaDinas" title="Perbesar di jendela modal">
+                        <i class="fas fa-eye"></i>
+                      </a>
+                    </div>
+                  <?php endif; ?>
+                </div>
+                <?php if ($berkasName === ''): ?>
+                  <div class="alert alert-warning mb-2">
+                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                    <strong>Berkas Perjalanan Dinas Belum Terlampir!</strong> Silahkan melakukan pengeditan data dan tambahkan ulang berkas.
+                  </div>
+                <?php elseif (!$berkasExists): ?>
+                  <div class="alert alert-danger mb-2">
+                    <i class="fas fa-file-excel mr-1"></i>
+                    <strong>File Berkas Tidak Ditemukan di Server</strong> (<code><?= esc($berkasName); ?></code>). Silahkan unggah ulang berkas pada menu edit data.
+                  </div>
+                <?php else: ?>
+                  <div class="position-relative border rounded bg-light" style="height: 600px;">
+                    <div id="berkasPdfLoader" class="position-absolute w-100 h-100 flex-column justify-content-center align-items-center bg-light text-muted px-3 text-center" style="top: 0; left: 0; z-index: 2; display: flex;">
+                      <i class="fas fa-spinner fa-spin fa-2x mb-2 text-primary"></i>
+                      <div class="font-weight-bold">Memuat pratinjau berkas PDF<?= $berkasSizeLabel !== '' ? ' (' . esc($berkasSizeLabel) . ')' : ''; ?>...</div>
+                      <small class="mt-1">Halaman tetap dapat digunakan. Anda juga dapat membuka berkas lewat tombol <strong>Tab Baru</strong> di atas.</small>
+                    </div>
+                    <iframe
+                      id="iframeBerkasSinadi"
+                      data-src="<?= esc($berkasUrl); ?>"
+                      width="100%"
+                      height="600px"
+                      style="border: 0; display: block;"
+                      title="Pratinjau File">
+                    </iframe>
+                  </div>
+                <?php endif; ?>
                 <div class="text-center">
                     <a href="/sinadi/nominatif/<?= $getData['id_perjalanan']; ?>" class="btn btn-danger btn-block my-2">Nominatif</a>
                     <a href="/sinadi/kuitansi-riil/<?= $getData['id_perjalanan']; ?>" class="btn btn-danger btn-block my-2">Kuitansi dan Riil</a>
@@ -1211,24 +1265,105 @@ function cetakSppdSrikandi() {
 </script>
 
 </section>
+<script>
+  (function() {
+    var $iframe = $("#iframeBerkasSinadi");
+    var $loader = $("#berkasPdfLoader");
+    var fallbackTimer = null;
+
+    function hideBerkasLoader() {
+      if (fallbackTimer) {
+        clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
+      if ($loader.length) {
+        $loader.stop(true, true).hide().css("display", "none");
+      }
+    }
+
+    function startBerkasIframe(forceReload) {
+      if (!$iframe.length) {
+        return;
+      }
+      var targetSrc = $iframe.attr("data-src") || "";
+      if (!targetSrc) {
+        hideBerkasLoader();
+        return;
+      }
+      if (!forceReload && $iframe.attr("src")) {
+        return;
+      }
+      if ($loader.length) {
+        $loader.show().css("display", "flex");
+      }
+      if (fallbackTimer) {
+        clearTimeout(fallbackTimer);
+      }
+      fallbackTimer = setTimeout(function() {
+        var $hint = $loader.find("small");
+        if ($hint.length) {
+          $hint.html('Berkas berukuran besar masih diproses. Gunakan tombol <strong>Tab Baru</strong> di atas untuk membuka langsung.');
+        }
+      }, 8000);
+
+      var nextSrc = targetSrc;
+      if (forceReload) {
+        nextSrc += (targetSrc.indexOf("?") === -1 ? "?_t=" : "&_t=") + Date.now();
+      }
+      $iframe.attr("src", nextSrc);
+    }
+
+    if ($iframe.length) {
+      $iframe.on("load", function() {
+        var currentSrc = $iframe.attr("src") || "";
+        if (currentSrc && currentSrc !== "about:blank") {
+          hideBerkasLoader();
+        }
+      });
+      if (document.readyState === "complete") {
+        setTimeout(function() {
+          startBerkasIframe(false);
+        }, 30);
+      } else {
+        window.addEventListener("load", function() {
+          setTimeout(function() {
+            startBerkasIframe(false);
+          }, 30);
+        });
+      }
+    }
+
+    $("#btnReloadBerkasPdf").on("click", function() {
+      if (!$iframe.length) {
+        return;
+      }
+      startBerkasIframe(true);
+    });
+  })();
+</script>
 <?php if ($activeMenu != "sinadiBlockir"): ?>
   <script>
-    $(".fileNotaDinas").on('click', function() {
+    $(".fileNotaDinas").on("click", function(e) {
+      e.preventDefault();
+      var file = $(this).data("file");
 
-      var file = $(this).data('file');
+      if (file && file !== "#") {
+        var baseUrl = '<?= rtrim(base_url(), "/"); ?>';
+        var fullUrl = /^https?:\/\//i.test(file) ? file : (baseUrl + "/" + String(file).replace(/^\/+/, ""));
 
-      if (file !== "#") {
-        var fullUrl = '<?= base_url(); ?>/' + file;
-        // var iframeSrc = 'https://drive.google.com/viewerng/viewer?embedded=true&url=' + encodeURIComponent(fullUrl);
-
-        $("#modal-xl").find('.modal-body').html(
-          '<iframe src="' + fullUrl + '" frameborder="1" style="width: 100%; height: 80vh;"></iframe>'
+        $("#modal-xl").find(".modal-body").html(
+          '<iframe class="sinadi-modal-iframe" src="' + fullUrl + '" frameborder="1" style="width: 100%; height: 80vh;"></iframe>'
         );
-        $("#modal-xl").modal('show');
+        $("#modal-xl").modal("show");
+      }
+    });
+
+    $("#modal-xl").on("hidden.bs.modal", function() {
+      if ($(this).find(".modal-body iframe.sinadi-modal-iframe").length) {
+        $(this).find(".modal-body").empty();
       }
     });
   </script>
-  <script></script>
 <?php endif; ?>
 
 <?= $this->endSection(); ?>

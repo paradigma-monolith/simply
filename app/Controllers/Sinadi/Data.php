@@ -99,20 +99,42 @@ class Data extends BaseController
     $data['verifikatorKe'] = $verifikatorKe;
 
     $data['myData'] = $this->dataPegawaiModel
+      ->select('data_pegawai.id_data_pegawai, data_pegawai.nip')
       ->join('user', 'id_user')
       ->where('username', session()->get('username'))
       ->first();
 
-    $data['getData'] = $this->sinadiPerjalananDinasModel->where('id_perjalanan', $id)->first();
+    $data['getData'] = $this->sinadiPerjalananDinasModel
+      ->select('id_perjalanan, nama_kegiatan, tgl_pelaksanaan, tgl_pelaksanaan_akhir, tempat_perjalanan, mata_anggaran, sumber_anggaran, berkas, total_perjalanan, verifikator_1, verifikator_2, verifikator_3, verifikator_4, verifikator_5')
+      ->where('id_perjalanan', $id)
+      ->first();
+
     $data['getPeserta'] = $this->sinadiPerjalananDinasPesertaModel
-      ->where('id_perjalanan', $id)->findAll();
+      ->select('nama_pegawai, nip_pegawai, jabatan_pegawai, tgl_pergi, tgl_pulang, kota, kota_asal, no_surat_tugas, tgl_surat_tugas, no_sppd, tgl_sppd, transport_jumlah, harian_jumlah, penginapan_jumlah, jumlah_transfer, file, ttd_peserta')
+      ->where('id_perjalanan', $id)
+      ->findAll();
 
     $data['all_pegawai'] = $this->dataPegawaiModel->select('nama, nip')->orderBy('nama', 'ASC')->findAll();
     $data['pegawai'] = array_column($data['all_pegawai'], 'nip');
 
-    $data['lembarVerif'] = $this->sinadiLembarVerifikasiModel->where('id_perjalanan', $id)->first();
+    $data['lembarVerif'] = $this->sinadiLembarVerifikasiModel
+      ->select('id_sinadi_lembar_verifikasi, tgl, no_spby, tagihan, uraian, jenis_daftar_periksa, daftar_periksa')
+      ->where('id_perjalanan', $id)
+      ->first();
 
-    $data['getDataVerifikator'] = $this->sinadiVerifikatorModel->orderBy('created_at', 'desc')->first();
+    $data['getDataVerifikator'] = $this->sinadiVerifikatorModel
+      ->select('verifikator_1, verifikator_2, verifikator_3, verifikator_4, verifikator_5')
+      ->orderBy('created_at', 'desc')
+      ->first();
+
+    $berkasName = !empty($data['getData']['berkas']) ? basename((string) $data['getData']['berkas']) : '';
+    $berkasPath = $berkasName !== '' ? WRITEPATH . 'file-sinadi/' . $berkasName : '';
+    $berkasExists = ($berkasPath !== '' && is_file($berkasPath));
+    $data['berkasInfo'] = [
+      'name'       => $berkasName,
+      'exists'     => $berkasExists,
+      'size_bytes' => $berkasExists ? (int) filesize($berkasPath) : 0,
+    ];
 
     return view('sinadi/sinadi_verifikasi_data', $data);
   }
@@ -120,25 +142,125 @@ class Data extends BaseController
 
   public function previewBuktiBerkas($any)
   {
-    $filename = basename($any);
-    helper("filesystem");
-
-    $path = WRITEPATH . 'file-sinadi/';
-    $fullpath = $path . $filename;
-
-    if (!is_file($fullpath)) {
+    $filename = basename((string) $any);
+    if ($filename === '' || $filename === '.' || $filename === '..') {
       return $this->response
         ->setStatusCode(404)
         ->setBody('File not found');
     }
 
-    $file = new \CodeIgniter\Files\File($fullpath, true);
+    $path = WRITEPATH . 'file-sinadi/';
+    $fullpath = $path . $filename;
 
-    return $this->response
-      ->setHeader('Content-Type', $file->getMimeType())
-      ->setHeader('Content-Disposition', 'inline; filename="' . $file->getBasename() . '"')
-      ->setStatusCode(200)
-      ->setBody(file_get_contents($fullpath));
+    if (!is_file($fullpath) || !is_readable($fullpath)) {
+      return $this->response
+        ->setStatusCode(404)
+        ->setBody('File not found');
+    }
+
+    // Lepaskan session lock segera agar unduhan PDF besar tidak memblokir request tab lain
+    if (session_status() === PHP_SESSION_ACTIVE) {
+      session_write_close();
+    }
+
+    $filesize = (int) filesize($fullpath);
+    $mtime = filemtime($fullpath) ?: time();
+    $file = new \CodeIgniter\Files\File($fullpath, true);
+    $mime = $file->getMimeType() ?: 'application/pdf';
+    $etag = '"' . md5($filename . '|' . $filesize . '|' . $mtime) . '"';
+    $lastModifiedHttp = gmdate('D, d M Y H:i:s', $mtime) . ' GMT';
+
+    $rangeHeader = $this->request->getServer('HTTP_RANGE');
+    $ifNoneMatch = $this->request->getServer('HTTP_IF_NONE_MATCH');
+    $ifModifiedSince = $this->request->getServer('HTTP_IF_MODIFIED_SINCE');
+
+    header_remove('Pragma');
+    header_remove('Expires');
+    header('Cache-Control: private, max-age=3600, must-revalidate', true);
+    header('ETag: ' . $etag, true);
+    header('Last-Modified: ' . $lastModifiedHttp, true);
+    header('Accept-Ranges: bytes', true);
+
+    if (empty($rangeHeader) && (
+      (!empty($ifNoneMatch) && trim((string) $ifNoneMatch) === $etag) ||
+      (!empty($ifModifiedSince) && strtotime((string) $ifModifiedSince) >= $mtime)
+    )) {
+      http_response_code(304);
+      exit;
+    }
+
+    $start = 0;
+    $end = $filesize > 0 ? $filesize - 1 : 0;
+    $statusCode = 200;
+
+    if ($filesize > 0 && !empty($rangeHeader)) {
+      if (preg_match('/^bytes=(\d*)-(\d*)$/i', trim((string) $rangeHeader), $matches)) {
+        $rangeStart = $matches[1];
+        $rangeEnd = $matches[2];
+
+        if ($rangeStart === '' && $rangeEnd !== '') {
+          $suffix = (int) $rangeEnd;
+          $start = max(0, $filesize - $suffix);
+          $end = $filesize - 1;
+        } elseif ($rangeStart !== '') {
+          $start = (int) $rangeStart;
+          $end = ($rangeEnd !== '') ? min($filesize - 1, (int) $rangeEnd) : ($filesize - 1);
+        }
+
+        if ($start < 0 || $start > $end || $start >= $filesize) {
+          http_response_code(416);
+          header('Content-Range: bytes */' . $filesize, true);
+          exit;
+        }
+        $statusCode = 206;
+      }
+    }
+
+    $length = $filesize > 0 ? ($end - $start + 1) : 0;
+
+    while (ob_get_level() > 0) {
+      ob_end_clean();
+    }
+
+    http_response_code($statusCode);
+    header('Content-Type: ' . $mime, true);
+    header('Content-Disposition: inline; filename="' . str_replace('"', '', $file->getBasename()) . '"', true);
+    header('Content-Length: ' . $length, true);
+    if ($statusCode === 206) {
+      header("Content-Range: bytes {$start}-{$end}/{$filesize}", true);
+    }
+
+    if ($length === 0 || strtolower($this->request->getMethod()) === 'head') {
+      exit;
+    }
+
+    @set_time_limit(0);
+    $fp = fopen($fullpath, 'rb');
+    if ($fp === false) {
+      http_response_code(500);
+      exit;
+    }
+
+    if ($start > 0) {
+      fseek($fp, $start);
+    }
+
+    $remaining = $length;
+    while ($remaining > 0 && !feof($fp)) {
+      if (connection_status() !== CONNECTION_NORMAL) {
+        break;
+      }
+      $chunk = fread($fp, min(65536, $remaining));
+      if ($chunk === false || $chunk === '') {
+        break;
+      }
+      echo $chunk;
+      $remaining -= strlen($chunk);
+      flush();
+    }
+
+    fclose($fp);
+    exit;
   }
 
   public function verifikasiSurat()
