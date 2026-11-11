@@ -253,6 +253,22 @@
       80% { opacity: 1; }
       100% { transform: translateY(110vh) rotate(20deg); opacity: 0; }
     }
+
+    /* Pastikan info user pada sidebar tidak menyisakan ruang kosong saat sidebar di-collapse */
+    .main-sidebar .user-panel > .info {
+      white-space: normal;
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      padding-right: 10px;
+    }
+
+    .sidebar-mini.sidebar-collapse .main-sidebar:not(:hover):not(.sidebar-focused) .user-panel > .info,
+    .sidebar-mini-md.sidebar-collapse .main-sidebar:not(:hover):not(.sidebar-focused) .user-panel > .info,
+    .sidebar-mini-xs.sidebar-collapse .main-sidebar:not(:hover):not(.sidebar-focused) .user-panel > .info,
+    .sidebar-collapse .main-sidebar.sidebar-no-expand .user-panel > .info {
+      display: none !important;
+    }
   </style>
   <!--<?php if(in_array($activeMenu, ['sinadiVerifikator', 'notaDinas', 'sinadiPengaturan', 'sinadiSaya', 'formulirPerjalananDinas', 'dinasDalamKota', 'dinasLuarKota'])): ?>-->
   <!--  <link rel="stylesheet" href="/css/customLayout-v3-pink.css">-->
@@ -610,7 +626,7 @@
           <div class="image">
             <img src="/dist/img/avatar/<?= session()->get('picture'); ?>" class="profile-picture img-circle elevation-2" alt="User Image">
           </div>
-          <div class="info" style="white-space: normal; width: 100%; overflow: hidden; padding-right: 10px;">
+          <div class="info">
             <a href="#" class="d-block font-weight-bold" style="white-space: normal; color: #ffffff; letter-spacing: 0.3px; margin-bottom: 3px;"><?= session()->get('nama'); ?></a>
             <?php
             $db = \Config\Database::connect();
