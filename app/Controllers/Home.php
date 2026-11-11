@@ -1275,18 +1275,31 @@ class Home extends BaseController
     {
         if ($this->request->isAJAX()) {
             $msg = [];
-            $tanggal = $this->request->getVar("tanggal");
-            $data = $this->sinadiPerjalananDinasModel
-                ->join('sinadi_perjalanan_dinas_peserta', 'id_perjalanan')
-                ->where('sinadi_perjalanan_dinas.tgl_pelaksanaan', $tanggal)
-                ->orderBy('sinadi_perjalanan_dinas_peserta.id_perjalanan', "ASC")
-                ->findAll();
+            $tanggal = trim((string) $this->request->getVar("tanggal"));
+            if ($tanggal !== '') {
+                $data = $this->sinadiPerjalananDinasModel
+                    ->select(
+                        'sinadi_perjalanan_dinas.id_perjalanan, ' .
+                        'sinadi_perjalanan_dinas.tgl_pelaksanaan, ' .
+                        'sinadi_perjalanan_dinas.tgl_pelaksanaan_akhir, ' .
+                        'sinadi_perjalanan_dinas.nama_kegiatan, ' .
+                        'sinadi_perjalanan_dinas_peserta.kota, ' .
+                        'sinadi_perjalanan_dinas_peserta.kota_asal, ' .
+                        'sinadi_perjalanan_dinas_peserta.nama_pegawai'
+                    )
+                    ->join('sinadi_perjalanan_dinas_peserta', 'id_perjalanan')
+                    ->where('sinadi_perjalanan_dinas.tgl_pelaksanaan', $tanggal)
+                    ->orderBy('sinadi_perjalanan_dinas_peserta.id_perjalanan', "ASC")
+                    ->findAll();
 
-            if ($data)
-                $msg = [
-                    'data' => $data
-                ];
-            echo json_encode($msg);
+                if ($data) {
+                    $msg = [
+                        'data' => $data
+                    ];
+                }
+            }
+
+            return $this->response->setJSON($msg);
         } else {
             return redirect()->to('home/dasboard');
         }

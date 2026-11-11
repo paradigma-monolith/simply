@@ -135,7 +135,8 @@
 
 <script>
   var prevYear;
-  var elementul = $(".dataRincianPerjalananDinas").html()
+  var elementul = $(".dataRincianPerjalananDinas").html();
+  var sinadiDateXhr = null;
 
   $(document).ready(function() {
     $('.date-sinadi').daterangepicker({
@@ -147,9 +148,22 @@
     });
   });
 
-  function getDataSinadi(tanggal) {
+  function escHtmlSinadi(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
 
-    $.ajax({
+  function getDataSinadi(tanggal) {
+    if (sinadiDateXhr && sinadiDateXhr.readyState !== 4) {
+      sinadiDateXhr.abort();
+    }
+
+    sinadiDateXhr = $.ajax({
       url: `/home/getSinadi`,
       data: {
         tanggal: tanggal
@@ -157,48 +171,77 @@
       method: 'post',
       dataType: 'json',
       beforeSend: function() {
-        $(".dataRincianPerjalananDinas").html("<i class='fas fa-sync-alt fa-spin'></i> <span class='text-bold pt-2'>Loading...</span>")
-
+        $(".dataRincianPerjalananDinas").html("<i class='fas fa-sync-alt fa-spin'></i> <span class='text-bold pt-2'>Loading...</span>");
       },
       success: function(response) {
-        if (response.data) {
-          var id_perjalanan = '';
-          $(".dataRincianPerjalananDinas").html(
-            response.data.map(element => {
-              var listItem = '';
+        if (response && Array.isArray(response.data) && response.data.length > 0) {
+          var grouped = [];
+          var groupMap = {};
 
-              if (id_perjalanan != element['id_perjalanan']) {
-                id_perjalanan = element['id_perjalanan'];
-                listItem = '<li class="list-group-item">';
-                listItem += `<p class="mb-0"><strong>${(element['tgl_pelaksanaan'] == element['tgl_pelaksanaan_akhir']) ? formatTanggalIndo(element['tgl_pelaksanaan']) : `${formatTanggalIndo(element['tgl_pelaksanaan'])} s/d ${formatTanggalIndo(element['tgl_pelaksanaan_akhir'])}`}</strong></p>` +
-                  `<p class="mb-0"><strong>${(element['kota'] == element['kota_asal']) ? element['kota'] : `${element['kota_asal']} ke ${element['kota']}`}</strong></p>` +
-                  `<p>${element['nama_kegiatan']}</p>`;
-              }
+          response.data.forEach(function(element) {
+            var id = element.id_perjalanan;
+            if (!groupMap[id]) {
+              groupMap[id] = {
+                tgl_pelaksanaan: element.tgl_pelaksanaan,
+                tgl_pelaksanaan_akhir: element.tgl_pelaksanaan_akhir,
+                kota: element.kota,
+                kota_asal: element.kota_asal,
+                nama_kegiatan: element.nama_kegiatan,
+                peserta: []
+              };
+              grouped.push(groupMap[id]);
+            }
+            if (element.nama_pegawai) {
+              groupMap[id].peserta.push(element.nama_pegawai);
+            }
+          });
 
-              listItem += `<p class="mb-0"><i class="fas fa-circle" style="font-size: 6px;"></i> ${element['nama_pegawai']}</p>`;
+          var html = grouped.map(function(trip) {
+            var tglText = (trip.tgl_pelaksanaan === trip.tgl_pelaksanaan_akhir || !trip.tgl_pelaksanaan_akhir)
+              ? formatTanggalIndo(trip.tgl_pelaksanaan)
+              : formatTanggalIndo(trip.tgl_pelaksanaan) + ' s/d ' + formatTanggalIndo(trip.tgl_pelaksanaan_akhir);
+            var ruteText = (trip.kota === trip.kota_asal || !trip.kota_asal)
+              ? escHtmlSinadi(trip.kota)
+              : escHtmlSinadi(trip.kota_asal) + ' ke ' + escHtmlSinadi(trip.kota);
+            var pesertaHtml = trip.peserta.map(function(nama) {
+              return '<p class="mb-0"><i class="fas fa-circle" style="font-size: 6px;"></i> ' + escHtmlSinadi(nama) + '</p>';
+            }).join('');
 
-              if (id_perjalanan != element['id_perjalanan']) {
-                listItem += '</li>';
-              }
+            return '<li class="list-group-item">' +
+              '<p class="mb-0"><strong>' + escHtmlSinadi(tglText) + '</strong></p>' +
+              '<p class="mb-0"><strong>' + ruteText + '</strong></p>' +
+              '<p>' + escHtmlSinadi(trip.nama_kegiatan) + '</p>' +
+              pesertaHtml +
+              '</li>';
+          }).join('');
 
-              return listItem;
-            }).join('')
-          );
+          $(".dataRincianPerjalananDinas").html(html);
         } else {
-          $(".dataRincianPerjalananDinas").html(elementul)
+          $(".dataRincianPerjalananDinas").html(elementul);
         }
       },
+      error: function(xhr, status) {
+        if (status === 'abort') {
+          return;
+        }
+        $(".dataRincianPerjalananDinas").html(
+          '<li class="list-group-item text-danger"><i class="fas fa-exclamation-triangle mr-1"></i> Gagal memuat rincian perjalanan dinas. Silakan coba lagi.</li>'
+        );
+      }
     });
   }
 
   function formatTanggalIndo(tanggal) {
-    // Implementasikan logika format tanggal di sini
-    // Contoh sederhana:
     var options = {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     };
+    if (typeof tanggal === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(tanggal)) {
+      var parts = tanggal.split('-');
+      var localDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      return localDate.toLocaleDateString('id-ID', options);
+    }
     return new Date(tanggal).toLocaleDateString('id-ID', options);
   }
 </script>
