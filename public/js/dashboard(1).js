@@ -1,16 +1,25 @@
 
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('infografisForm');
+    if (!form) {
+        return;
+    }
 
-    // Menangani klik tombol "pdf"
-    form.querySelector('button[name="pdf"]').addEventListener('click', function () {
-        form.action = '/infografis/pdf';
-    });
+    const pdfButton = form.querySelector('button[name="pdf"]');
+    if (pdfButton) {
+        // Menangani klik tombol "pdf"
+        pdfButton.addEventListener('click', function () {
+            form.action = '/infografis/pdf';
+        });
+    }
 
-    // Menangani klik tombol "excel"
-    form.querySelector('button[name="excel"]').addEventListener('click', function () {
-        form.action = '/infografis/excel';
-    });
+    const excelButton = form.querySelector('button[name="excel"]');
+    if (excelButton) {
+        // Menangani klik tombol "excel"
+        excelButton.addEventListener('click', function () {
+            form.action = '/infografis/excel';
+        });
+    }
 });
 
 const dataHTMLDashboard = $('.dashboard').html()
@@ -42,6 +51,9 @@ $(document).on('change', '.select2', function() {
 });
 
 $(document).on('change', '.date-dashboard', function() {
+  if ($(this).closest('.dashboard').length || $('#data-dashboard').val() !== 'infografis') {
+    return;
+  }
   cekInput();
 });
 

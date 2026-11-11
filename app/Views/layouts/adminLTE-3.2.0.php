@@ -879,7 +879,7 @@
     <script src="/js/formulirPerjalananDinas3.js?v=<?= time(); ?>"></script>
   <?php endif; ?>
   <?= in_array($activeMenu, ['sinadiBlockir']) ? '<script src="/js/sinadiBlockir.js"></script>' : ""; ?>
-  <?= in_array($activeMenu, ['Dashboard']) ? '<script src="/js/dashboard(1).js"></script>' : ""; ?>
+  <?= in_array($activeMenu, ['Dashboard']) ? '<script src="/js/dashboard(1).js?v=' . filemtime(FCPATH . 'js/dashboard(1).js') . '"></script>' : ""; ?>
   <?= in_array($activeMenu, ['sipeditArsipSaya']) ? '<script src="/js/sipedit1.js"></script>' : ""; ?>
   <?= in_array($activeMenu, ['rencana_kerja', 'daftar_dokumen']) ? '<script src="/js/wbkViewData2.js"></script>' : ""; ?>
   <?= in_array($activeMenu, ['arsip_surat', 'template_naskah', 'tambah_naskah']) ? '<script src="/js/arkab1.js"></script>' : ""; ?>

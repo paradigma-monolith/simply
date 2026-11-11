@@ -91,7 +91,7 @@
           <form action="/sinadi/export/excel" method="post">
             <div class="form-group">
               <label for="">Range of date</label>
-              <input type="text" name="tanggal" class="form-control date-dashboard" required>
+              <input type="text" name="tanggal" class="form-control date-sinadi" required>
             </div>
             <button type="submit" class="float-right btn btn-success"><i class="fas fa-excel"></i> Export</button>
           </form>
@@ -138,7 +138,7 @@
   var elementul = $(".dataRincianPerjalananDinas").html()
 
   $(document).ready(function() {
-    $('.date-dashboard').daterangepicker({
+    $('.date-sinadi').daterangepicker({
       startDate: moment().subtract(1, 'months').startOf('month'),
       endDate: moment(),
       locale: {

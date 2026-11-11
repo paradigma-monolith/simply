@@ -90,8 +90,14 @@
 </style>
 
 <script>
-  // Inject raw data from PHP
-  var rawData = <?= json_encode($pengawasanKapal); ?>;
+  // Inject only KPI-required fields from PHP to keep page payload lightweight and script-safe
+  <?php
+  $kpiRawData = array_map(static fn (array $row): array => [
+    'surat_pernyataan_nahkoda' => $row['surat_pernyataan_nahkoda'] ?? null,
+    'date_updated' => $row['date_updated'] ?? ($row['created_at'] ?? ($row['date_created'] ?? ($row['created_date'] ?? null))),
+  ], $pengawasanKapal);
+  ?>
+  var rawData = <?= json_encode($kpiRawData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 </script>
 
 <!-- Main content -->
@@ -938,22 +944,27 @@
   });
 
 
-  // Observe changes on PNBP table to refresh KPI automatically
+  // Observe changes on PNBP table to refresh KPI automatically (debounced to avoid DOM mutation storms)
   function watchKpiSourceChanges() {
     var bodyEl = document.getElementById('pnbpPelabuhanTableBody');
     var footerEl = document.getElementById('total-kapal-footer');
     var laporanBody = document.querySelector('#laporanTable tbody');
+    var kpiTimer = null;
+    function scheduleKpiUpdate() {
+      clearTimeout(kpiTimer);
+      kpiTimer = setTimeout(updateAllKpi, 100);
+    }
     if (window.MutationObserver) {
       if (bodyEl) {
-        var obsBody = new MutationObserver(function () { updateAllKpi(); });
+        var obsBody = new MutationObserver(scheduleKpiUpdate);
         obsBody.observe(bodyEl, { childList: true, subtree: true, characterData: true });
       }
       if (footerEl && footerEl.parentElement) {
-        var obsFoot = new MutationObserver(function () { updateAllKpi(); });
+        var obsFoot = new MutationObserver(scheduleKpiUpdate);
         obsFoot.observe(footerEl.parentElement, { childList: true, subtree: true, characterData: true });
       }
       if (laporanBody) {
-        var obsLaporan = new MutationObserver(function () { updateAllKpi(); });
+        var obsLaporan = new MutationObserver(scheduleKpiUpdate);
         obsLaporan.observe(laporanBody, { childList: true, subtree: true });
       }
     }

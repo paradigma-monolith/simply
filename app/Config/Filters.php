@@ -105,6 +105,7 @@ class Filters extends BaseConfig
                 // 'kendaraan_kantor/*',
                 'pengawasan_kapal', 
                 'pengawasan_kapal/*',
+                'laporan_pengawasan_kapal',
                 'surat_sk', 
                 'surat_sk/*',
                 'pengukuran_kebugaran', 

@@ -238,49 +238,29 @@ class Data extends BaseController
     // Get data with date filter if provided
     $dateRange = $this->request->getVar('dateRange');
     $pengawasanKapalQuery = $this->pengawasanKapalModel;
-    
+
     // Apply location filter if not admin
-    $lokasiArray = $this->pengawasanKapalTargetAksesModel
-      ->join('data_pegawai', 'data_pegawai.id_data_pegawai=pengawasan_kapal_target_akses.id_data_pegawai')
-      ->where('data_pegawai.nama', session()->get('nama'))
-      ->first();
-      
-    if(($lokasiArray && $lokasiArray['lokasi'] != null) || session()->get('role') == "Admin") {
-      if($lokasiArray) {
-        $lokasiArray = json_decode($lokasiArray['lokasi'], true);
-        $lokasiData = $this->unitKerjaModel->whereIn('id_unit_kerja', $lokasiArray)->findAll();
-        $unitKerjaArray = array_column($lokasiData, 'lokasi');
-        
-        // Map lokasi to pelabuhan values (handle case sensitivity and name differences)
-        $pelabuhanArray = [];
-        foreach ($unitKerjaArray as $lokasi) {
-            switch (strtolower($lokasi)) {
-                case 'cirebon':
-                    $pelabuhanArray[] = 'cirebon';
-                    break;
-                case 'indramayu':
-                    $pelabuhanArray[] = 'Indramayu';
-                    break;
-                case 'subang':
-                    $pelabuhanArray[] = 'patimban';
-                    break;
-                default:
-                    $pelabuhanArray[] = $lokasi;
-                    break;
-            }
+    $scope = $this->resolvePengawasanKapalLocationScope();
+
+    if ($scope['authorized']) {
+      if ($scope['restrictToPorts']) {
+        if (empty($scope['pelabuhanArray'])) {
+          $pengawasanKapal = [];
+        } else {
+          $pengawasanKapalQuery = $pengawasanKapalQuery->whereIn('pelabuhan', $scope['pelabuhanArray']);
         }
-        
-        $pengawasanKapalQuery = $pengawasanKapalQuery->whereIn('pelabuhan', $pelabuhanArray);
       }
-      
-      // Apply date filter
-      if ($dateRange) {
-        [$startDate, $endDate] = explode(' - ', $dateRange);
-        $pengawasanKapalQuery->where('DATE(tbl_pasien.date_updated) >=', $startDate)
-          ->where('DATE(tbl_pasien.date_updated) <=', $endDate);
+
+      if (!isset($pengawasanKapal)) {
+        // Apply date filter
+        if ($dateRange) {
+          [$startDate, $endDate] = explode(' - ', $dateRange);
+          $pengawasanKapalQuery->where('DATE(tbl_pasien.date_updated) >=', $startDate)
+            ->where('DATE(tbl_pasien.date_updated) <=', $endDate);
+        }
+
+        $pengawasanKapal = $pengawasanKapalQuery->orderBy('tbl_pasien.date_updated DESC')->findAll();
       }
-      
-      $pengawasanKapal = $pengawasanKapalQuery->orderBy('tbl_pasien.date_updated DESC')->findAll();
       
       // Fill data
       $row = 2;
@@ -1282,56 +1262,103 @@ class Data extends BaseController
     return false;
   }
 
+  /**
+   * Resolve location access and mapped pelabuhan filters for current user.
+   *
+   * @return array{authorized: bool, restrictToPorts: bool, lokasiIds: ?array, unitKerjaArray: ?array, pelabuhanArray: array}
+   */
+  private function resolvePengawasanKapalLocationScope(): array
+  {
+    $isAdmin = session()->get('role') === 'Admin';
+    $targetRow = $this->pengawasanKapalTargetAksesModel
+      ->join('data_pegawai', 'data_pegawai.id_data_pegawai=pengawasan_kapal_target_akses.id_data_pegawai')
+      ->where('data_pegawai.nama', session()->get('nama'))
+      ->first();
+
+    $lokasiIds = [];
+    if ($targetRow && !empty($targetRow['lokasi'])) {
+      $decoded = json_decode((string) $targetRow['lokasi'], true);
+      if (is_array($decoded)) {
+        $lokasiIds = array_values(array_filter(
+          $decoded,
+          static fn ($id): bool => $id !== null && $id !== ''
+        ));
+      }
+    }
+
+    if (!$isAdmin && empty($lokasiIds)) {
+      return [
+        'authorized' => false,
+        'restrictToPorts' => false,
+        'lokasiIds' => null,
+        'unitKerjaArray' => null,
+        'pelabuhanArray' => [],
+      ];
+    }
+
+    // Empty or "null" target_akses rows on Admin must fall back to unrestricted access rather than failing whereIn().
+    if (empty($lokasiIds)) {
+      return [
+        'authorized' => true,
+        'restrictToPorts' => false,
+        'lokasiIds' => null,
+        'unitKerjaArray' => null,
+        'pelabuhanArray' => [],
+      ];
+    }
+
+    $lokasiData = $this->unitKerjaModel->whereIn('id_unit_kerja', $lokasiIds)->findAll();
+    $unitKerjaArray = array_column($lokasiData, 'lokasi');
+
+    $portMap = [
+      'cirebon' => 'cirebon',
+      'indramayu' => 'Indramayu',
+      'subang' => 'patimban',
+    ];
+    $pelabuhanArray = [];
+    foreach ($unitKerjaArray as $lokasi) {
+      $key = strtolower((string) $lokasi);
+      $pelabuhanArray[] = $portMap[$key] ?? $lokasi;
+    }
+
+    return [
+      'authorized' => true,
+      'restrictToPorts' => true,
+      'lokasiIds' => $lokasiIds,
+      'unitKerjaArray' => $unitKerjaArray,
+      'pelabuhanArray' => array_values(array_unique($pelabuhanArray)),
+    ];
+  }
+
   public function laporan_pengawasan_kapal()
   {
     $data['activeMenu'] = "laporanPengawasanKapal";
     $data['title'] = "Laporan Pengawasan Kapal";
 
-    $data['lokasiArray'] = $this->pengawasanKapalTargetAksesModel
-          ->join('data_pegawai', 'data_pegawai.id_data_pegawai=pengawasan_kapal_target_akses.id_data_pegawai')
-          ->where('data_pegawai.nama', session()->get('nama'))
-          ->first();
-          
-    if(($data['lokasiArray'] && $data['lokasiArray']['lokasi'] != null) || session()->get('role') == "Admin") {
-      if($data['lokasiArray']) {
-          $data['lokasiArray'] = json_decode($data['lokasiArray']['lokasi'],true);
-          
-          $data['unitKerjaArray'] = null;
-              $lokasiData = $this->unitKerjaModel->whereIn('id_unit_kerja', $data['lokasiArray'])->findAll();
-              $data['unitKerjaArray'] = array_column($lokasiData, 'lokasi');
-              
-              // Map lokasi to pelabuhan values (handle case sensitivity and name differences)
-              $pelabuhanArray = [];
-              foreach ($data['unitKerjaArray'] as $lokasi) {
-                  switch (strtolower($lokasi)) {
-                      case 'cirebon':
-                          $pelabuhanArray[] = 'cirebon';
-                          break;
-                      case 'indramayu':
-                          $pelabuhanArray[] = 'Indramayu';
-                          break;
-                      case 'subang':
-                          $pelabuhanArray[] = 'patimban';
-                          break;
-                      default:
-                          $pelabuhanArray[] = $lokasi;
-                          break;
-                  }
-              }
-              
-          $pengawasanKapalQuery = $this->pengawasanKapalModel
-            ->whereIn('pelabuhan', $pelabuhanArray);
-      } else {
-          $pengawasanKapalQuery = $this->pengawasanKapalModel;
-      }
-      
-      // Selalu urutkan berdasarkan waktu submit terbaru (date_updated)
-      $data['pengawasanKapal'] = $pengawasanKapalQuery
-        ->orderBy('tbl_pasien.date_updated', 'DESC')
-        ->findAll();
-    } else {
+    $scope = $this->resolvePengawasanKapalLocationScope();
+    if (!$scope['authorized']) {
+      session()->setFlashdata('error', 'Anda belum memiliki akses lokasi Laporan Pengawasan Kapal.');
       return redirect()->to('/home');
     }
+
+    $data['lokasiArray'] = $scope['lokasiIds'];
+    $data['unitKerjaArray'] = $scope['unitKerjaArray'];
+
+    if ($scope['restrictToPorts']) {
+      if (empty($scope['pelabuhanArray'])) {
+        $data['pengawasanKapal'] = [];
+        return view('pengawasan_kapal/laporan_pengawasan_kapal', $data);
+      }
+      $pengawasanKapalQuery = $this->pengawasanKapalModel
+        ->whereIn('pelabuhan', $scope['pelabuhanArray']);
+    } else {
+      $pengawasanKapalQuery = $this->pengawasanKapalModel;
+    }
+
+    // Selalu urutkan berdasarkan waktu submit terbaru (date_updated)
+    $data['pengawasanKapal'] = $pengawasanKapalQuery
+      ->orderBy('tbl_pasien.date_updated', 'DESC')
+      ->findAll();
 
     return view('pengawasan_kapal/laporan_pengawasan_kapal', $data);
   }

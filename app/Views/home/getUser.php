@@ -3,10 +3,10 @@
     <?php foreach ($dataSideRightUser as $data) : ?>
       <li class="list-group-item d-flex justify-content-between align-content-center">
         <div class="d-flex flex-row" onclick="viewProfile(<?= $data['id_user']; ?>)">
-          <?php if($data['image'] != ""): ?>
-          <img src="/dist/img/avatar/<?= $data['image']; ?>" width="40" />
-          <?php else: ?>
-          <img src="https://img.icons8.com/color/100/000000/folder-invoices.png" width="40" />
+          <?php if ($data['image'] != "" && is_file(FCPATH . 'dist/img/avatar/' . $data['image'])) : ?>
+          <img src="/dist/img/avatar/<?= esc($data['image'], 'attr'); ?>" width="40" />
+          <?php else : ?>
+          <img src="/dist/img/boxed-bg.jpg" width="40" />
           <?php endif; ?>
           <div class="ml-2" style="width: 100px;
 height: 40px;
