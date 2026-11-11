@@ -623,39 +623,8 @@ class Data extends BaseController
   }
   public function notaDinas()
   {
-    $data['title'] = "Sinadi | Nota Dinas"; // kelola_data_cuti
+    $data['title'] = "Sinadi | Nota Dinas";
     $data['activeMenu'] = "notaDinas";
-
-    $akses = $this->sinadiAksesModel->join('user', 'id_user')->where('sinadi_akses.status', 'Akses Diterima')->where('user.username', session()->get('username'))->findAll();
-
-    if ($akses) {
-      $data['notaDinas'] = $this->sinadiPerjalananDinasPesertaModel
-        ->select('sinadi_perjalanan_dinas_peserta.*, sinadi_perjalanan_dinas.nama_kegiatan, sinadi_perjalanan_dinas.tempat_perjalanan')
-        ->join('sinadi_perjalanan_dinas', 'id_perjalanan')
-        ->orderBy('tgl_pulang', 'desc')
-        ->findAll();
-    } else {
-      // Ambil data user yang login untuk cek NIP (sebagai PIC)
-      $currentUser = $this->dataPegawaiModel
-        ->join('user', 'user.id_user=data_pegawai.id_user')
-        ->where('user.username', session()->get('username'))
-        ->first();
-      $currentNip = $currentUser['nip'] ?? '';
-      $currentUserId = $currentUser['id_user'] ?? '';
-
-      $data['notaDinas'] = $this->sinadiPerjalananDinasPesertaModel
-        ->select('sinadi_perjalanan_dinas_peserta.*, sinadi_perjalanan_dinas.nama_kegiatan, sinadi_perjalanan_dinas.tempat_perjalanan')
-        ->join('sinadi_perjalanan_dinas', 'id_perjalanan')
-        ->join('data_pegawai', 'data_pegawai.nip=sinadi_perjalanan_dinas_peserta.nip_pegawai', 'left')
-        ->join('user', 'user.id_user=data_pegawai.id_user', 'left')
-        ->groupStart()
-            ->where('user.username', session()->get('username'))
-            ->orWhere('sinadi_perjalanan_dinas.pic_nip', $currentNip)
-            ->orWhere('sinadi_perjalanan_dinas.created_by', $currentUserId)
-        ->groupEnd()
-        ->orderBy('tgl_pulang', 'desc')
-        ->findAll();
-    }
 
     return view('sinadi/nota_dinas', $data);
   }

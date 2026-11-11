@@ -377,6 +377,7 @@ $routes->post('/sinadi/dinasDalamKotaView', 'Sinadi\Ajax::dinasDalamKotaView');
 $routes->post('/sinadi/dinasLuarKotaView', 'Sinadi\Ajax::dinasLuarKotaView');
 
 $routes->get('/sinadi/notaDinas', 'Sinadi\Data::notaDinas');
+$routes->post('/sinadi/notaDinasData', 'Sinadi\Ajax::notaDinasData');
 $routes->get('/sinadi/download_nota_dinas_zip/(:num)', 'Sinadi\Data::download_nota_dinas_zip/$1');
 $routes->post('/sinadi/getNotaDinas', 'Sinadi\Ajax::getNotaDinas');
 $routes->post('/sinadi/saveNotaDinas', 'Sinadi\Crud::saveNotaDinas');

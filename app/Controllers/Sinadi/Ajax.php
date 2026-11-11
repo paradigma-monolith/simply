@@ -430,4 +430,181 @@ class Ajax extends BaseController
       'data'            => $data,
     ]);
   }
+
+  /**
+   * Endpoint DataTables server-side untuk halaman Nota Dinas (/sinadi/notaDinas).
+   */
+  public function notaDinasData()
+  {
+    $username = session()->get('username');
+    if (empty($username)) {
+      return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+    }
+
+    $draw = (int) ($this->request->getPost('draw') ?? 1);
+    $start = max(0, (int) ($this->request->getPost('start') ?? 0));
+    $length = (int) ($this->request->getPost('length') ?? 25);
+    $length = ($length > 0 && $length <= 100) ? $length : 25;
+
+    $searchParam = $this->request->getPost('search');
+    $search = is_array($searchParam) ? trim((string) ($searchParam['value'] ?? '')) : '';
+
+    $fileFilter = trim((string) ($this->request->getPost('status_file') ?? ''));
+
+    $aksesRow = $this->sinadiAksesModel
+      ->select('sinadi_akses.id_sinadi_akses')
+      ->join('user', 'user.id_user = sinadi_akses.id_user')
+      ->where('sinadi_akses.status', 'Akses Diterima')
+      ->where('user.username', $username)
+      ->first();
+    $hasFullAccess = !empty($aksesRow);
+
+    $currentNip = '';
+    $currentUserId = '';
+    if (!$hasFullAccess) {
+      $currentUser = $this->userModel
+        ->select('user.id_user, data_pegawai.nip')
+        ->join('data_pegawai', 'data_pegawai.id_user = user.id_user', 'left')
+        ->where('user.username', $username)
+        ->first();
+      $currentNip = trim((string) ($currentUser['nip'] ?? ''));
+      $currentUserId = trim((string) ($currentUser['id_user'] ?? ''));
+    }
+
+    $applyScope = function ($builder) use ($hasFullAccess, $currentNip, $currentUserId) {
+      $builder->join(
+        'sinadi_perjalanan_dinas',
+        'sinadi_perjalanan_dinas.id_perjalanan = sinadi_perjalanan_dinas_peserta.id_perjalanan'
+      );
+
+      if (!$hasFullAccess) {
+        if ($currentNip === '' && $currentUserId === '') {
+          $builder->where('1 = 0', null, false);
+          return;
+        }
+        $builder->groupStart();
+        $hasCondition = false;
+        if ($currentNip !== '') {
+          $builder->where('sinadi_perjalanan_dinas_peserta.nip_pegawai', $currentNip)
+            ->orWhere('sinadi_perjalanan_dinas.pic_nip', $currentNip);
+          $hasCondition = true;
+        }
+        if ($currentUserId !== '') {
+          if ($hasCondition) {
+            $builder->orWhere('sinadi_perjalanan_dinas.created_by', $currentUserId);
+          } else {
+            $builder->where('sinadi_perjalanan_dinas.created_by', $currentUserId);
+          }
+        }
+        $builder->groupEnd();
+      }
+    };
+
+    $totalBuilder = $this->sinadiPerjalananDinasPesertaModel->builder();
+    $applyScope($totalBuilder);
+    $recordsTotal = $totalBuilder->countAllResults();
+
+    $builder = $this->sinadiPerjalananDinasPesertaModel->builder();
+    $applyScope($builder);
+
+    $hasExtraFilter = false;
+    if ($fileFilter === 'uploaded') {
+      $builder->where('sinadi_perjalanan_dinas_peserta.file IS NOT NULL', null, false)
+        ->where("sinadi_perjalanan_dinas_peserta.file !=", '');
+      $hasExtraFilter = true;
+    } elseif ($fileFilter === 'missing') {
+      $builder->groupStart()
+        ->where('sinadi_perjalanan_dinas_peserta.file IS NULL', null, false)
+        ->orWhere('sinadi_perjalanan_dinas_peserta.file', '')
+        ->groupEnd();
+      $hasExtraFilter = true;
+    }
+
+    if ($search !== '') {
+      $builder->groupStart()
+        ->like('sinadi_perjalanan_dinas_peserta.nip_pegawai', $search)
+        ->orLike('sinadi_perjalanan_dinas_peserta.nama_pegawai', $search)
+        ->orLike('sinadi_perjalanan_dinas_peserta.no_surat_tugas', $search)
+        ->orLike('sinadi_perjalanan_dinas_peserta.tgl_pergi', $search)
+        ->orLike('sinadi_perjalanan_dinas_peserta.tgl_pulang', $search)
+        ->orLike('sinadi_perjalanan_dinas.nama_kegiatan', $search)
+        ->orLike('sinadi_perjalanan_dinas.tempat_perjalanan', $search)
+        ->groupEnd();
+      $hasExtraFilter = true;
+    }
+
+    $recordsFiltered = $hasExtraFilter ? $builder->countAllResults(false) : $recordsTotal;
+
+    $orderColumnMap = [
+      1 => 'sinadi_perjalanan_dinas_peserta.nama_pegawai',
+      2 => 'sinadi_perjalanan_dinas_peserta.tgl_pulang',
+      3 => 'sinadi_perjalanan_dinas_peserta.no_surat_tugas',
+      4 => 'sinadi_perjalanan_dinas.nama_kegiatan',
+      5 => 'sinadi_perjalanan_dinas.tempat_perjalanan',
+    ];
+    $orderParam = $this->request->getPost('order');
+    $orderColIdx = is_array($orderParam) && isset($orderParam[0]['column']) ? (int) $orderParam[0]['column'] : 2;
+    $orderDir = is_array($orderParam) && isset($orderParam[0]['dir']) && strtolower((string) $orderParam[0]['dir']) === 'asc' ? 'ASC' : 'DESC';
+    $orderColumn = $orderColumnMap[$orderColIdx] ?? 'sinadi_perjalanan_dinas_peserta.tgl_pulang';
+
+    $builder
+      ->select(
+        'sinadi_perjalanan_dinas_peserta.id_peserta, '
+        . 'sinadi_perjalanan_dinas_peserta.nip_pegawai, '
+        . 'sinadi_perjalanan_dinas_peserta.nama_pegawai, '
+        . 'sinadi_perjalanan_dinas_peserta.tgl_pergi, '
+        . 'sinadi_perjalanan_dinas_peserta.tgl_pulang, '
+        . 'sinadi_perjalanan_dinas_peserta.no_surat_tugas, '
+        . 'sinadi_perjalanan_dinas_peserta.file, '
+        . 'sinadi_perjalanan_dinas.nama_kegiatan, '
+        . 'sinadi_perjalanan_dinas.tempat_perjalanan'
+      )
+      ->orderBy($orderColumn, $orderDir)
+      ->orderBy('sinadi_perjalanan_dinas_peserta.id_peserta', $orderDir)
+      ->limit($length, $start);
+
+    $rows = $builder->get()->getResultArray();
+
+    $formatDate = static function ($dateStr): string {
+      $dateStr = trim((string) $dateStr);
+      if ($dateStr === '' || $dateStr === '0000-00-00') {
+        return '-';
+      }
+      return mediumdate_indo($dateStr);
+    };
+
+    $data = [];
+    foreach ($rows as $idx => $row) {
+      $tglPergi = trim((string) ($row['tgl_pergi'] ?? ''));
+      $tglPulang = trim((string) ($row['tgl_pulang'] ?? ''));
+      if ($tglPulang !== '' && $tglPulang !== '0000-00-00' && ($tglPergi === '' || $tglPergi === '0000-00-00' || $tglPergi === $tglPulang)) {
+        $tanggalFormatted = $formatDate($tglPulang);
+      } elseif ($tglPergi !== '' && $tglPergi !== '0000-00-00' && ($tglPulang === '' || $tglPulang === '0000-00-00')) {
+        $tanggalFormatted = $formatDate($tglPergi);
+      } elseif ($tglPergi !== '' && $tglPergi !== '0000-00-00') {
+        $tanggalFormatted = $formatDate($tglPergi) . ' s/d ' . $formatDate($tglPulang);
+      } else {
+        $tanggalFormatted = '-';
+      }
+
+      $data[] = [
+        'no'                => $start + $idx + 1,
+        'id_peserta'        => (int) $row['id_peserta'],
+        'nip_pegawai'       => (string) ($row['nip_pegawai'] ?? ''),
+        'nama_pegawai'      => (string) ($row['nama_pegawai'] ?? ''),
+        'tanggal'           => $tanggalFormatted,
+        'no_surat_tugas'    => (string) ($row['no_surat_tugas'] ?? ''),
+        'nama_kegiatan'     => (string) ($row['nama_kegiatan'] ?? ''),
+        'tempat_perjalanan' => (string) ($row['tempat_perjalanan'] ?? ''),
+        'file'              => ($row['file'] !== null && $row['file'] !== '') ? (string) $row['file'] : null,
+      ];
+    }
+
+    return $this->response->setJSON([
+      'draw'            => $draw,
+      'recordsTotal'    => $recordsTotal,
+      'recordsFiltered' => $recordsFiltered,
+      'data'            => $data,
+    ]);
+  }
 }
