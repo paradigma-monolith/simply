@@ -103,25 +103,46 @@ set_time_limit(300);
         break;
     }
     
-    $array = unserialize($value['data_barang']);
+    $array = is_string($value['data_barang'] ?? null) ? @unserialize($value['data_barang']) : [];
+    if (!is_array($array)) {
+        $array = [];
+    }
+
+    $normalized = [];
+    foreach ($array as $key => $getData) {
+        $normKey = strtolower(trim((string) $key));
+        if ($normKey !== '' && !array_key_exists($normKey, $normalized)) {
+            $normalized[$normKey] = trim((string) $getData);
+        }
+    }
+
     $nama_barang = '';
-    $merek = '';
-    $nup = '';
-    $x=0;
-    foreach($array as $key => $getData){
-        if($x == 0) {
-            $x++;
-            $nama_barang = $getData;
-        } elseif($x == 1) {
-            $x++;
-            $merek = $key . ' : ' . $getData;
-        } elseif($x == 2) {
-            $x++;
-            $nup = $getData;
-        } else {
+    foreach (['nama barang', 'nama_barang', 'uraian barang', 'uraian', 'nama aset', 'nama'] as $namaKey) {
+        if (!empty($normalized[$namaKey])) {
+            $nama_barang = $normalized[$namaKey];
             break;
         }
     }
+    if ($nama_barang === '') {
+        $skipKeys = ['no', 'no.', 'nomor', 'nomor urut', 'jenis bmn', 'kategori', 'kategori barang', 'jenis', 'kode satker', 'nama satker', 'kode barang', 'nup', 'merek', 'merk', 'tipe', 'status bmn', 'kondisi'];
+        foreach ($array as $key => $getData) {
+            $normKey = strtolower(trim((string) $key));
+            $valStr = trim((string) $getData);
+            if ($valStr !== '' && !in_array($normKey, $skipKeys, true)) {
+                $nama_barang = $valStr;
+                break;
+            }
+        }
+    }
+
+    $merekVal = '';
+    foreach (['merek', 'merk', 'merk/tipe', 'merek/tipe', 'tipe'] as $merekKey) {
+        if (isset($normalized[$merekKey]) && $normalized[$merekKey] !== '') {
+            $merekVal = $normalized[$merekKey];
+            break;
+        }
+    }
+    $merek = 'Merek : ' . ($merekVal !== '' ? $merekVal : '-');
     ?>
 
       <div class="container">
@@ -129,15 +150,14 @@ set_time_limit(300);
           <img src="<?= $img; ?>" class="logo">
           <div class="title">
             KEMENTERIAN KESEHATAN <br />
-            <span><?= $value['kode_qr_code_pusat']; ?></span>
+            <span><?= htmlspecialchars((string) ($value['kode_qr_code_pusat'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
           </div>
           <hr>
           <img src="<?= generate_qr((base_url() . '/data_abs/' . $value['kode_qr_code_internal']), 'QR Code ABS', 'Teal'); ?>" class="qrcode">
           <img src="<?= generate_qr($value['kode_qr_code_pusat'], 'QR Code SIMAN'); ?>" class="qrcode">
           <div class="label">
-            <span style="float: right;"><?= $nup; ?></span>
-            <span> <?= $nama_barang; ?> </span> <br />
-            <span> <?= $merek; ?> </span> <br /> <br />
+            <span> <?= htmlspecialchars($nama_barang !== '' ? $nama_barang : '-', ENT_QUOTES, 'UTF-8'); ?> </span> <br />
+            <span> <?= htmlspecialchars($merek, ENT_QUOTES, 'UTF-8'); ?> </span> <br /> <br />
             <span> Balai Kekarantinaan Kesehatan Kelas I Bandung </span> <br />
           </div>
         </div>
