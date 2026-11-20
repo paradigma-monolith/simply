@@ -395,6 +395,8 @@ $routes->post('/sinadi/tracing-tb/verifikasi/(:num)', 'Sinadi\TracingTb::simpanV
 $routes->post('/sinadi/tracing-tb/ajukan/(:num)', 'Sinadi\TracingTb::ajukan/$1');
 $routes->post('/sinadi/tracing-tb/hapus/(:num)', 'Sinadi\TracingTb::hapus/$1');
 $routes->get('/sinadi/tracing-tb/cetak/(:num)', 'Sinadi\TracingTb::cetak/$1');
+$routes->get('/sinadi/tracing-tb/download-template', 'Sinadi\TracingTb::downloadTemplate');
+$routes->get('/sinadi/tracing-tb/download-template-zip', 'Sinadi\TracingTb::downloadAllTemplatesZip');
 $routes->get('/sinadi/tracing-tb/verifikator', 'Sinadi\TracingTb::verifikator');
 $routes->post('/sinadi/tracing-tb/verifikator/tambah', 'Sinadi\TracingTb::tambahVerifikator');
 $routes->post('/sinadi/tracing-tb/verifikator/hapus/(:num)', 'Sinadi\TracingTb::hapusVerifikator/$1');

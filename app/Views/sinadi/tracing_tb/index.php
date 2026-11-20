@@ -102,6 +102,10 @@ $statusBadgeMap = [
           </small>
         </div>
         <div class="d-flex flex-wrap" style="gap: 6px;">
+          <button type="button" class="btn btn-success btn-sm" data-toggle="modal" data-target="#modalTemplateTracingTb">
+            <i class="fas fa-file-download mr-1"></i> Template Dokumen
+            <span class="badge badge-light ml-1"><?= count($templateFiles ?? []); ?></span>
+          </button>
           <a href="/sinadi/tracing-tb/create" class="btn btn-primary btn-sm">
             <i class="fas fa-plus-circle mr-1"></i> Input Form Tracing TB
           </a>
@@ -325,6 +329,8 @@ $statusBadgeMap = [
 
   </div>
 </section>
+
+<?= $this->include('sinadi/tracing_tb/_template_modal'); ?>
 
 <script>
   $(function() {

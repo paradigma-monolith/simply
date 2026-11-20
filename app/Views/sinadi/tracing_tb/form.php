@@ -60,12 +60,16 @@ foreach ($accounts as $ak) {
   <div class="container-fluid">
 
     <div class="mb-3 d-flex flex-wrap justify-content-between align-items-center" style="gap: 8px;">
-      <div>
+      <div class="d-flex flex-wrap align-items-center" style="gap: 6px;">
         <a href="/sinadi/tracing-tb" class="btn btn-outline-secondary btn-sm">
           <i class="fas fa-arrow-left mr-1"></i> Kembali ke Daftar Tracing TB
         </a>
+        <button type="button" class="btn btn-success btn-sm" data-toggle="modal" data-target="#modalTemplateTracingTb">
+          <i class="fas fa-file-download mr-1"></i> Download Template Dokumen
+          <span class="badge badge-light ml-1"><?= count($templateFiles ?? []); ?></span>
+        </button>
         <?php if ($isEdit) : ?>
-          <a href="/sinadi/tracing-tb/detail/<?= $idRecord; ?>" class="btn btn-outline-info btn-sm ml-1">
+          <a href="/sinadi/tracing-tb/detail/<?= $idRecord; ?>" class="btn btn-outline-info btn-sm">
             <i class="fas fa-clipboard-check mr-1"></i> Lihat Detail / Verifikasi
           </a>
         <?php endif; ?>
@@ -361,6 +365,8 @@ foreach ($accounts as $ak) {
 
   </div>
 </section>
+
+<?= $this->include('sinadi/tracing_tb/_template_modal'); ?>
 
 <script>
   $(function() {

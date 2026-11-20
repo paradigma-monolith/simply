@@ -120,6 +120,194 @@ class TracingTb extends BaseController
         return $dir;
     }
 
+    private function getTemplateDir(): string
+    {
+        $dir = rtrim(ROOTPATH, '/\\') . DIRECTORY_SEPARATOR . 'template doc tracing tb' . DIRECTORY_SEPARATOR;
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        return $dir;
+    }
+
+    /**
+     * Pindai semua file template yang tersimpan di folder "template doc tracing tb" (termasuk subfolder).
+     */
+    private function listTemplateFiles(): array
+    {
+        $baseDir = $this->getTemplateDir();
+        $realBase = realpath($baseDir);
+        if ($realBase === false || !is_dir($realBase)) {
+            return [];
+        }
+
+        $ignored = ['.ds_store', 'thumbs.db', 'desktop.ini', '.gitkeep', 'index.html'];
+        $files = [];
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($realBase, \FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $fileInfo) {
+            if (!$fileInfo->isFile()) {
+                continue;
+            }
+            $name = $fileInfo->getFilename();
+            if ($name === '' || $name[0] === '.' || substr($name, 0, 2) === '~$' || in_array(strtolower($name), $ignored, true)) {
+                continue;
+            }
+
+            $fullPath = $fileInfo->getRealPath();
+            if ($fullPath === false) {
+                continue;
+            }
+
+            $rel = ltrim(str_replace('\\', '/', substr($fullPath, strlen($realBase))), '/');
+            $dirPart = dirname($rel);
+            $folder = ($dirPart === '.' || $dirPart === '') ? 'Umum' : $dirPart;
+            $size = (int) $fileInfo->getSize();
+            $ext = strtolower($fileInfo->getExtension());
+
+            if ($size >= 1048576) {
+                $sizeLabel = number_format($size / 1048576, 1) . ' MB';
+            } elseif ($size >= 1024) {
+                $sizeLabel = number_format($size / 1024, 0) . ' KB';
+            } else {
+                $sizeLabel = $size . ' B';
+            }
+
+            $files[] = [
+                'rel_path'     => $rel,
+                'name'         => $name,
+                'folder'       => $folder,
+                'ext'          => $ext,
+                'size_bytes'   => $size,
+                'size_label'   => $sizeLabel,
+                'download_url' => base_url('sinadi/tracing-tb/download-template?file=' . rawurlencode($rel)),
+            ];
+        }
+
+        usort($files, static function (array $a, array $b): int {
+            $cmpFolder = strcasecmp($a['folder'], $b['folder']);
+            return $cmpFolder !== 0 ? $cmpFolder : strcasecmp($a['name'], $b['name']);
+        });
+
+        return $files;
+    }
+
+    /**
+     * Download satu file template dari folder "template doc tracing tb".
+     */
+    public function downloadTemplate()
+    {
+        $relPath = trim((string) ($this->request->getGet('file') ?? ''));
+        if ($relPath === '' || strpos($relPath, "\0") !== false) {
+            return redirect()->back()->with('error', 'Nama file template tidak valid.');
+        }
+
+        $baseDir = $this->getTemplateDir();
+        $realBase = realpath($baseDir);
+        if ($realBase === false) {
+            return redirect()->back()->with('error', 'Folder template tidak ditemukan.');
+        }
+
+        $normalizedRel = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, ltrim($relPath, '/\\'));
+        $targetReal = realpath($realBase . DIRECTORY_SEPARATOR . $normalizedRel);
+
+        if (
+            $targetReal === false
+            || !is_file($targetReal)
+            || !is_readable($targetReal)
+            || stripos($targetReal, $realBase . DIRECTORY_SEPARATOR) !== 0
+        ) {
+            return redirect()->back()->with('error', 'File template tidak ditemukan.');
+        }
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
+        $filename = basename($targetReal);
+        $filesize = (int) filesize($targetReal);
+        $fileObj = new \CodeIgniter\Files\File($targetReal, true);
+        $mime = $fileObj->getMimeType() ?: 'application/octet-stream';
+
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        http_response_code(200);
+        header('Content-Type: ' . $mime, true);
+        header('Content-Disposition: attachment; filename="' . str_replace(['"', "\r", "\n"], '', $filename) . '"', true);
+        header('Content-Length: ' . $filesize, true);
+        header('Cache-Control: private, max-age=300', true);
+
+        if ($filesize > 0 && strtolower($this->request->getMethod()) !== 'head') {
+            $fp = fopen($targetReal, 'rb');
+            if ($fp !== false) {
+                while (!feof($fp)) {
+                    $chunk = fread($fp, 65536);
+                    if ($chunk === false || $chunk === '') {
+                        break;
+                    }
+                    echo $chunk;
+                    flush();
+                }
+                fclose($fp);
+            }
+        }
+        exit;
+    }
+
+    /**
+     * Download semua file template di folder "template doc tracing tb" sekaligus sebagai arsip ZIP.
+     */
+    public function downloadAllTemplatesZip()
+    {
+        $files = $this->listTemplateFiles();
+        if (empty($files)) {
+            return redirect()->back()->with('error', 'Belum ada file template di folder template doc tracing tb.');
+        }
+        if (!class_exists('\ZipArchive')) {
+            return redirect()->back()->with('error', 'Ekstensi ZipArchive tidak tersedia di server.');
+        }
+
+        $realBase = realpath($this->getTemplateDir());
+        $tempZip = tempnam(sys_get_temp_dir(), 'tb_tpl_');
+        $zip = new \ZipArchive();
+        if ($zip->open($tempZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            @unlink($tempZip);
+            return redirect()->back()->with('error', 'Gagal membuat file ZIP template.');
+        }
+
+        foreach ($files as $f) {
+            $fullPath = $realBase . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $f['rel_path']);
+            if (is_file($fullPath) && is_readable($fullPath)) {
+                $zip->addFile($fullPath, $f['rel_path']);
+            }
+        }
+        $zip->close();
+
+        if (!is_file($tempZip) || filesize($tempZip) === 0) {
+            @unlink($tempZip);
+            return redirect()->back()->with('error', 'Arsip ZIP template kosong.');
+        }
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        http_response_code(200);
+        header('Content-Type: application/zip', true);
+        header('Content-Disposition: attachment; filename="Template_Dokumen_Tracing_TB.zip"', true);
+        header('Content-Length: ' . filesize($tempZip), true);
+        readfile($tempZip);
+        @unlink($tempZip);
+        exit;
+    }
+
     private function getDokumenIndexed(int $idTracingTb): array
     {
         $rows = $this->dokumenModel->where('id_tracing_tb', $idTracingTb)->findAll();
@@ -235,6 +423,7 @@ class TracingTb extends BaseController
             'totalDocCatalog'  => $totalDocCatalog,
             'verifBkkNames'    => $verifBkkNames,
             'verifPusatNames'  => $verifPusatNames,
+            'templateFiles'    => $this->listTemplateFiles(),
         ]);
     }
 
@@ -248,12 +437,12 @@ class TracingTb extends BaseController
         $rincian = SinadiTracingTbSchema::buildRincianAnggaran(null, false);
 
         return view('sinadi/tracing_tb/form', [
-            'title'      => 'Sinadi | Input Tracing TB',
-            'activeMenu' => 'sinadiTracingTb',
-            'mode'       => 'create',
-            'ctx'        => $ctx,
-            'accounts'   => $accounts,
-            'record'     => [
+            'title'         => 'Sinadi | Input Tracing TB',
+            'activeMenu'    => 'sinadiTracingTb',
+            'mode'          => 'create',
+            'ctx'           => $ctx,
+            'accounts'      => $accounts,
+            'record'        => [
                 'id_tracing_tb'    => 0,
                 'lokus'            => '',
                 'instansi'         => SinadiTracingTbSchema::DEFAULT_INSTANSI,
@@ -264,8 +453,9 @@ class TracingTb extends BaseController
                 'catatan_pengaju'  => '',
                 'status_pengajuan' => 'Draft',
             ],
-            'rincian'    => $rincian,
-            'dokumenMap' => [],
+            'rincian'       => $rincian,
+            'dokumenMap'    => [],
+            'templateFiles' => $this->listTemplateFiles(),
         ]);
     }
 
@@ -289,14 +479,15 @@ class TracingTb extends BaseController
         $rincian = SinadiTracingTbSchema::buildRincianAnggaran($savedItems, !empty($row['non_radiografer']));
 
         return view('sinadi/tracing_tb/form', [
-            'title'      => 'Sinadi | Edit Tracing TB',
-            'activeMenu' => 'sinadiTracingTb',
-            'mode'       => 'edit',
-            'ctx'        => $ctx,
-            'accounts'   => SinadiTracingTbSchema::getAccounts(),
-            'record'     => $row,
-            'rincian'    => $rincian,
-            'dokumenMap' => $this->getDokumenIndexed((int) $id),
+            'title'         => 'Sinadi | Edit Tracing TB',
+            'activeMenu'    => 'sinadiTracingTb',
+            'mode'          => 'edit',
+            'ctx'           => $ctx,
+            'accounts'      => SinadiTracingTbSchema::getAccounts(),
+            'record'        => $row,
+            'rincian'       => $rincian,
+            'dokumenMap'    => $this->getDokumenIndexed((int) $id),
+            'templateFiles' => $this->listTemplateFiles(),
         ]);
     }
 
