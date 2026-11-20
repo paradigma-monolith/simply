@@ -287,9 +287,9 @@ $tabShortNames = [
                 <?php if ($isCustomSavedLokus) : ?>
                   <option value="<?= esc($selectedLokus); ?>" selected><?= esc($selectedLokus); ?> (Lokus tersimpan)</option>
                 <?php endif; ?>
-                <?php foreach ($lokusCatalog as $idxLokus => $namaLokus) : ?>
+                <?php foreach ($lokusCatalog as $namaLokus) : ?>
                   <option value="<?= esc($namaLokus); ?>" <?= $selectedLokus === $namaLokus ? 'selected' : ''; ?>>
-                    <?= sprintf('%02d. %s', $idxLokus + 1, esc($namaLokus)); ?>
+                    <?= esc($namaLokus); ?>
                   </option>
                 <?php endforeach; ?>
               </select>
