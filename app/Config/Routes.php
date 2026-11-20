@@ -382,6 +382,23 @@ $routes->get('/sinadi/download_nota_dinas_zip/(:num)', 'Sinadi\Data::download_no
 $routes->post('/sinadi/getNotaDinas', 'Sinadi\Ajax::getNotaDinas');
 $routes->post('/sinadi/saveNotaDinas', 'Sinadi\Crud::saveNotaDinas');
 
+// SINADI - Tracing TB
+$routes->get('/sinadi/tracing-tb', 'Sinadi\TracingTb::index');
+$routes->get('/sinadi/tracing-tb/create', 'Sinadi\TracingTb::create');
+$routes->get('/sinadi/tracing-tb/edit/(:num)', 'Sinadi\TracingTb::edit/$1');
+$routes->post('/sinadi/tracing-tb/save', 'Sinadi\TracingTb::save');
+$routes->post('/sinadi/tracing-tb/upload-dokumen', 'Sinadi\TracingTb::uploadDokumen');
+$routes->post('/sinadi/tracing-tb/hapus-dokumen/(:num)', 'Sinadi\TracingTb::hapusDokumen/$1');
+$routes->get('/sinadi/tracing-tb/preview-dokumen/(:num)', 'Sinadi\TracingTb::previewDokumen/$1');
+$routes->get('/sinadi/tracing-tb/detail/(:num)', 'Sinadi\TracingTb::detail/$1');
+$routes->post('/sinadi/tracing-tb/verifikasi/(:num)', 'Sinadi\TracingTb::simpanVerifikasi/$1');
+$routes->post('/sinadi/tracing-tb/ajukan/(:num)', 'Sinadi\TracingTb::ajukan/$1');
+$routes->post('/sinadi/tracing-tb/hapus/(:num)', 'Sinadi\TracingTb::hapus/$1');
+$routes->get('/sinadi/tracing-tb/cetak/(:num)', 'Sinadi\TracingTb::cetak/$1');
+$routes->get('/sinadi/tracing-tb/verifikator', 'Sinadi\TracingTb::verifikator');
+$routes->post('/sinadi/tracing-tb/verifikator/tambah', 'Sinadi\TracingTb::tambahVerifikator');
+$routes->post('/sinadi/tracing-tb/verifikator/hapus/(:num)', 'Sinadi\TracingTb::hapusVerifikator/$1');
+
 // ROUTES FOR WBK
 $routes->get('/wbk/rencana_kerja', 'Wbk\Data::rencana_kerja');
 $routes->get('/wbk/rencana_kerja_list', 'Wbk\Ajax::rencana_kerja_list');

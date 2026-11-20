@@ -392,8 +392,8 @@
 
     
     <!-- APLIKASI SINADI -->
-    <li id="sinadi" class="nav-item <?= in_array($activeMenu, ['sinadiVerifikator', 'notaDinas', 'sinadiPengaturan', 'sinadiSaya', 'formulirPerjalananDinas', 'dinasDalamKota', 'dinasLuarKota']) ? "menu-open" : ""; ?>">
-      <a href="#" class="nav-link <?= in_array($activeMenu, ['sinadiVerifikator', 'notaDinas', 'sinadiPengaturan', 'sinadiSaya', 'formulirPerjalananDinas', 'dinasDalamKota', 'dinasLuarKota']) ? "active" : ""; ?>">
+    <li id="sinadi" class="nav-item <?= in_array($activeMenu, ['sinadiVerifikator', 'notaDinas', 'sinadiPengaturan', 'sinadiSaya', 'formulirPerjalananDinas', 'dinasDalamKota', 'dinasLuarKota', 'sinadiTracingTb', 'sinadiTracingTbVerifikator']) ? "menu-open" : ""; ?>">
+      <a href="#" class="nav-link <?= in_array($activeMenu, ['sinadiVerifikator', 'notaDinas', 'sinadiPengaturan', 'sinadiSaya', 'formulirPerjalananDinas', 'dinasDalamKota', 'dinasLuarKota', 'sinadiTracingTb', 'sinadiTracingTbVerifikator']) ? "active" : ""; ?>">
         <i class="nav-icon fas fa-shuttle-van"></i>
         <p>
           SINADI (Perjalanan Dinas)
@@ -443,6 +443,12 @@
           <a href="/sinadi/verifikasiSurat" class="nav-link  <?= in_array($activeMenu, ['sinadiVerifikator']) ? "active" : ""; ?>">
             <i class="far fa-circle nav-icon"></i>
             <p>Validasi Dokumen</p>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="/sinadi/tracing-tb" class="nav-link <?= in_array($activeMenu, ['sinadiTracingTb', 'sinadiTracingTbVerifikator']) ? "active" : ""; ?>">
+            <i class="far fa-circle nav-icon"></i>
+            <p>Tracing TB</p>
           </a>
         </li>
         <?php

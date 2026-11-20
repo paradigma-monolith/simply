@@ -1,0 +1,1046 @@
+<?php
+
+namespace App\Controllers\Sinadi;
+
+use App\Controllers\BaseController;
+use App\Libraries\SinadiTracingTbSchema;
+use App\Models\SinadiTracingTbModel;
+use App\Models\SinadiTracingTbDokumenModel;
+use App\Models\SinadiTracingTbVerifikatorModel;
+use CodeIgniter\HTTP\RequestInterface;
+use CodeIgniter\HTTP\ResponseInterface;
+use Psr\Log\LoggerInterface;
+
+class TracingTb extends BaseController
+{
+    protected SinadiTracingTbModel $tracingTbModel;
+    protected SinadiTracingTbDokumenModel $dokumenModel;
+    protected SinadiTracingTbVerifikatorModel $verifikatorModel;
+
+    private const ALLOWED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'xls', 'xlsx', 'doc', 'docx'];
+    private const MAX_FILE_BYTES = 15728640; // 15 MB
+
+    public function initController(RequestInterface $request, ResponseInterface $response, LoggerInterface $logger)
+    {
+        parent::initController($request, $response, $logger);
+        SinadiTracingTbSchema::ensureTables(\Config\Database::connect());
+        $this->tracingTbModel = new SinadiTracingTbModel();
+        $this->dokumenModel = new SinadiTracingTbDokumenModel();
+        $this->verifikatorModel = new SinadiTracingTbVerifikatorModel();
+    }
+
+    /**
+     * Ambil profil & hak akses Tracing TB untuk user yang sedang login.
+     */
+    private function getUserContext(): array
+    {
+        $idUser = (int) (session()->get('id_user') ?? 0);
+        $username = (string) (session()->get('username') ?? '');
+        $role = (string) (session()->get('role') ?? '');
+
+        if ($idUser <= 0 && $username !== '') {
+            $uRow = $this->userModel->select('id_user')->where('username', $username)->first();
+            $idUser = (int) ($uRow['id_user'] ?? 0);
+        }
+
+        $aksesRow = null;
+        if ($username !== '') {
+            $aksesRow = $this->sinadiAksesModel
+                ->select('sinadi_akses.status')
+                ->join('user', 'user.id_user = sinadi_akses.id_user')
+                ->where('user.username', $username)
+                ->first();
+        }
+        $isSuperUser = ($role === 'Admin') || (!empty($aksesRow) && ($aksesRow['status'] ?? '') === 'Akses Diterima');
+
+        $verifRows = $idUser > 0
+            ? $this->verifikatorModel->where('id_user', $idUser)->findAll()
+            : [];
+
+        $isVerifBkk = false;
+        $isVerifPusat = false;
+        $verifNoHp = '';
+        foreach ($verifRows as $vr) {
+            if (($vr['peran'] ?? '') === 'verifikator_bkk') {
+                $isVerifBkk = true;
+                if (!empty($vr['no_hp'])) {
+                    $verifNoHp = (string) $vr['no_hp'];
+                }
+            }
+            if (($vr['peran'] ?? '') === 'verifikator_pusat') {
+                $isVerifPusat = true;
+            }
+        }
+
+        if ($verifNoHp === '' && $idUser > 0) {
+            $uTelp = $this->userModel->select('no_telp')->where('id_user', $idUser)->first();
+            $verifNoHp = trim((string) ($uTelp['no_telp'] ?? ''));
+        }
+
+        return [
+            'id_user'          => $idUser,
+            'username'         => $username,
+            'nama'             => (string) (session()->get('nama') ?? ''),
+            'role'             => $role,
+            'is_super_user'    => $isSuperUser,
+            'is_verif_bkk'     => $isVerifBkk,
+            'is_verif_pusat'   => $isVerifPusat,
+            'can_verify_bkk'   => $isVerifBkk || $isSuperUser,
+            'can_verify_pusat' => $isVerifPusat || $isSuperUser,
+            'can_manage_verif' => $isSuperUser,
+            'no_hp'            => $verifNoHp,
+        ];
+    }
+
+    private function canViewRecord(array $row, array $ctx): bool
+    {
+        if ($ctx['is_super_user'] || $ctx['is_verif_bkk'] || $ctx['is_verif_pusat']) {
+            return true;
+        }
+        return (int) ($row['created_by'] ?? 0) === $ctx['id_user'];
+    }
+
+    private function canEditRecord(array $row, array $ctx): bool
+    {
+        if ($ctx['is_super_user']) {
+            return true;
+        }
+        if ((int) ($row['created_by'] ?? 0) !== $ctx['id_user']) {
+            return false;
+        }
+        return in_array((string) ($row['status_pengajuan'] ?? 'Draft'), ['Draft', 'Perbaikan BKK', 'Perbaikan Pusat'], true);
+    }
+
+    private function getStorageDir(): string
+    {
+        $dir = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'file-tracing-tb' . DIRECTORY_SEPARATOR;
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        return $dir;
+    }
+
+    private function getDokumenIndexed(int $idTracingTb): array
+    {
+        $rows = $this->dokumenModel->where('id_tracing_tb', $idTracingTb)->findAll();
+        $indexed = [];
+        foreach ($rows as $r) {
+            $indexed[$r['kode_dokumen']] = $r;
+        }
+        return $indexed;
+    }
+
+    /**
+     * Halaman utama daftar pengajuan & verifikasi Tracing TB.
+     */
+    public function index()
+    {
+        $ctx = $this->getUserContext();
+        $statusFilter = trim((string) ($this->request->getGet('status') ?? ''));
+
+        $builder = $this->tracingTbModel
+            ->select('sinadi_tracing_tb.*, user.nama AS nama_pengaju')
+            ->join('user', 'user.id_user = sinadi_tracing_tb.created_by', 'left');
+
+        if (!$ctx['is_super_user'] && !$ctx['is_verif_bkk'] && !$ctx['is_verif_pusat']) {
+            $builder->where('sinadi_tracing_tb.created_by', $ctx['id_user']);
+        } elseif (!$ctx['is_super_user']) {
+            // Verifikator melihat semua yang sudah diajukan + draft miliknya sendiri
+            $builder->groupStart()
+                ->where('sinadi_tracing_tb.status_pengajuan !=', 'Draft')
+                ->orWhere('sinadi_tracing_tb.created_by', $ctx['id_user'])
+                ->groupEnd();
+        }
+
+        $allRows = $builder->orderBy('sinadi_tracing_tb.created_at', 'DESC')->findAll();
+
+        // Hitung statistik dokumen yang terunggah per pengajuan (single query)
+        $docCounts = [];
+        if (!empty($allRows)) {
+            $ids = array_column($allRows, 'id_tracing_tb');
+            $rawCounts = $this->dokumenModel->builder()
+                ->select('id_tracing_tb, COUNT(CASE WHEN nama_file IS NOT NULL AND nama_file != "" THEN 1 END) AS uploaded_count, SUM(checklist_bkk) AS checked_bkk, SUM(checklist_pusat) AS checked_pusat')
+                ->whereIn('id_tracing_tb', $ids)
+                ->groupBy('id_tracing_tb')
+                ->get()
+                ->getResultArray();
+            foreach ($rawCounts as $rc) {
+                $docCounts[(int) $rc['id_tracing_tb']] = [
+                    'uploaded'      => (int) ($rc['uploaded_count'] ?? 0),
+                    'checked_bkk'   => (int) ($rc['checked_bkk'] ?? 0),
+                    'checked_pusat' => (int) ($rc['checked_pusat'] ?? 0),
+                ];
+            }
+        }
+
+        $summary = [
+            'total'         => count($allRows),
+            'menunggu_bkk'  => 0,
+            'menunggu_pusat'=> 0,
+            'perbaikan'     => 0,
+            'acc_lengkap'   => 0,
+        ];
+
+        $filteredRows = [];
+        foreach ($allRows as $row) {
+            $st = (string) ($row['status_pengajuan'] ?? 'Draft');
+            if ($st === 'Diajukan') {
+                $summary['menunggu_bkk']++;
+            } elseif ($st === 'ACC BKK') {
+                $summary['menunggu_pusat']++;
+            } elseif (in_array($st, ['Perbaikan BKK', 'Perbaikan Pusat'], true)) {
+                $summary['perbaikan']++;
+            } elseif ($st === 'ACC Pusat') {
+                $summary['acc_lengkap']++;
+            }
+
+            if ($statusFilter !== '' && $st !== $statusFilter) {
+                continue;
+            }
+            $id = (int) $row['id_tracing_tb'];
+            $row['doc_stats'] = $docCounts[$id] ?? ['uploaded' => 0, 'checked_bkk' => 0, 'checked_pusat' => 0];
+            $row['can_edit'] = $this->canEditRecord($row, $ctx);
+            $filteredRows[] = $row;
+        }
+
+        $totalDocCatalog = count(SinadiTracingTbSchema::getDokumenMap());
+
+        // Daftar verifikator aktif untuk info ringkas
+        $verifikatorList = $this->verifikatorModel
+            ->select('sinadi_tracing_tb_verifikator.*, user.nama, data_pegawai.nip')
+            ->join('user', 'user.id_user = sinadi_tracing_tb_verifikator.id_user', 'left')
+            ->join('data_pegawai', 'data_pegawai.id_user = sinadi_tracing_tb_verifikator.id_user', 'left')
+            ->orderBy('user.nama', 'ASC')
+            ->findAll();
+
+        $verifBkkNames = [];
+        $verifPusatNames = [];
+        foreach ($verifikatorList as $v) {
+            $nama = trim((string) ($v['nama'] ?? ''));
+            if ($nama === '') continue;
+            if ($v['peran'] === 'verifikator_bkk') {
+                $verifBkkNames[] = $nama;
+            } elseif ($v['peran'] === 'verifikator_pusat') {
+                $verifPusatNames[] = $nama;
+            }
+        }
+
+        return view('sinadi/tracing_tb/index', [
+            'title'            => 'Sinadi | Tracing TB',
+            'activeMenu'       => 'sinadiTracingTb',
+            'ctx'              => $ctx,
+            'rows'             => $filteredRows,
+            'summary'          => $summary,
+            'statusFilter'     => $statusFilter,
+            'totalDocCatalog'  => $totalDocCatalog,
+            'verifBkkNames'    => $verifBkkNames,
+            'verifPusatNames'  => $verifPusatNames,
+        ]);
+    }
+
+    /**
+     * Form input Tracing TB baru.
+     */
+    public function create()
+    {
+        $ctx = $this->getUserContext();
+        $accounts = SinadiTracingTbSchema::getAccounts();
+        $rincian = SinadiTracingTbSchema::buildRincianAnggaran(null, false);
+
+        return view('sinadi/tracing_tb/form', [
+            'title'      => 'Sinadi | Input Tracing TB',
+            'activeMenu' => 'sinadiTracingTb',
+            'mode'       => 'create',
+            'ctx'        => $ctx,
+            'accounts'   => $accounts,
+            'record'     => [
+                'id_tracing_tb'    => 0,
+                'lokus'            => '',
+                'instansi'         => SinadiTracingTbSchema::DEFAULT_INSTANSI,
+                'tanggal_kegiatan' => date('Y-m-d'),
+                'kode_kegiatan'    => SinadiTracingTbSchema::DEFAULT_KODE_KEGIATAN,
+                'nama_kegiatan'    => SinadiTracingTbSchema::DEFAULT_NAMA_KEGIATAN,
+                'non_radiografer'  => 0,
+                'catatan_pengaju'  => '',
+                'status_pengajuan' => 'Draft',
+            ],
+            'rincian'    => $rincian,
+            'dokumenMap' => [],
+        ]);
+    }
+
+    /**
+     * Form edit Tracing TB & manajemen unggah dokumen.
+     */
+    public function edit($id)
+    {
+        $ctx = $this->getUserContext();
+        $row = $this->tracingTbModel->find((int) $id);
+        if (!$row) {
+            return redirect()->to('/sinadi/tracing-tb')->with('error', 'Data Tracing TB tidak ditemukan.');
+        }
+        if (!$this->canEditRecord($row, $ctx)) {
+            return redirect()->to('/sinadi/tracing-tb/detail/' . (int) $id)
+                ->with('error', 'Anda tidak memiliki izin mengedit data pada status ini.');
+        }
+
+        $decoded = !empty($row['rincian_anggaran']) ? json_decode((string) $row['rincian_anggaran'], true) : null;
+        $savedItems = is_array($decoded) && isset($decoded['items']) ? $decoded['items'] : null;
+        $rincian = SinadiTracingTbSchema::buildRincianAnggaran($savedItems, !empty($row['non_radiografer']));
+
+        return view('sinadi/tracing_tb/form', [
+            'title'      => 'Sinadi | Edit Tracing TB',
+            'activeMenu' => 'sinadiTracingTb',
+            'mode'       => 'edit',
+            'ctx'        => $ctx,
+            'accounts'   => SinadiTracingTbSchema::getAccounts(),
+            'record'     => $row,
+            'rincian'    => $rincian,
+            'dokumenMap' => $this->getDokumenIndexed((int) $id),
+        ]);
+    }
+
+    /**
+     * Simpan data Tracing TB (Create / Update). Mendukung AJAX JSON dan form POST biasa.
+     */
+    public function save()
+    {
+        $ctx = $this->getUserContext();
+        $isAjax = $this->request->isAJAX();
+
+        $id = (int) ($this->request->getPost('id_tracing_tb') ?? 0);
+        $lokus = trim((string) ($this->request->getPost('lokus') ?? ''));
+        $instansi = trim((string) ($this->request->getPost('instansi') ?? SinadiTracingTbSchema::DEFAULT_INSTANSI));
+        $tanggalKegiatan = trim((string) ($this->request->getPost('tanggal_kegiatan') ?? ''));
+        $kodeKegiatan = trim((string) ($this->request->getPost('kode_kegiatan') ?? SinadiTracingTbSchema::DEFAULT_KODE_KEGIATAN));
+        $namaKegiatan = trim((string) ($this->request->getPost('nama_kegiatan') ?? SinadiTracingTbSchema::DEFAULT_NAMA_KEGIATAN));
+        $catatanPengaju = trim((string) ($this->request->getPost('catatan_pengaju') ?? ''));
+        $nonRadiografer = (int) ($this->request->getPost('non_radiografer') ? 1 : 0);
+        $submitAction = trim((string) ($this->request->getPost('submit_action') ?? 'draft'));
+
+        if ($lokus === '' || $tanggalKegiatan === '') {
+            $errMsg = 'Lokus dan Tanggal Kegiatan wajib diisi.';
+            if ($isAjax) {
+                return $this->response->setStatusCode(422)->setJSON(['status' => 'error', 'message' => $errMsg]);
+            }
+            return redirect()->back()->withInput()->with('error', $errMsg);
+        }
+
+        $existing = null;
+        if ($id > 0) {
+            $existing = $this->tracingTbModel->find($id);
+            if (!$existing) {
+                $errMsg = 'Data Tracing TB tidak ditemukan.';
+                if ($isAjax) {
+                    return $this->response->setStatusCode(404)->setJSON(['status' => 'error', 'message' => $errMsg]);
+                }
+                return redirect()->to('/sinadi/tracing-tb')->with('error', $errMsg);
+            }
+            if (!$this->canEditRecord($existing, $ctx)) {
+                $errMsg = 'Anda tidak memiliki izin mengubah data ini.';
+                if ($isAjax) {
+                    return $this->response->setStatusCode(403)->setJSON(['status' => 'error', 'message' => $errMsg]);
+                }
+                return redirect()->to('/sinadi/tracing-tb/detail/' . $id)->with('error', $errMsg);
+            }
+        }
+
+        $postAnggaran = $this->request->getPost('anggaran');
+        $rincian = SinadiTracingTbSchema::buildRincianAnggaran(
+            is_array($postAnggaran) ? $postAnggaran : null,
+            $nonRadiografer === 1
+        );
+
+        $statusPengajuan = $existing ? (string) $existing['status_pengajuan'] : 'Draft';
+        if ($submitAction === 'ajukan') {
+            $statusPengajuan = 'Diajukan';
+        } elseif ($submitAction === 'draft' && !$existing) {
+            $statusPengajuan = 'Draft';
+        }
+
+        $payload = [
+            'lokus'                  => $lokus,
+            'instansi'               => $instansi !== '' ? $instansi : SinadiTracingTbSchema::DEFAULT_INSTANSI,
+            'tanggal_kegiatan'       => $tanggalKegiatan,
+            'kode_kegiatan'          => $kodeKegiatan !== '' ? $kodeKegiatan : SinadiTracingTbSchema::DEFAULT_KODE_KEGIATAN,
+            'nama_kegiatan'          => $namaKegiatan !== '' ? $namaKegiatan : SinadiTracingTbSchema::DEFAULT_NAMA_KEGIATAN,
+            'non_radiografer'        => $nonRadiografer,
+            'rincian_anggaran'       => json_encode($rincian, JSON_UNESCAPED_UNICODE),
+            'total_jasa_profesi'     => $rincian['subtotals']['522151'],
+            'total_perjalanan_dinas' => $rincian['subtotals']['524111'],
+            'total_belanja_bahan'    => $rincian['subtotals']['521211'],
+            'total_anggaran'         => $rincian['grand_total'],
+            'catatan_pengaju'        => $catatanPengaju,
+            'status_pengajuan'       => $statusPengajuan,
+            'updated_by'             => $ctx['id_user'],
+        ];
+
+        // Jika diajukan ulang setelah perbaikan, reset status tahap yang diminta perbaikan agar diverifikasi ulang
+        if ($submitAction === 'ajukan' && $existing) {
+            if (($existing['status_pengajuan'] ?? '') === 'Perbaikan BKK') {
+                $payload['status_verif_bkk'] = null;
+            } elseif (($existing['status_pengajuan'] ?? '') === 'Perbaikan Pusat') {
+                $payload['status_pengajuan'] = 'ACC BKK';
+                $payload['status_verif_pusat'] = null;
+            }
+        }
+
+        if ($id > 0) {
+            $this->tracingTbModel->update($id, $payload);
+        } else {
+            $payload['created_by'] = $ctx['id_user'];
+            $id = (int) $this->tracingTbModel->insert($payload, true);
+        }
+
+        // Fallback: proses file yang ikut terkirim langsung via multipart POST (non-AJAX)
+        $uploadedWarnings = [];
+        $files = $this->request->getFiles();
+        if (!empty($files['dokumen']) && is_array($files['dokumen'])) {
+            $catalog = SinadiTracingTbSchema::getDokumenMap();
+            foreach ($files['dokumen'] as $kodeDok => $fileObj) {
+                if (!isset($catalog[$kodeDok]) || !$fileObj || $fileObj->getError() === UPLOAD_ERR_NO_FILE) {
+                    continue;
+                }
+                $res = $this->storeSingleDocument($id, $kodeDok, $fileObj);
+                if (!$res['ok']) {
+                    $uploadedWarnings[] = $catalog[$kodeDok]['nama_dokumen'] . ': ' . $res['message'];
+                }
+            }
+        }
+
+        $msg = ($submitAction === 'ajukan')
+            ? 'Data Tracing TB berhasil disimpan dan diajukan ke Verifikator.'
+            : 'Data Tracing TB berhasil disimpan sebagai Draft.';
+
+        if (!empty($uploadedWarnings)) {
+            $msg .= ' Catatan unggahan: ' . implode('; ', $uploadedWarnings);
+        }
+
+        if ($isAjax) {
+            return $this->response->setJSON([
+                'status'        => 'success',
+                'id_tracing_tb' => $id,
+                'status_pengajuan' => $payload['status_pengajuan'],
+                'message'       => $msg,
+                'redirect_url'  => base_url('sinadi/tracing-tb/detail/' . $id),
+                'edit_url'      => base_url('sinadi/tracing-tb/edit/' . $id),
+            ]);
+        }
+
+        return redirect()->to('/sinadi/tracing-tb/detail/' . $id)->with('pesan', $msg);
+    }
+
+    /**
+     * Endpoint AJAX unggah satu file dokumen (menghindari batas max_file_uploads=20 PHP).
+     */
+    public function uploadDokumen()
+    {
+        $ctx = $this->getUserContext();
+        $idTracingTb = (int) ($this->request->getPost('id_tracing_tb') ?? 0);
+        $kodeDokumen = trim((string) ($this->request->getPost('kode_dokumen') ?? ''));
+
+        $row = $this->tracingTbModel->find($idTracingTb);
+        if (!$row) {
+            return $this->response->setStatusCode(404)->setJSON(['status' => 'error', 'message' => 'Data Tracing TB tidak ditemukan.']);
+        }
+        if (!$this->canEditRecord($row, $ctx)) {
+            return $this->response->setStatusCode(403)->setJSON(['status' => 'error', 'message' => 'Anda tidak memiliki izin mengunggah dokumen pada data ini.']);
+        }
+
+        $catalog = SinadiTracingTbSchema::getDokumenMap();
+        if (!isset($catalog[$kodeDokumen])) {
+            return $this->response->setStatusCode(422)->setJSON(['status' => 'error', 'message' => 'Kode dokumen tidak dikenali.']);
+        }
+
+        $file = $this->request->getFile('file');
+        if (!$file) {
+            return $this->response->setStatusCode(422)->setJSON(['status' => 'error', 'message' => 'File tidak ditemukan dalam permintaan.']);
+        }
+
+        $stored = $this->storeSingleDocument($idTracingTb, $kodeDokumen, $file);
+        if (!$stored['ok']) {
+            return $this->response->setStatusCode(422)->setJSON(['status' => 'error', 'message' => $stored['message']]);
+        }
+
+        return $this->response->setJSON([
+            'status'      => 'success',
+            'message'     => 'Dokumen berhasil diunggah.',
+            'dokumen'     => $stored['dokumen'],
+            'preview_url' => base_url('sinadi/tracing-tb/preview-dokumen/' . $stored['dokumen']['id_dokumen']),
+        ]);
+    }
+
+    private function storeSingleDocument(int $idTracingTb, string $kodeDokumen, $file): array
+    {
+        if (!$file->isValid()) {
+            return ['ok' => false, 'message' => 'Upload gagal: ' . $file->getErrorString()];
+        }
+        if ($file->hasMoved()) {
+            return ['ok' => false, 'message' => 'File sudah dipindahkan sebelumnya.'];
+        }
+        if ($file->getSize() > self::MAX_FILE_BYTES) {
+            return ['ok' => false, 'message' => 'Ukuran file melebihi batas maksimal 15 MB.'];
+        }
+
+        $ext = strtolower((string) $file->getClientExtension());
+        if (!in_array($ext, self::ALLOWED_EXTENSIONS, true)) {
+            return ['ok' => false, 'message' => 'Format file tidak didukung. Gunakan PDF, JPG, PNG, WEBP, XLS/XLSX, atau DOC/DOCX.'];
+        }
+
+        $catalog = SinadiTracingTbSchema::getDokumenMap();
+        $meta = $catalog[$kodeDokumen];
+
+        $storageDir = $this->getStorageDir();
+        $rand = substr(sha1(uniqid((string) mt_rand(), true)), 0, 8);
+        $newName = 'tb_' . $idTracingTb . '_' . $kodeDokumen . '_' . date('YmdHis') . '_' . $rand . '.' . $ext;
+        $origName = mb_substr((string) $file->getClientName(), 0, 240);
+        $fileSize = (int) $file->getSize();
+        $mimeType = (string) ($file->getClientMimeType() ?: 'application/octet-stream');
+
+        $file->move($storageDir, $newName);
+
+        $existingDoc = $this->dokumenModel
+            ->where('id_tracing_tb', $idTracingTb)
+            ->where('kode_dokumen', $kodeDokumen)
+            ->first();
+
+        if ($existingDoc) {
+            if (!empty($existingDoc['nama_file'])) {
+                $oldPath = $storageDir . basename((string) $existingDoc['nama_file']);
+                if (is_file($oldPath)) {
+                    @unlink($oldPath);
+                }
+            }
+            $this->dokumenModel->update((int) $existingDoc['id_dokumen'], [
+                'nama_file'      => $newName,
+                'nama_file_asli' => $origName,
+                'ukuran_file'    => $fileSize,
+                'mime_type'      => $mimeType,
+            ]);
+            $docId = (int) $existingDoc['id_dokumen'];
+        } else {
+            $docId = (int) $this->dokumenModel->insert([
+                'id_tracing_tb'  => $idTracingTb,
+                'kode_akun'      => $meta['kode_akun'],
+                'kode_dokumen'   => $kodeDokumen,
+                'nama_dokumen'   => $meta['nama_dokumen'],
+                'kategori_wajib' => $meta['kategori_wajib'],
+                'nama_file'      => $newName,
+                'nama_file_asli' => $origName,
+                'ukuran_file'    => $fileSize,
+                'mime_type'      => $mimeType,
+            ], true);
+        }
+
+        return [
+            'ok'      => true,
+            'dokumen' => [
+                'id_dokumen'     => $docId,
+                'kode_dokumen'   => $kodeDokumen,
+                'nama_file'      => $newName,
+                'nama_file_asli' => $origName,
+                'ukuran_file'    => $fileSize,
+                'mime_type'      => $mimeType,
+            ],
+        ];
+    }
+
+    /**
+     * Hapus file fisik pada satu baris dokumen (tanpa menghapus catatan verifikasi jika ada).
+     */
+    public function hapusDokumen($idDokumen)
+    {
+        $ctx = $this->getUserContext();
+        $doc = $this->dokumenModel->find((int) $idDokumen);
+        if (!$doc) {
+            return $this->response->setStatusCode(404)->setJSON(['status' => 'error', 'message' => 'Dokumen tidak ditemukan.']);
+        }
+        $parent = $this->tracingTbModel->find((int) $doc['id_tracing_tb']);
+        if (!$parent || !$this->canEditRecord($parent, $ctx)) {
+            return $this->response->setStatusCode(403)->setJSON(['status' => 'error', 'message' => 'Tidak memiliki izin menghapus file dokumen ini.']);
+        }
+
+        if (!empty($doc['nama_file'])) {
+            $fullPath = $this->getStorageDir() . basename((string) $doc['nama_file']);
+            if (is_file($fullPath)) {
+                @unlink($fullPath);
+            }
+        }
+
+        $this->dokumenModel->update((int) $idDokumen, [
+            'nama_file'      => null,
+            'nama_file_asli' => null,
+            'ukuran_file'    => 0,
+            'mime_type'      => null,
+        ]);
+
+        return $this->response->setJSON([
+            'status'  => 'success',
+            'message' => 'File dokumen berhasil dihapus.',
+        ]);
+    }
+
+    /**
+     * Streaming preview / download file dokumen dengan pelepasan session lock & HTTP Range.
+     */
+    public function previewDokumen($idDokumen)
+    {
+        $ctx = $this->getUserContext();
+        $doc = $this->dokumenModel->find((int) $idDokumen);
+        if (!$doc || empty($doc['nama_file'])) {
+            return $this->response->setStatusCode(404)->setBody('Dokumen tidak ditemukan.');
+        }
+
+        $parent = $this->tracingTbModel->find((int) $doc['id_tracing_tb']);
+        if (!$parent || !$this->canViewRecord($parent, $ctx)) {
+            return $this->response->setStatusCode(403)->setBody('Akses ditolak.');
+        }
+
+        $filename = basename((string) $doc['nama_file']);
+        $fullpath = $this->getStorageDir() . $filename;
+        if (!is_file($fullpath) || !is_readable($fullpath)) {
+            return $this->response->setStatusCode(404)->setBody('File tidak ditemukan di server.');
+        }
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
+        $filesize = (int) filesize($fullpath);
+        $mtime = filemtime($fullpath) ?: time();
+        $fileObj = new \CodeIgniter\Files\File($fullpath, true);
+        $mime = $fileObj->getMimeType() ?: ($doc['mime_type'] ?: 'application/octet-stream');
+        $downloadMode = ((string) $this->request->getGet('download') === '1');
+        $inlineTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        $disposition = (!$downloadMode && in_array($mime, $inlineTypes, true)) ? 'inline' : 'attachment';
+        $displayName = str_replace(['"', "\r", "\n"], '', (string) ($doc['nama_file_asli'] ?: $filename));
+
+        $etag = '"' . md5($filename . '|' . $filesize . '|' . $mtime) . '"';
+        $lastModifiedHttp = gmdate('D, d M Y H:i:s', $mtime) . ' GMT';
+        $rangeHeader = $this->request->getServer('HTTP_RANGE');
+        $ifNoneMatch = $this->request->getServer('HTTP_IF_NONE_MATCH');
+
+        header_remove('Pragma');
+        header_remove('Expires');
+        header('Cache-Control: private, max-age=3600, must-revalidate', true);
+        header('ETag: ' . $etag, true);
+        header('Last-Modified: ' . $lastModifiedHttp, true);
+        header('Accept-Ranges: bytes', true);
+
+        if (empty($rangeHeader) && !empty($ifNoneMatch) && trim((string) $ifNoneMatch) === $etag) {
+            http_response_code(304);
+            exit;
+        }
+
+        $start = 0;
+        $end = $filesize > 0 ? $filesize - 1 : 0;
+        $statusCode = 200;
+
+        if ($filesize > 0 && !empty($rangeHeader) && preg_match('/^bytes=(\d*)-(\d*)$/i', trim((string) $rangeHeader), $m)) {
+            $rStart = $m[1];
+            $rEnd = $m[2];
+            if ($rStart === '' && $rEnd !== '') {
+                $start = max(0, $filesize - (int) $rEnd);
+                $end = $filesize - 1;
+            } elseif ($rStart !== '') {
+                $start = (int) $rStart;
+                $end = ($rEnd !== '') ? min($filesize - 1, (int) $rEnd) : ($filesize - 1);
+            }
+            if ($start < 0 || $start > $end || $start >= $filesize) {
+                http_response_code(416);
+                header('Content-Range: bytes */' . $filesize, true);
+                exit;
+            }
+            $statusCode = 206;
+        }
+
+        $length = $filesize > 0 ? ($end - $start + 1) : 0;
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        http_response_code($statusCode);
+        header('Content-Type: ' . $mime, true);
+        header('Content-Disposition: ' . $disposition . '; filename="' . $displayName . '"', true);
+        header('Content-Length: ' . $length, true);
+        if ($statusCode === 206) {
+            header("Content-Range: bytes {$start}-{$end}/{$filesize}", true);
+        }
+
+        if ($length === 0 || strtolower($this->request->getMethod()) === 'head') {
+            exit;
+        }
+
+        @set_time_limit(0);
+        $fp = fopen($fullpath, 'rb');
+        if ($fp === false) {
+            http_response_code(500);
+            exit;
+        }
+        if ($start > 0) {
+            fseek($fp, $start);
+        }
+        $remaining = $length;
+        while ($remaining > 0 && !feof($fp)) {
+            if (connection_status() !== CONNECTION_NORMAL) {
+                break;
+            }
+            $chunk = fread($fp, min(65536, $remaining));
+            if ($chunk === false || $chunk === '') {
+                break;
+            }
+            echo $chunk;
+            $remaining -= strlen($chunk);
+            flush();
+        }
+        fclose($fp);
+        exit;
+    }
+
+    /**
+     * Halaman Detail & Verifikasi Checklist (Verifikator BKK dan Verifikator Pusat).
+     */
+    public function detail($id)
+    {
+        $ctx = $this->getUserContext();
+        $row = $this->tracingTbModel
+            ->select('sinadi_tracing_tb.*, user.nama AS nama_pengaju')
+            ->join('user', 'user.id_user = sinadi_tracing_tb.created_by', 'left')
+            ->where('sinadi_tracing_tb.id_tracing_tb', (int) $id)
+            ->first();
+
+        if (!$row) {
+            return redirect()->to('/sinadi/tracing-tb')->with('error', 'Data Tracing TB tidak ditemukan.');
+        }
+        if (!$this->canViewRecord($row, $ctx)) {
+            return redirect()->to('/sinadi/tracing-tb')->with('error', 'Anda tidak memiliki akses melihat data ini.');
+        }
+
+        $decoded = !empty($row['rincian_anggaran']) ? json_decode((string) $row['rincian_anggaran'], true) : null;
+        $savedItems = is_array($decoded) && isset($decoded['items']) ? $decoded['items'] : null;
+        $rincian = SinadiTracingTbSchema::buildRincianAnggaran($savedItems, !empty($row['non_radiografer']));
+
+        $activeVerifMode = '';
+        if (!empty($ctx['can_verify_bkk']) && !empty($ctx['can_verify_pusat'])) {
+            $activeVerifMode = (($row['status_verif_bkk'] ?? '') === 'ACC') ? 'pusat' : 'bkk';
+        } elseif (!empty($ctx['can_verify_bkk'])) {
+            $activeVerifMode = 'bkk';
+        } elseif (!empty($ctx['can_verify_pusat'])) {
+            $activeVerifMode = 'pusat';
+        }
+        $requestedMode = (string) ($this->request->getGet('mode') ?? '');
+        if ($requestedMode === 'bkk' && !empty($ctx['can_verify_bkk'])) {
+            $activeVerifMode = 'bkk';
+        } elseif ($requestedMode === 'pusat' && !empty($ctx['can_verify_pusat'])) {
+            $activeVerifMode = 'pusat';
+        }
+
+        return view('sinadi/tracing_tb/detail', [
+            'title'           => 'Sinadi | Verifikasi Tracing TB',
+            'activeMenu'      => 'sinadiTracingTb',
+            'ctx'             => $ctx,
+            'record'          => $row,
+            'canEdit'         => $this->canEditRecord($row, $ctx),
+            'activeVerifMode' => $activeVerifMode,
+            'accounts'        => SinadiTracingTbSchema::getAccounts(),
+            'rincian'         => $rincian,
+            'dokumenMap'      => $this->getDokumenIndexed((int) $id),
+        ]);
+    }
+
+    /**
+     * Simpan hasil pemeriksaan Verifikator BKK atau Verifikator Pusat beserta checklist & catatan per dokumen.
+     */
+    public function simpanVerifikasi($id)
+    {
+        $ctx = $this->getUserContext();
+        $row = $this->tracingTbModel->find((int) $id);
+        if (!$row) {
+            return redirect()->to('/sinadi/tracing-tb')->with('error', 'Data Tracing TB tidak ditemukan.');
+        }
+
+        $tahap = trim((string) ($this->request->getPost('tahap') ?? ''));
+        if (!in_array($tahap, ['bkk', 'pusat'], true)) {
+            return redirect()->back()->with('error', 'Tahap verifikasi tidak valid.');
+        }
+
+        if ($tahap === 'bkk' && !$ctx['can_verify_bkk']) {
+            return redirect()->back()->with('error', 'Anda tidak terdaftar sebagai Verifikator BKK Tracing TB.');
+        }
+        if ($tahap === 'pusat' && !$ctx['can_verify_pusat']) {
+            return redirect()->back()->with('error', 'Anda tidak terdaftar sebagai Verifikator Pusat Tracing TB.');
+        }
+
+        $keputusan = strtoupper(trim((string) ($this->request->getPost('keputusan') ?? '')));
+        if (!in_array($keputusan, ['ACC', 'PERBAIKAN'], true)) {
+            return redirect()->back()->with('error', 'Pilih keputusan verifikasi (ACC atau Perbaikan).');
+        }
+
+        $tglVerif = trim((string) ($this->request->getPost('tgl_verif') ?? date('Y-m-d')));
+        $namaVerif = trim((string) ($this->request->getPost('nama_verif') ?? $ctx['nama']));
+        $noHpVerif = trim((string) ($this->request->getPost('no_hp_verif') ?? $ctx['no_hp']));
+        $catatanUmum = trim((string) ($this->request->getPost('catatan_umum') ?? ''));
+        $parafBaru = trim((string) ($this->request->getPost('paraf_data') ?? ''));
+
+        $checklistInput = $this->request->getPost('checklist');
+        $catatanDocInput = $this->request->getPost('catatan_dokumen');
+        $checklistArr = is_array($checklistInput) ? $checklistInput : [];
+        $catatanDocArr = is_array($catatanDocInput) ? $catatanDocInput : [];
+
+        $catalog = SinadiTracingTbSchema::getDokumenMap();
+        $existingDocs = $this->getDokumenIndexed((int) $id);
+
+        foreach ($catalog as $kodeDok => $meta) {
+            $checked = isset($checklistArr[$kodeDok]) ? 1 : 0;
+            $note = trim((string) ($catatanDocArr[$kodeDok] ?? ''));
+            $checkCol = ($tahap === 'bkk') ? 'checklist_bkk' : 'checklist_pusat';
+            $noteCol = ($tahap === 'bkk') ? 'catatan_bkk' : 'catatan_pusat';
+
+            if (isset($existingDocs[$kodeDok])) {
+                $this->dokumenModel->update((int) $existingDocs[$kodeDok]['id_dokumen'], [
+                    $checkCol => $checked,
+                    $noteCol  => $note,
+                ]);
+            } elseif ($checked === 1 || $note !== '') {
+                $this->dokumenModel->insert([
+                    'id_tracing_tb'  => (int) $id,
+                    'kode_akun'      => $meta['kode_akun'],
+                    'kode_dokumen'   => $kodeDok,
+                    'nama_dokumen'   => $meta['nama_dokumen'],
+                    'kategori_wajib' => $meta['kategori_wajib'],
+                    $checkCol        => $checked,
+                    $noteCol         => $note,
+                ]);
+            }
+        }
+
+        $updateHeader = [
+            'updated_by' => $ctx['id_user'],
+        ];
+
+        if ($tahap === 'bkk') {
+            $updateHeader['status_verif_bkk'] = $keputusan;
+            $updateHeader['tgl_verif_bkk'] = $tglVerif !== '' ? $tglVerif : date('Y-m-d');
+            $updateHeader['nama_verif_bkk'] = $namaVerif !== '' ? $namaVerif : $ctx['nama'];
+            $updateHeader['no_hp_verif_bkk'] = $noHpVerif;
+            $updateHeader['catatan_verif_bkk'] = $catatanUmum;
+            $updateHeader['id_verif_bkk'] = $ctx['id_user'];
+            if ($parafBaru !== '' && strpos($parafBaru, 'data:image/') === 0) {
+                $updateHeader['paraf_verif_bkk'] = $parafBaru;
+            }
+            $updateHeader['status_pengajuan'] = ($keputusan === 'ACC') ? 'ACC BKK' : 'Perbaikan BKK';
+        } else {
+            $updateHeader['status_verif_pusat'] = $keputusan;
+            $updateHeader['tgl_verif_pusat'] = $tglVerif !== '' ? $tglVerif : date('Y-m-d');
+            $updateHeader['nama_verif_pusat'] = $namaVerif !== '' ? $namaVerif : $ctx['nama'];
+            $updateHeader['catatan_verif_pusat'] = $catatanUmum;
+            $updateHeader['id_verif_pusat'] = $ctx['id_user'];
+            if ($parafBaru !== '' && strpos($parafBaru, 'data:image/') === 0) {
+                $updateHeader['paraf_verif_pusat'] = $parafBaru;
+            }
+            $updateHeader['status_pengajuan'] = ($keputusan === 'ACC') ? 'ACC Pusat' : 'Perbaikan Pusat';
+        }
+
+        $this->tracingTbModel->update((int) $id, $updateHeader);
+
+        $labelTahap = ($tahap === 'bkk') ? 'Verifikator BKK' : 'Verifikator Pusat';
+        return redirect()->to('/sinadi/tracing-tb/detail/' . (int) $id)
+            ->with('pesan', "Hasil pemeriksaan {$labelTahap} ({$keputusan}) berhasil disimpan.");
+    }
+
+    /**
+     * Ajukan pengajuan Draft / Perbaikan ke antrean verifikasi.
+     */
+    public function ajukan($id)
+    {
+        $ctx = $this->getUserContext();
+        $row = $this->tracingTbModel->find((int) $id);
+        if (!$row || !$this->canEditRecord($row, $ctx)) {
+            return redirect()->to('/sinadi/tracing-tb')->with('error', 'Data tidak dapat diajukan.');
+        }
+
+        $nextStatus = (($row['status_pengajuan'] ?? '') === 'Perbaikan Pusat') ? 'ACC BKK' : 'Diajukan';
+        $update = [
+            'status_pengajuan' => $nextStatus,
+            'updated_by'       => $ctx['id_user'],
+        ];
+        if (($row['status_pengajuan'] ?? '') === 'Perbaikan BKK') {
+            $update['status_verif_bkk'] = null;
+        } elseif (($row['status_pengajuan'] ?? '') === 'Perbaikan Pusat') {
+            $update['status_verif_pusat'] = null;
+        }
+
+        $this->tracingTbModel->update((int) $id, $update);
+        return redirect()->to('/sinadi/tracing-tb/detail/' . (int) $id)
+            ->with('pesan', 'Pengajuan Tracing TB berhasil dikirim untuk verifikasi.');
+    }
+
+    /**
+     * Hapus pengajuan beserta seluruh file fisiknya.
+     */
+    public function hapus($id)
+    {
+        $ctx = $this->getUserContext();
+        $row = $this->tracingTbModel->find((int) $id);
+        if (!$row) {
+            return redirect()->to('/sinadi/tracing-tb')->with('error', 'Data tidak ditemukan.');
+        }
+        if (!$this->canEditRecord($row, $ctx)) {
+            return redirect()->to('/sinadi/tracing-tb')->with('error', 'Anda tidak memiliki izin menghapus data ini.');
+        }
+
+        $docs = $this->dokumenModel->where('id_tracing_tb', (int) $id)->findAll();
+        $storageDir = $this->getStorageDir();
+        foreach ($docs as $d) {
+            if (!empty($d['nama_file'])) {
+                $path = $storageDir . basename((string) $d['nama_file']);
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
+        }
+
+        $this->dokumenModel->where('id_tracing_tb', (int) $id)->delete();
+        $this->tracingTbModel->delete((int) $id);
+
+        return redirect()->to('/sinadi/tracing-tb')->with('pesan', 'Data Tracing TB berhasil dihapus.');
+    }
+
+    /**
+     * Tampilan cetak Form Checklist Verifikasi sesuai format Excel.
+     */
+    public function cetak($id)
+    {
+        $ctx = $this->getUserContext();
+        $row = $this->tracingTbModel
+            ->select('sinadi_tracing_tb.*, user.nama AS nama_pengaju')
+            ->join('user', 'user.id_user = sinadi_tracing_tb.created_by', 'left')
+            ->where('sinadi_tracing_tb.id_tracing_tb', (int) $id)
+            ->first();
+
+        if (!$row || !$this->canViewRecord($row, $ctx)) {
+            return redirect()->to('/sinadi/tracing-tb')->with('error', 'Data tidak ditemukan atau akses ditolak.');
+        }
+
+        $decoded = !empty($row['rincian_anggaran']) ? json_decode((string) $row['rincian_anggaran'], true) : null;
+        $savedItems = is_array($decoded) && isset($decoded['items']) ? $decoded['items'] : null;
+        $rincian = SinadiTracingTbSchema::buildRincianAnggaran($savedItems, !empty($row['non_radiografer']));
+
+        return view('sinadi/tracing_tb/cetak', [
+            'record'     => $row,
+            'accounts'   => SinadiTracingTbSchema::getAccounts(),
+            'rincian'    => $rincian,
+            'dokumenMap' => $this->getDokumenIndexed((int) $id),
+        ]);
+    }
+
+    /**
+     * Manajemen Verifikator Tracing TB (Verifikator BKK & Verifikator Pusat).
+     */
+    public function verifikator()
+    {
+        $ctx = $this->getUserContext();
+        if (!$ctx['can_manage_verif']) {
+            return redirect()->to('/sinadi/tracing-tb')
+                ->with('error', 'Halaman Manajemen Verifikator hanya dapat diakses oleh Admin / Super User SINADI.');
+        }
+
+        $users = $this->userModel
+            ->select('user.id_user, user.nama, user.username, user.no_telp AS no_hp, data_pegawai.id_data_pegawai, data_pegawai.nip')
+            ->join('data_pegawai', 'data_pegawai.id_user = user.id_user', 'left')
+            ->orderBy('user.nama', 'ASC')
+            ->findAll();
+
+        $allVerif = $this->verifikatorModel
+            ->select('sinadi_tracing_tb_verifikator.*, user.nama, user.username, user.no_telp AS pegawai_no_hp, data_pegawai.nip')
+            ->join('user', 'user.id_user = sinadi_tracing_tb_verifikator.id_user', 'left')
+            ->join('data_pegawai', 'data_pegawai.id_user = sinadi_tracing_tb_verifikator.id_user', 'left')
+            ->orderBy('user.nama', 'ASC')
+            ->findAll();
+
+        $verifBkk = [];
+        $verifPusat = [];
+        foreach ($allVerif as $v) {
+            if ($v['peran'] === 'verifikator_bkk') {
+                $verifBkk[] = $v;
+            } elseif ($v['peran'] === 'verifikator_pusat') {
+                $verifPusat[] = $v;
+            }
+        }
+
+        return view('sinadi/tracing_tb/verifikator', [
+            'title'      => 'Sinadi | Manajemen Verifikator Tracing TB',
+            'activeMenu' => 'sinadiTracingTbVerifikator',
+            'ctx'        => $ctx,
+            'users'      => $users,
+            'verifBkk'   => $verifBkk,
+            'verifPusat' => $verifPusat,
+        ]);
+    }
+
+    /**
+     * Tambah pegawai ke daftar Verifikator BKK / Verifikator Pusat.
+     */
+    public function tambahVerifikator()
+    {
+        $ctx = $this->getUserContext();
+        if (!$ctx['can_manage_verif']) {
+            return redirect()->to('/sinadi/tracing-tb')->with('error', 'Akses ditolak.');
+        }
+
+        $idUser = (int) ($this->request->getPost('id_user') ?? 0);
+        $peran = trim((string) ($this->request->getPost('peran') ?? ''));
+        $noHp = trim((string) ($this->request->getPost('no_hp') ?? ''));
+
+        if ($idUser <= 0 || !in_array($peran, ['verifikator_bkk', 'verifikator_pusat'], true)) {
+            return redirect()->to('/sinadi/tracing-tb/verifikator')->with('error', 'Pilih pegawai dan peran verifikator yang valid.');
+        }
+
+        $exists = $this->verifikatorModel
+            ->where('id_user', $idUser)
+            ->where('peran', $peran)
+            ->first();
+
+        if ($exists) {
+            if ($noHp !== '') {
+                $this->verifikatorModel->update((int) $exists['id_verifikator'], ['no_hp' => $noHp]);
+                return redirect()->to('/sinadi/tracing-tb/verifikator')->with('pesan', 'Nomor HP verifikator berhasil diperbarui.');
+            }
+            return redirect()->to('/sinadi/tracing-tb/verifikator')->with('info', 'Pegawai tersebut sudah terdaftar pada peran ini.');
+        }
+
+        $peg = $this->dataPegawaiModel->select('id_data_pegawai')->where('id_user', $idUser)->first();
+        $uTelp = $this->userModel->select('no_telp')->where('id_user', $idUser)->first();
+        $finalHp = $noHp !== '' ? $noHp : trim((string) ($uTelp['no_telp'] ?? ''));
+
+        $this->verifikatorModel->insert([
+            'id_user'         => $idUser,
+            'id_data_pegawai' => isset($peg['id_data_pegawai']) ? (int) $peg['id_data_pegawai'] : null,
+            'peran'           => $peran,
+            'no_hp'           => $finalHp !== '' ? $finalHp : null,
+            'created_by'      => $ctx['id_user'],
+        ]);
+
+        $label = $peran === 'verifikator_bkk' ? 'Verifikator BKK' : 'Verifikator Pusat';
+        return redirect()->to('/sinadi/tracing-tb/verifikator')->with('pesan', "{$label} berhasil ditambahkan.");
+    }
+
+    /**
+     * Hapus pegawai dari daftar verifikator Tracing TB.
+     */
+    public function hapusVerifikator($id)
+    {
+        $ctx = $this->getUserContext();
+        if (!$ctx['can_manage_verif']) {
+            return redirect()->to('/sinadi/tracing-tb')->with('error', 'Akses ditolak.');
+        }
+
+        $row = $this->verifikatorModel->find((int) $id);
+        if (!$row) {
+            return redirect()->to('/sinadi/tracing-tb/verifikator')->with('error', 'Data verifikator tidak ditemukan.');
+        }
+
+        $this->verifikatorModel->delete((int) $id);
+        return redirect()->to('/sinadi/tracing-tb/verifikator')->with('pesan', 'Verifikator berhasil dihapus.');
+    }
+}
