@@ -439,6 +439,7 @@ class TracingTb extends BaseController
             ],
             'rincian'       => $rincian,
             'dokumenMap'    => [],
+            'lokusList'     => SinadiTracingTbSchema::getLokusList(),
             'templateFiles' => $this->listTemplateFiles(),
         ]);
     }
@@ -471,6 +472,7 @@ class TracingTb extends BaseController
             'record'        => $row,
             'rincian'       => $rincian,
             'dokumenMap'    => $this->getDokumenIndexed((int) $id),
+            'lokusList'     => SinadiTracingTbSchema::getLokusList(),
             'templateFiles' => $this->listTemplateFiles(),
         ]);
     }

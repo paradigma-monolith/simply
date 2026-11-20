@@ -48,6 +48,25 @@ $tabShortNames = [
     max-width: 116px;
     margin: 0 auto;
   }
+  .tb-form-card .select2-container--bootstrap4 .select2-selection--single {
+    height: calc(1.8125rem + 2px) !important;
+    min-height: calc(1.8125rem + 2px) !important;
+  }
+  .tb-form-card .select2-container--bootstrap4 .select2-selection--single .select2-selection__rendered {
+    line-height: 1.8125rem !important;
+    font-size: 0.875rem !important;
+    padding-left: 0.5rem !important;
+    padding-right: 1.75rem !important;
+  }
+  .tb-form-card .select2-container--bootstrap4 .select2-selection--single .select2-selection__arrow {
+    top: 0 !important;
+    margin-top: 0 !important;
+    height: 100% !important;
+  }
+  .tb-form-card .select2-container--bootstrap4 .select2-selection--single .select2-selection__arrow b {
+    top: 50% !important;
+    margin-top: -2px !important;
+  }
   .tb-label {
     font-size: 0.75rem;
     font-weight: 600;
@@ -258,9 +277,22 @@ $tabShortNames = [
           <div class="form-row">
             <div class="col-md-4 mb-2">
               <label class="tb-label" for="lokus">Lokus Kegiatan <span class="text-danger">*</span></label>
-              <input type="text" name="lokus" id="lokus" class="form-control form-control-sm" required
-                placeholder="Puskesmas / Pelabuhan / Bandara / Kecamatan..."
-                value="<?= esc(old('lokus', $record['lokus'] ?? '')); ?>">
+              <?php
+                $selectedLokus = trim((string) old('lokus', $record['lokus'] ?? ''));
+                $lokusCatalog = $lokusList ?? [];
+                $isCustomSavedLokus = ($selectedLokus !== '' && !in_array($selectedLokus, $lokusCatalog, true));
+              ?>
+              <select name="lokus" id="lokus" class="form-control form-control-sm select2bs4" style="width: 100%;" required>
+                <option value="">-- Pilih Lokus Kegiatan (50 Lokus) --</option>
+                <?php if ($isCustomSavedLokus) : ?>
+                  <option value="<?= esc($selectedLokus); ?>" selected><?= esc($selectedLokus); ?> (Lokus tersimpan)</option>
+                <?php endif; ?>
+                <?php foreach ($lokusCatalog as $idxLokus => $namaLokus) : ?>
+                  <option value="<?= esc($namaLokus); ?>" <?= $selectedLokus === $namaLokus ? 'selected' : ''; ?>>
+                    <?= sprintf('%02d. %s', $idxLokus + 1, esc($namaLokus)); ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
             </div>
             <div class="col-md-5 mb-2">
               <label class="tb-label" for="instansi">Balai / Besar / Loka Kekarantinaan Kesehatan <span class="text-danger">*</span></label>
@@ -902,6 +934,21 @@ $tabShortNames = [
     $('.btn-submit-tracing').on('click', function() {
       var actionType = $(this).data('action');
       $('#submit_action').val(actionType);
+
+      if (!$.trim($('#lokus').val() || '')) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Lokus Kegiatan Belum Dipilih',
+          text: 'Silakan pilih Lokus Kegiatan dari daftar 50 lokus terlebih dahulu.'
+        }).then(function() {
+          if ($.fn.select2 && $('#lokus').data('select2')) {
+            $('#lokus').select2('open');
+          } else {
+            $('#lokus').focus();
+          }
+        });
+        return;
+      }
 
       var formEl = document.getElementById('formTracingTb');
       if (!formEl.checkValidity()) {

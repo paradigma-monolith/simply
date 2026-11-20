@@ -11,6 +11,65 @@ class SinadiTracingTbSchema
     public const DEFAULT_INSTANSI = 'Balai Kekarantinaan Kesehatan Kelas I Bandung';
 
     /**
+     * Daftar resmi 50 Lokus Pelaksanaan Tracing TB Terintegrasi CKG BKK Kelas I Bandung Tahun 2026.
+     */
+    public static function getLokusList(): array
+    {
+        return [
+            'Desa Patimban I [Area Pelabuhan]',
+            'Desa Patimban II [Trungtum]',
+            'Desa Mundu',
+            'Desa Rancadaka',
+            'Desa Kalentambo',
+            'Puskesmas Krangkeng',
+            'Puskesmas Juntinyuat',
+            'Puskesmas Cantigi',
+            'Puskesmas Lohbener',
+            'Puskesmas Karangampel',
+            'Desa Gunungmanik I',
+            'Desa Gunungmanik II',
+            'Desa Ciberem I',
+            'Desa Ciberem II',
+            'Desa Cikeusal I',
+            'Desa Cikeusal II',
+            'Desa Talaga Wetan/Yayasan I',
+            'Desa Talaga Wetan/Yayasan II',
+            'Desa Ganeas I',
+            'Desa Ganeas II',
+            'Desa Salado I',
+            'Desa Salado II',
+            'Desa Mekarhurip I',
+            'Desa Mekarhurip II',
+            'Desa Sukaperna I',
+            'Desa Sukaperna II',
+            'Desa Margamukti I',
+            'Desa Margamukti II',
+            'Desa Argasari I',
+            'Desa Argasari II',
+            'Puskesmas Palabuhanratu I',
+            'Puskesmas Palabuhanratu II',
+            'Puskesmas Cikakak I',
+            'Puskesmas Cikakak II',
+            'Puskesmas Cisolok',
+            'Kelurahan Pajajaran Rw 1 s/d Rw 5',
+            'Kelurahan Pajajaran Rw 6 s/d Rw 10',
+            'Kelurahan Husein Sastranegara 1',
+            'Kelurahan Arjuna',
+            'Kelurahan Pamoyanan & Pasirkaliki',
+            'Puskesmas Melongasih',
+            'Puskesmas Cigugur I',
+            'Puskesmas Cigugur II',
+            'Puskesmas Cibeureum',
+            'Puskesmas Selatan',
+            'Rutan Kota Cirebon 1',
+            'Rutan Kota Cirebon 2',
+            'Lapas Kota Cirebon 1',
+            'Lapas Kota Cirebon 2',
+            'Lapas Kota Cirebon 3',
+        ];
+    }
+
+    /**
      * Definisi lengkap 3 Akun Belanja, rincian realisasi anggaran, dan 36 item dokumen
      * sesuai Form Checklist Verifikasi Penemuan Kasus TBC Terintegrasi CKG.
      */
