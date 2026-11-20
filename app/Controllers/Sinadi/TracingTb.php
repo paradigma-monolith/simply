@@ -1064,31 +1064,111 @@ class TracingTb extends BaseController
     }
 
     /**
-     * Tampilan cetak Form Checklist Verifikasi sesuai format Excel.
+     * Siapkan data cetak / PDF Form Checklist Tracing TB.
      */
-    public function cetak($id)
+    private function buildPrintData(int $id, array $ctx): ?array
     {
-        $ctx = $this->getUserContext();
         $row = $this->tracingTbModel
             ->select('sinadi_tracing_tb.*, user.nama AS nama_pengaju')
             ->join('user', 'user.id_user = sinadi_tracing_tb.created_by', 'left')
-            ->where('sinadi_tracing_tb.id_tracing_tb', (int) $id)
+            ->where('sinadi_tracing_tb.id_tracing_tb', $id)
             ->first();
 
         if (!$row || !$this->canViewRecord($row, $ctx)) {
-            return redirect()->to('/sinadi/tracing-tb')->with('error', 'Data tidak ditemukan atau akses ditolak.');
+            return null;
         }
 
         $decoded = !empty($row['rincian_anggaran']) ? json_decode((string) $row['rincian_anggaran'], true) : null;
         $savedItems = is_array($decoded) && isset($decoded['items']) ? $decoded['items'] : null;
         $rincian = SinadiTracingTbSchema::buildRincianAnggaran($savedItems, !empty($row['non_radiografer']));
 
-        return view('sinadi/tracing_tb/cetak', [
+        $kopBkk = '';
+        $kopPath = rtrim(FCPATH, '/\\') . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . 'img' . DIRECTORY_SEPARATOR . 'Kop_BKK_bandung.png';
+        if (is_file($kopPath) && is_readable($kopPath)) {
+            $kopRaw = file_get_contents($kopPath);
+            if ($kopRaw !== false) {
+                $kopBkk = 'data:image/png;base64,' . base64_encode($kopRaw);
+            }
+        }
+
+        return [
             'record'     => $row,
             'accounts'   => SinadiTracingTbSchema::getAccounts(),
             'rincian'    => $rincian,
-            'dokumenMap' => $this->getDokumenIndexed((int) $id),
-        ]);
+            'dokumenMap' => $this->getDokumenIndexed($id),
+            'kopBkk'     => $kopBkk,
+        ];
+    }
+
+    /**
+     * Tampilan cetak Form Checklist Verifikasi sesuai format Excel.
+     */
+    public function cetak($id)
+    {
+        $ctx = $this->getUserContext();
+        $data = $this->buildPrintData((int) $id, $ctx);
+        if ($data === null) {
+            return redirect()->to('/sinadi/tracing-tb')->with('error', 'Data tidak ditemukan atau akses ditolak.');
+        }
+
+        $data['isPdf'] = false;
+        return view('sinadi/tracing_tb/cetak', $data);
+    }
+
+    /**
+     * Generate & download Form Checklist Verifikasi Tracing TB dalam format PDF (Dompdf).
+     */
+    public function downloadPdf($id)
+    {
+        $ctx = $this->getUserContext();
+        $data = $this->buildPrintData((int) $id, $ctx);
+        if ($data === null) {
+            return redirect()->to('/sinadi/tracing-tb')->with('error', 'Data tidak ditemukan atau akses ditolak.');
+        }
+
+        $data['isPdf'] = true;
+        $html = view('sinadi/tracing_tb/cetak', $data);
+
+        $options = new \Dompdf\Options();
+        $options->set('isRemoteEnabled', true);
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('defaultFont', 'DejaVu Sans');
+        $cacheDir = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'cache';
+        if (is_dir($cacheDir) && is_writable($cacheDir)) {
+            $options->set('tempDir', $cacheDir);
+        }
+
+        $dompdf = new \Dompdf\Dompdf($options);
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $pdfBytes = $dompdf->output();
+
+        $lokusSlug = preg_replace('/[^A-Za-z0-9_-]+/', '_', trim((string) ($data['record']['lokus'] ?? 'Lokus')));
+        $lokusSlug = trim((string) $lokusSlug, '_') ?: 'Lokus';
+        $tglSlug = !empty($data['record']['tanggal_kegiatan'])
+            ? date('Ymd', strtotime((string) $data['record']['tanggal_kegiatan']))
+            : date('Ymd');
+        $filename = 'Form_Checklist_Tracing_TB_' . mb_substr($lokusSlug, 0, 50) . '_' . $tglSlug . '.pdf';
+
+        $disposition = ((string) $this->request->getGet('preview') === '1') ? 'inline' : 'attachment';
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        http_response_code(200);
+        header('Content-Type: application/pdf', true);
+        header('Content-Disposition: ' . $disposition . '; filename="' . str_replace(['"', "\r", "\n"], '', $filename) . '"', true);
+        header('Content-Length: ' . strlen($pdfBytes), true);
+        header('Cache-Control: private, max-age=0, must-revalidate', true);
+
+        echo $pdfBytes;
+        exit;
     }
 
     /**

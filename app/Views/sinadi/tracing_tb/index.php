@@ -288,6 +288,9 @@ $statusBadgeMap = [
                         <i class="fas fa-edit"></i>
                       </a>
                     <?php endif; ?>
+                    <a href="/sinadi/tracing-tb/pdf/<?= (int) $r['id_tracing_tb']; ?>" class="btn btn-outline-danger btn-xs" title="Download PDF Form Checklist">
+                      <i class="fas fa-file-pdf"></i>
+                    </a>
                     <a href="/sinadi/tracing-tb/cetak/<?= (int) $r['id_tracing_tb']; ?>" target="_blank" class="btn btn-secondary btn-xs" title="Cetak Form Checklist">
                       <i class="fas fa-print"></i>
                     </a>

@@ -1,43 +1,60 @@
+<?php $isPdf = !empty($isPdf); ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
   <title>Form Checklist Verifikasi Tracing TB — <?= esc($record['lokus']); ?></title>
   <style>
-    @page { size: A4 portrait; margin: 10mm; }
+    @page { size: A4 portrait; margin: 7mm 10mm 9mm 10mm; }
     body {
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: 9pt;
+      font-family: <?= $isPdf ? '"DejaVu Sans", sans-serif' : 'Arial, Helvetica, sans-serif'; ?>;
+      font-size: <?= $isPdf ? '7.7pt' : '9pt'; ?>;
       color: #111;
       margin: 0;
-      padding: 12px;
+      padding: <?= $isPdf ? '0' : '12px'; ?>;
+    }
+    .kop-surat {
+      width: 100%;
+      margin-bottom: 7px;
+      padding-bottom: 5px;
+      border-bottom: 1.5px solid #222;
+    }
+    .kop-surat img {
+      width: 100%;
+      height: auto;
+      display: block;
     }
     .no-print {
       margin-bottom: 12px;
       text-align: right;
     }
-    .no-print button {
+    .no-print .btn-action {
+      display: inline-block;
       padding: 6px 14px;
-      background: #0d6efd;
       color: #fff;
       border: none;
       border-radius: 4px;
       cursor: pointer;
-      font-size: 10pt;
+      font-size: 9.5pt;
+      text-decoration: none;
+      font-family: Arial, Helvetica, sans-serif;
+      margin-left: 6px;
     }
+    .no-print .btn-pdf { background: #dc3545; }
+    .no-print .btn-print { background: #0d6efd; }
     @media print {
       .no-print { display: none; }
       body { padding: 0; }
     }
     h2 {
-      font-size: 11pt;
+      font-size: <?= $isPdf ? '10pt' : '11pt'; ?>;
       text-align: center;
       margin: 0 0 4px 0;
     }
     .sub-header {
       text-align: center;
-      font-size: 9.5pt;
-      margin-bottom: 10px;
+      font-size: <?= $isPdf ? '8.5pt' : '9.5pt'; ?>;
+      margin-bottom: 8px;
     }
     table {
       width: 100%;
@@ -46,7 +63,7 @@
     }
     th, td {
       border: 1px solid #333;
-      padding: 3px 5px;
+      padding: <?= $isPdf ? '2.5px 4px' : '3px 5px'; ?>;
       vertical-align: top;
     }
     th {
@@ -63,21 +80,31 @@
     }
     .text-right { text-align: right; }
     .text-center { text-align: center; }
+    .chk-mark {
+      font-family: "DejaVu Sans", sans-serif;
+    }
     .sig-table {
+      width: 100%;
       table-layout: fixed;
       page-break-inside: avoid;
     }
-    .sig-table > tbody > tr > td {
+    .sig-box {
       width: 50%;
-      padding: 7px 10px;
-      font-size: 8.5pt;
+      padding: 6px 9px;
+      font-size: <?= $isPdf ? '7.8pt' : '8.5pt'; ?>;
+      vertical-align: top;
+    }
+    .sig-box-full {
+      width: 100%;
+      padding: 6px 9px;
+      font-size: <?= $isPdf ? '7.8pt' : '8.5pt'; ?>;
       vertical-align: top;
     }
     .sig-title {
       display: block;
       text-align: center;
       font-weight: bold;
-      font-size: 9pt;
+      font-size: <?= $isPdf ? '8.4pt' : '9pt'; ?>;
       padding-bottom: 4px;
       margin-bottom: 5px;
       border-bottom: 1px solid #cbd5e1;
@@ -94,12 +121,13 @@
     }
     .check-box {
       display: inline-block;
-      width: 12px;
-      height: 12px;
+      width: 11px;
+      height: 11px;
       border: 1px solid #333;
       text-align: center;
-      line-height: 12px;
-      font-size: 8.5pt;
+      line-height: 11px;
+      font-size: 8pt;
+      font-family: "DejaVu Sans", sans-serif;
       font-weight: bold;
       margin-right: 4px;
       vertical-align: middle;
@@ -107,9 +135,18 @@
   </style>
 </head>
 <body>
-  <div class="no-print">
-    <button onclick="window.print()">Cetak / Simpan PDF</button>
-  </div>
+  <?php if (!$isPdf) : ?>
+    <div class="no-print">
+      <a href="<?= esc(base_url('sinadi/tracing-tb/pdf/' . (int) $record['id_tracing_tb'])); ?>" class="btn-action btn-pdf">Download PDF</a>
+      <button type="button" class="btn-action btn-print" onclick="window.print()">Cetak</button>
+    </div>
+  <?php endif; ?>
+
+  <?php if (!empty($kopBkk)) : ?>
+    <div class="kop-surat">
+      <img src="<?= $kopBkk; ?>" alt="Kop BKK Kelas I Bandung">
+    </div>
+  <?php endif; ?>
 
   <h2>Form Checklist Verifikasi Kebenaran dan Kelengkapan Dokumen Pertanggungjawaban<br>Penemuan Kasus TBC Terintegrasi CKG</h2>
   <div class="sub-header">
@@ -163,7 +200,7 @@
           <td><small><?= esc($doc['kategori']); ?></small></td>
           <td><?= esc($doc['nama']); ?></td>
           <td class="text-center"><?= $hasFile ? 'Terlampir' : '-'; ?></td>
-          <td class="text-center"><?= $chkBkk ? '&#10003;' : ''; ?></td>
+          <td class="text-center chk-mark"><?= $chkBkk ? '&#10003;' : ''; ?></td>
           <td colspan="2"><small><?= esc($noteBkk); ?></small></td>
         </tr>
       <?php endforeach; ?>
@@ -172,7 +209,7 @@
 
   <table class="sig-table">
     <tr>
-      <td>
+      <td class="sig-box">
         <span class="sig-title">Diajukan oleh (Pengaju)</span>
         <table class="sig-inner">
           <tr>
@@ -195,7 +232,7 @@
           </tr>
         </table>
       </td>
-      <td>
+      <td class="sig-box">
         <span class="sig-title">Diperiksa oleh Verifikator BKK</span>
         <table class="sig-inner">
           <tr>
@@ -234,7 +271,7 @@
       </td>
     </tr>
     <tr>
-      <td colspan="2">
+      <td colspan="2" class="sig-box-full">
         <span class="sig-title">Diperiksa oleh verifikator pusat</span>
         <table class="sig-inner">
           <tr>

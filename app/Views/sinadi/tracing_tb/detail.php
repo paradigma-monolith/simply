@@ -58,6 +58,9 @@ $badgeCls = $badgeMap[$statusPengajuan] ?? 'badge-secondary';
             </button>
           </form>
         <?php endif; ?>
+        <a href="/sinadi/tracing-tb/pdf/<?= $idRecord; ?>" class="btn btn-danger btn-sm">
+          <i class="fas fa-file-pdf mr-1"></i> Download PDF
+        </a>
         <a href="/sinadi/tracing-tb/cetak/<?= $idRecord; ?>" target="_blank" class="btn btn-dark btn-sm">
           <i class="fas fa-print mr-1"></i> Cetak Form Checklist
         </a>
