@@ -288,6 +288,9 @@ class SinadiTracingTbSchema
                     `total_belanja_bahan` BIGINT NOT NULL DEFAULT 0,
                     `total_anggaran` BIGINT NOT NULL DEFAULT 0,
                     `catatan_pengaju` TEXT NULL,
+                    `nama_pengaju_ttd` VARCHAR(200) NULL,
+                    `tgl_ttd_pengaju` DATE NULL,
+                    `ttd_pengaju` MEDIUMTEXT NULL,
                     `status_pengajuan` VARCHAR(50) NOT NULL DEFAULT 'Draft',
                     `status_verif_bkk` VARCHAR(50) NULL,
                     `tgl_verif_bkk` DATE NULL,
@@ -296,12 +299,6 @@ class SinadiTracingTbSchema
                     `paraf_verif_bkk` MEDIUMTEXT NULL,
                     `catatan_verif_bkk` TEXT NULL,
                     `id_verif_bkk` INT(11) NULL,
-                    `status_verif_pusat` VARCHAR(50) NULL,
-                    `tgl_verif_pusat` DATE NULL,
-                    `nama_verif_pusat` VARCHAR(200) NULL,
-                    `paraf_verif_pusat` MEDIUMTEXT NULL,
-                    `catatan_verif_pusat` TEXT NULL,
-                    `id_verif_pusat` INT(11) NULL,
                     `created_by` INT(11) NULL,
                     `updated_by` INT(11) NULL,
                     `created_at` DATETIME NULL,
@@ -312,6 +309,17 @@ class SinadiTracingTbSchema
                     KEY `idx_tracing_tb_created_by` (`created_by`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             ");
+        } else {
+            $fields = $db->getFieldNames('sinadi_tracing_tb');
+            if (!in_array('nama_pengaju_ttd', $fields, true)) {
+                $db->query("ALTER TABLE `sinadi_tracing_tb` ADD COLUMN `nama_pengaju_ttd` VARCHAR(200) NULL AFTER `catatan_pengaju`");
+            }
+            if (!in_array('tgl_ttd_pengaju', $fields, true)) {
+                $db->query("ALTER TABLE `sinadi_tracing_tb` ADD COLUMN `tgl_ttd_pengaju` DATE NULL AFTER `nama_pengaju_ttd`");
+            }
+            if (!in_array('ttd_pengaju', $fields, true)) {
+                $db->query("ALTER TABLE `sinadi_tracing_tb` ADD COLUMN `ttd_pengaju` MEDIUMTEXT NULL AFTER `tgl_ttd_pengaju`");
+            }
         }
 
         if (!$db->tableExists('sinadi_tracing_tb_dokumen')) {
@@ -329,8 +337,6 @@ class SinadiTracingTbSchema
                     `mime_type` VARCHAR(100) NULL,
                     `checklist_bkk` TINYINT(1) NOT NULL DEFAULT 0,
                     `catatan_bkk` TEXT NULL,
-                    `checklist_pusat` TINYINT(1) NOT NULL DEFAULT 0,
-                    `catatan_pusat` TEXT NULL,
                     `created_at` DATETIME NULL,
                     `updated_at` DATETIME NULL,
                     PRIMARY KEY (`id_dokumen`),

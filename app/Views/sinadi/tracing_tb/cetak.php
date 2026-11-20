@@ -63,9 +63,24 @@
     }
     .text-right { text-align: right; }
     .text-center { text-align: center; }
-    .sig-table td {
+    .sig-table {
+      table-layout: fixed;
+      page-break-inside: avoid;
+    }
+    .sig-table > tbody > tr > td {
       width: 50%;
-      padding: 8px 10px;
+      padding: 7px 10px;
+      font-size: 8.5pt;
+      vertical-align: top;
+    }
+    .sig-title {
+      display: block;
+      text-align: center;
+      font-weight: bold;
+      font-size: 9pt;
+      padding-bottom: 4px;
+      margin-bottom: 5px;
+      border-bottom: 1px solid #cbd5e1;
     }
     .sig-inner {
       width: 100%;
@@ -75,16 +90,19 @@
     .sig-inner td {
       border: none;
       padding: 2px 3px;
+      vertical-align: top;
     }
     .check-box {
       display: inline-block;
-      width: 13px;
-      height: 13px;
+      width: 12px;
+      height: 12px;
       border: 1px solid #333;
       text-align: center;
       line-height: 12px;
+      font-size: 8.5pt;
       font-weight: bold;
       margin-right: 4px;
+      vertical-align: middle;
     }
   </style>
 </head>
@@ -133,26 +151,20 @@
         <th colspan="2">Kebutuhan Dokumen Klaim dan Pertanggungjawaban</th>
         <th class="text-center">Status File</th>
         <th class="text-center">Cek BKK</th>
-        <th class="text-center">Cek Pusat</th>
-        <th>Catatan</th>
+        <th colspan="2">Catatan Verifikator BKK</th>
       </tr>
       <?php foreach ($akun['dokumen'] as $doc) :
         $saved = $dokumenMap[$doc['kode']] ?? null;
         $hasFile = !empty($saved['nama_file']);
         $chkBkk = !empty($saved['checklist_bkk']);
-        $chkPusat = !empty($saved['checklist_pusat']);
-        $notes = array_filter([
-            !empty($saved['catatan_bkk']) ? 'BKK: ' . $saved['catatan_bkk'] : '',
-            !empty($saved['catatan_pusat']) ? 'Pusat: ' . $saved['catatan_pusat'] : '',
-        ]);
+        $noteBkk = trim((string) ($saved['catatan_bkk'] ?? ''));
       ?>
         <tr>
           <td><small><?= esc($doc['kategori']); ?></small></td>
           <td><?= esc($doc['nama']); ?></td>
           <td class="text-center"><?= $hasFile ? 'Terlampir' : '-'; ?></td>
           <td class="text-center"><?= $chkBkk ? '&#10003;' : ''; ?></td>
-          <td class="text-center"><?= $chkPusat ? '&#10003;' : ''; ?></td>
-          <td><small><?= !empty($notes) ? esc(implode(' | ', $notes)) : ''; ?></small></td>
+          <td colspan="2"><small><?= esc($noteBkk); ?></small></td>
         </tr>
       <?php endforeach; ?>
     <?php endforeach; ?>
@@ -161,8 +173,31 @@
   <table class="sig-table">
     <tr>
       <td>
-        <strong>Diperiksa oleh Verifikator BKK</strong>
-        <table class="sig-inner" style="margin-top: 6px;">
+        <span class="sig-title">Diajukan oleh (Pengaju)</span>
+        <table class="sig-inner">
+          <tr>
+            <td width="30%">Tanggal</td>
+            <td>: <?= !empty($record['tgl_ttd_pengaju']) ? esc(mediumdate_indo($record['tgl_ttd_pengaju'])) : (!empty($record['tanggal_kegiatan']) ? esc(mediumdate_indo($record['tanggal_kegiatan'])) : '............................'); ?></td>
+          </tr>
+          <tr>
+            <td>Nama</td>
+            <td>: <?= esc($record['nama_pengaju_ttd'] ?: ($record['nama_pengaju'] ?: '............................')); ?></td>
+          </tr>
+          <tr>
+            <td>Tanda Tangan</td>
+            <td>:
+              <?php if (!empty($record['ttd_pengaju'])) : ?>
+                <br><img src="<?= esc($record['ttd_pengaju']); ?>" alt="TTD Pengaju" style="max-height: 60px; max-width: 100%; margin-top: 4px;">
+              <?php else : ?>
+                <div style="height: 54px;"></div>
+              <?php endif; ?>
+            </td>
+          </tr>
+        </table>
+      </td>
+      <td>
+        <span class="sig-title">Diperiksa oleh Verifikator BKK</span>
+        <table class="sig-inner">
           <tr>
             <td colspan="2">
               <span class="check-box"><?= ($record['status_verif_bkk'] ?? '') === 'ACC' ? '&#10003;' : '&nbsp;'; ?></span> LENGKAP &amp; SESUAI (ACC)
@@ -189,44 +224,43 @@
             <td>Paraf</td>
             <td>:
               <?php if (!empty($record['paraf_verif_bkk'])) : ?>
-                <br><img src="<?= esc($record['paraf_verif_bkk']); ?>" alt="Paraf BKK" style="max-height: 55px; margin-top: 4px;">
+                <br><img src="<?= esc($record['paraf_verif_bkk']); ?>" alt="Paraf BKK" style="max-height: 52px; max-width: 100%; margin-top: 4px;">
               <?php else : ?>
-                ............................
+                <div style="height: 44px;"></div>
               <?php endif; ?>
             </td>
           </tr>
         </table>
       </td>
-      <td>
-        <strong>Diperiksa oleh Verifikator Pusat</strong>
-        <table class="sig-inner" style="margin-top: 6px;">
+    </tr>
+    <tr>
+      <td colspan="2">
+        <span class="sig-title">Diperiksa oleh verifikator pusat</span>
+        <table class="sig-inner">
           <tr>
-            <td colspan="2">
-              <span class="check-box"><?= ($record['status_verif_pusat'] ?? '') === 'ACC' ? '&#10003;' : '&nbsp;'; ?></span> LENGKAP &amp; SESUAI (ACC)
-            </td>
+            <td width="38%">LENGKAP &amp; SESUAI (ACC)</td>
+            <td width="2%">:</td>
+            <td><span class="check-box">&nbsp;</span></td>
           </tr>
           <tr>
-            <td colspan="2">
-              <span class="check-box"><?= ($record['status_verif_pusat'] ?? '') === 'PERBAIKAN' ? '&#10003;' : '&nbsp;'; ?></span> TIDAK LENGKAP/TIDAK SESUAI
-            </td>
+            <td>TIDAK LENGKAP/TIDAK SESUAI</td>
+            <td>:</td>
+            <td><span class="check-box">&nbsp;</span></td>
           </tr>
           <tr>
-            <td width="28%">Tanggal</td>
-            <td>: <?= !empty($record['tgl_verif_pusat']) ? esc(mediumdate_indo($record['tgl_verif_pusat'])) : '............................'; ?></td>
+            <td>Tanggal</td>
+            <td>:</td>
+            <td>................................................................</td>
           </tr>
           <tr>
             <td>Nama</td>
-            <td>: <?= esc($record['nama_verif_pusat'] ?: '............................'); ?></td>
+            <td>:</td>
+            <td>................................................................</td>
           </tr>
           <tr>
             <td>Paraf</td>
-            <td>:
-              <?php if (!empty($record['paraf_verif_pusat'])) : ?>
-                <br><img src="<?= esc($record['paraf_verif_pusat']); ?>" alt="Paraf Pusat" style="max-height: 55px; margin-top: 4px;">
-              <?php else : ?>
-                ............................
-              <?php endif; ?>
-            </td>
+            <td>:</td>
+            <td><div style="height: 48px;"></div></td>
           </tr>
         </table>
       </td>

@@ -21,7 +21,5 @@ class SinadiTracingTbDokumenModel extends Model
         'mime_type',
         'checklist_bkk',
         'catatan_bkk',
-        'checklist_pusat',
-        'catatan_pusat',
     ];
 }

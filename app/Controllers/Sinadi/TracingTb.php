@@ -53,24 +53,15 @@ class TracingTb extends BaseController
         }
         $isSuperUser = ($role === 'Admin') || (!empty($aksesRow) && ($aksesRow['status'] ?? '') === 'Akses Diterima');
 
-        $verifRows = $idUser > 0
-            ? $this->verifikatorModel->where('id_user', $idUser)->findAll()
-            : [];
+        $verifRow = $idUser > 0
+            ? $this->verifikatorModel
+                ->where('id_user', $idUser)
+                ->where('peran', 'verifikator_bkk')
+                ->first()
+            : null;
 
-        $isVerifBkk = false;
-        $isVerifPusat = false;
-        $verifNoHp = '';
-        foreach ($verifRows as $vr) {
-            if (($vr['peran'] ?? '') === 'verifikator_bkk') {
-                $isVerifBkk = true;
-                if (!empty($vr['no_hp'])) {
-                    $verifNoHp = (string) $vr['no_hp'];
-                }
-            }
-            if (($vr['peran'] ?? '') === 'verifikator_pusat') {
-                $isVerifPusat = true;
-            }
-        }
+        $isVerifBkk = !empty($verifRow);
+        $verifNoHp = !empty($verifRow['no_hp']) ? (string) $verifRow['no_hp'] : '';
 
         if ($verifNoHp === '' && $idUser > 0) {
             $uTelp = $this->userModel->select('no_telp')->where('id_user', $idUser)->first();
@@ -84,9 +75,7 @@ class TracingTb extends BaseController
             'role'             => $role,
             'is_super_user'    => $isSuperUser,
             'is_verif_bkk'     => $isVerifBkk,
-            'is_verif_pusat'   => $isVerifPusat,
             'can_verify_bkk'   => $isVerifBkk || $isSuperUser,
-            'can_verify_pusat' => $isVerifPusat || $isSuperUser,
             'can_manage_verif' => $isSuperUser,
             'no_hp'            => $verifNoHp,
         ];
@@ -94,7 +83,7 @@ class TracingTb extends BaseController
 
     private function canViewRecord(array $row, array $ctx): bool
     {
-        if ($ctx['is_super_user'] || $ctx['is_verif_bkk'] || $ctx['is_verif_pusat']) {
+        if ($ctx['is_super_user'] || $ctx['is_verif_bkk']) {
             return true;
         }
         return (int) ($row['created_by'] ?? 0) === $ctx['id_user'];
@@ -108,7 +97,7 @@ class TracingTb extends BaseController
         if ((int) ($row['created_by'] ?? 0) !== $ctx['id_user']) {
             return false;
         }
-        return in_array((string) ($row['status_pengajuan'] ?? 'Draft'), ['Draft', 'Perbaikan BKK', 'Perbaikan Pusat'], true);
+        return in_array((string) ($row['status_pengajuan'] ?? 'Draft'), ['Draft', 'Perbaikan BKK'], true);
     }
 
     private function getStorageDir(): string
@@ -330,10 +319,10 @@ class TracingTb extends BaseController
             ->select('sinadi_tracing_tb.*, user.nama AS nama_pengaju')
             ->join('user', 'user.id_user = sinadi_tracing_tb.created_by', 'left');
 
-        if (!$ctx['is_super_user'] && !$ctx['is_verif_bkk'] && !$ctx['is_verif_pusat']) {
+        if (!$ctx['is_super_user'] && !$ctx['is_verif_bkk']) {
             $builder->where('sinadi_tracing_tb.created_by', $ctx['id_user']);
         } elseif (!$ctx['is_super_user']) {
-            // Verifikator melihat semua yang sudah diajukan + draft miliknya sendiri
+            // Verifikator BKK melihat semua yang sudah diajukan + draft miliknya sendiri
             $builder->groupStart()
                 ->where('sinadi_tracing_tb.status_pengajuan !=', 'Draft')
                 ->orWhere('sinadi_tracing_tb.created_by', $ctx['id_user'])
@@ -347,26 +336,24 @@ class TracingTb extends BaseController
         if (!empty($allRows)) {
             $ids = array_column($allRows, 'id_tracing_tb');
             $rawCounts = $this->dokumenModel->builder()
-                ->select('id_tracing_tb, COUNT(CASE WHEN nama_file IS NOT NULL AND nama_file != "" THEN 1 END) AS uploaded_count, SUM(checklist_bkk) AS checked_bkk, SUM(checklist_pusat) AS checked_pusat')
+                ->select('id_tracing_tb, COUNT(CASE WHEN nama_file IS NOT NULL AND nama_file != "" THEN 1 END) AS uploaded_count, SUM(checklist_bkk) AS checked_bkk')
                 ->whereIn('id_tracing_tb', $ids)
                 ->groupBy('id_tracing_tb')
                 ->get()
                 ->getResultArray();
             foreach ($rawCounts as $rc) {
                 $docCounts[(int) $rc['id_tracing_tb']] = [
-                    'uploaded'      => (int) ($rc['uploaded_count'] ?? 0),
-                    'checked_bkk'   => (int) ($rc['checked_bkk'] ?? 0),
-                    'checked_pusat' => (int) ($rc['checked_pusat'] ?? 0),
+                    'uploaded'    => (int) ($rc['uploaded_count'] ?? 0),
+                    'checked_bkk' => (int) ($rc['checked_bkk'] ?? 0),
                 ];
             }
         }
 
         $summary = [
-            'total'         => count($allRows),
-            'menunggu_bkk'  => 0,
-            'menunggu_pusat'=> 0,
-            'perbaikan'     => 0,
-            'acc_lengkap'   => 0,
+            'total'        => count($allRows),
+            'menunggu_bkk' => 0,
+            'perbaikan'    => 0,
+            'acc_bkk'      => 0,
         ];
 
         $filteredRows = [];
@@ -374,56 +361,50 @@ class TracingTb extends BaseController
             $st = (string) ($row['status_pengajuan'] ?? 'Draft');
             if ($st === 'Diajukan') {
                 $summary['menunggu_bkk']++;
-            } elseif ($st === 'ACC BKK') {
-                $summary['menunggu_pusat']++;
-            } elseif (in_array($st, ['Perbaikan BKK', 'Perbaikan Pusat'], true)) {
+            } elseif ($st === 'Perbaikan BKK') {
                 $summary['perbaikan']++;
-            } elseif ($st === 'ACC Pusat') {
-                $summary['acc_lengkap']++;
+            } elseif ($st === 'ACC BKK') {
+                $summary['acc_bkk']++;
             }
 
             if ($statusFilter !== '' && $st !== $statusFilter) {
                 continue;
             }
             $id = (int) $row['id_tracing_tb'];
-            $row['doc_stats'] = $docCounts[$id] ?? ['uploaded' => 0, 'checked_bkk' => 0, 'checked_pusat' => 0];
+            $row['doc_stats'] = $docCounts[$id] ?? ['uploaded' => 0, 'checked_bkk' => 0];
             $row['can_edit'] = $this->canEditRecord($row, $ctx);
             $filteredRows[] = $row;
         }
 
         $totalDocCatalog = count(SinadiTracingTbSchema::getDokumenMap());
 
-        // Daftar verifikator aktif untuk info ringkas
+        // Daftar Verifikator BKK aktif untuk info ringkas
         $verifikatorList = $this->verifikatorModel
             ->select('sinadi_tracing_tb_verifikator.*, user.nama, data_pegawai.nip')
             ->join('user', 'user.id_user = sinadi_tracing_tb_verifikator.id_user', 'left')
             ->join('data_pegawai', 'data_pegawai.id_user = sinadi_tracing_tb_verifikator.id_user', 'left')
+            ->where('sinadi_tracing_tb_verifikator.peran', 'verifikator_bkk')
             ->orderBy('user.nama', 'ASC')
             ->findAll();
 
         $verifBkkNames = [];
-        $verifPusatNames = [];
         foreach ($verifikatorList as $v) {
             $nama = trim((string) ($v['nama'] ?? ''));
-            if ($nama === '') continue;
-            if ($v['peran'] === 'verifikator_bkk') {
+            if ($nama !== '') {
                 $verifBkkNames[] = $nama;
-            } elseif ($v['peran'] === 'verifikator_pusat') {
-                $verifPusatNames[] = $nama;
             }
         }
 
         return view('sinadi/tracing_tb/index', [
-            'title'            => 'Sinadi | Tracing TB',
-            'activeMenu'       => 'sinadiTracingTb',
-            'ctx'              => $ctx,
-            'rows'             => $filteredRows,
-            'summary'          => $summary,
-            'statusFilter'     => $statusFilter,
-            'totalDocCatalog'  => $totalDocCatalog,
-            'verifBkkNames'    => $verifBkkNames,
-            'verifPusatNames'  => $verifPusatNames,
-            'templateFiles'    => $this->listTemplateFiles(),
+            'title'           => 'Sinadi | Tracing TB',
+            'activeMenu'      => 'sinadiTracingTb',
+            'ctx'             => $ctx,
+            'rows'            => $filteredRows,
+            'summary'         => $summary,
+            'statusFilter'    => $statusFilter,
+            'totalDocCatalog' => $totalDocCatalog,
+            'verifBkkNames'   => $verifBkkNames,
+            'templateFiles'   => $this->listTemplateFiles(),
         ]);
     }
 
@@ -451,6 +432,9 @@ class TracingTb extends BaseController
                 'nama_kegiatan'    => SinadiTracingTbSchema::DEFAULT_NAMA_KEGIATAN,
                 'non_radiografer'  => 0,
                 'catatan_pengaju'  => '',
+                'nama_pengaju_ttd' => $ctx['nama'],
+                'tgl_ttd_pengaju'  => date('Y-m-d'),
+                'ttd_pengaju'      => '',
                 'status_pengajuan' => 'Draft',
             ],
             'rincian'       => $rincian,
@@ -506,6 +490,10 @@ class TracingTb extends BaseController
         $kodeKegiatan = trim((string) ($this->request->getPost('kode_kegiatan') ?? SinadiTracingTbSchema::DEFAULT_KODE_KEGIATAN));
         $namaKegiatan = trim((string) ($this->request->getPost('nama_kegiatan') ?? SinadiTracingTbSchema::DEFAULT_NAMA_KEGIATAN));
         $catatanPengaju = trim((string) ($this->request->getPost('catatan_pengaju') ?? ''));
+        $namaPengajuTtd = trim((string) ($this->request->getPost('nama_pengaju_ttd') ?? ''));
+        $tglTtdPengaju = trim((string) ($this->request->getPost('tgl_ttd_pengaju') ?? ''));
+        $ttdPengajuBaru = trim((string) ($this->request->getPost('ttd_pengaju') ?? ''));
+        $hapusTtdPengaju = ((string) ($this->request->getPost('hapus_ttd_pengaju') ?? '0') === '1');
         $nonRadiografer = (int) ($this->request->getPost('non_radiografer') ? 1 : 0);
         $submitAction = trim((string) ($this->request->getPost('submit_action') ?? 'draft'));
 
@@ -536,6 +524,17 @@ class TracingTb extends BaseController
             }
         }
 
+        $hasNewTtd = ($ttdPengajuBaru !== '' && strpos($ttdPengajuBaru, 'data:image/') === 0);
+        $hasExistingTtd = (!$hapusTtdPengaju && !empty($existing['ttd_pengaju']));
+
+        if ($submitAction === 'ajukan' && !$hasNewTtd && !$hasExistingTtd) {
+            $errMsg = 'Tanda tangan pengaju wajib diisi sebelum mengajukan verifikasi.';
+            if ($isAjax) {
+                return $this->response->setStatusCode(422)->setJSON(['status' => 'error', 'message' => $errMsg]);
+            }
+            return redirect()->back()->withInput()->with('error', $errMsg);
+        }
+
         $postAnggaran = $this->request->getPost('anggaran');
         $rincian = SinadiTracingTbSchema::buildRincianAnggaran(
             is_array($postAnggaran) ? $postAnggaran : null,
@@ -562,18 +561,21 @@ class TracingTb extends BaseController
             'total_belanja_bahan'    => $rincian['subtotals']['521211'],
             'total_anggaran'         => $rincian['grand_total'],
             'catatan_pengaju'        => $catatanPengaju,
+            'nama_pengaju_ttd'       => $namaPengajuTtd !== '' ? $namaPengajuTtd : $ctx['nama'],
+            'tgl_ttd_pengaju'        => $tglTtdPengaju !== '' ? $tglTtdPengaju : date('Y-m-d'),
             'status_pengajuan'       => $statusPengajuan,
             'updated_by'             => $ctx['id_user'],
         ];
 
-        // Jika diajukan ulang setelah perbaikan, reset status tahap yang diminta perbaikan agar diverifikasi ulang
-        if ($submitAction === 'ajukan' && $existing) {
-            if (($existing['status_pengajuan'] ?? '') === 'Perbaikan BKK') {
-                $payload['status_verif_bkk'] = null;
-            } elseif (($existing['status_pengajuan'] ?? '') === 'Perbaikan Pusat') {
-                $payload['status_pengajuan'] = 'ACC BKK';
-                $payload['status_verif_pusat'] = null;
-            }
+        if ($hasNewTtd) {
+            $payload['ttd_pengaju'] = $ttdPengajuBaru;
+        } elseif ($hapusTtdPengaju) {
+            $payload['ttd_pengaju'] = null;
+        }
+
+        // Jika diajukan ulang setelah perbaikan BKK, reset keputusan BKK agar diverifikasi ulang
+        if ($submitAction === 'ajukan' && $existing && ($existing['status_pengajuan'] ?? '') === 'Perbaikan BKK') {
+            $payload['status_verif_bkk'] = null;
         }
 
         if ($id > 0) {
@@ -889,7 +891,7 @@ class TracingTb extends BaseController
     }
 
     /**
-     * Halaman Detail & Verifikasi Checklist (Verifikator BKK dan Verifikator Pusat).
+     * Halaman Detail & Verifikasi Checklist (Verifikator BKK).
      */
     public function detail($id)
     {
@@ -911,36 +913,21 @@ class TracingTb extends BaseController
         $savedItems = is_array($decoded) && isset($decoded['items']) ? $decoded['items'] : null;
         $rincian = SinadiTracingTbSchema::buildRincianAnggaran($savedItems, !empty($row['non_radiografer']));
 
-        $activeVerifMode = '';
-        if (!empty($ctx['can_verify_bkk']) && !empty($ctx['can_verify_pusat'])) {
-            $activeVerifMode = (($row['status_verif_bkk'] ?? '') === 'ACC') ? 'pusat' : 'bkk';
-        } elseif (!empty($ctx['can_verify_bkk'])) {
-            $activeVerifMode = 'bkk';
-        } elseif (!empty($ctx['can_verify_pusat'])) {
-            $activeVerifMode = 'pusat';
-        }
-        $requestedMode = (string) ($this->request->getGet('mode') ?? '');
-        if ($requestedMode === 'bkk' && !empty($ctx['can_verify_bkk'])) {
-            $activeVerifMode = 'bkk';
-        } elseif ($requestedMode === 'pusat' && !empty($ctx['can_verify_pusat'])) {
-            $activeVerifMode = 'pusat';
-        }
-
         return view('sinadi/tracing_tb/detail', [
-            'title'           => 'Sinadi | Verifikasi Tracing TB',
-            'activeMenu'      => 'sinadiTracingTb',
-            'ctx'             => $ctx,
-            'record'          => $row,
-            'canEdit'         => $this->canEditRecord($row, $ctx),
-            'activeVerifMode' => $activeVerifMode,
-            'accounts'        => SinadiTracingTbSchema::getAccounts(),
-            'rincian'         => $rincian,
-            'dokumenMap'      => $this->getDokumenIndexed((int) $id),
+            'title'        => 'Sinadi | Verifikasi Tracing TB',
+            'activeMenu'   => 'sinadiTracingTb',
+            'ctx'          => $ctx,
+            'record'       => $row,
+            'canEdit'      => $this->canEditRecord($row, $ctx),
+            'canVerifyBkk' => !empty($ctx['can_verify_bkk']),
+            'accounts'     => SinadiTracingTbSchema::getAccounts(),
+            'rincian'      => $rincian,
+            'dokumenMap'   => $this->getDokumenIndexed((int) $id),
         ]);
     }
 
     /**
-     * Simpan hasil pemeriksaan Verifikator BKK atau Verifikator Pusat beserta checklist & catatan per dokumen.
+     * Simpan hasil pemeriksaan Verifikator BKK beserta checklist & catatan per dokumen.
      */
     public function simpanVerifikasi($id)
     {
@@ -950,16 +937,8 @@ class TracingTb extends BaseController
             return redirect()->to('/sinadi/tracing-tb')->with('error', 'Data Tracing TB tidak ditemukan.');
         }
 
-        $tahap = trim((string) ($this->request->getPost('tahap') ?? ''));
-        if (!in_array($tahap, ['bkk', 'pusat'], true)) {
-            return redirect()->back()->with('error', 'Tahap verifikasi tidak valid.');
-        }
-
-        if ($tahap === 'bkk' && !$ctx['can_verify_bkk']) {
+        if (!$ctx['can_verify_bkk']) {
             return redirect()->back()->with('error', 'Anda tidak terdaftar sebagai Verifikator BKK Tracing TB.');
-        }
-        if ($tahap === 'pusat' && !$ctx['can_verify_pusat']) {
-            return redirect()->back()->with('error', 'Anda tidak terdaftar sebagai Verifikator Pusat Tracing TB.');
         }
 
         $keputusan = strtoupper(trim((string) ($this->request->getPost('keputusan') ?? '')));
@@ -984,13 +963,11 @@ class TracingTb extends BaseController
         foreach ($catalog as $kodeDok => $meta) {
             $checked = isset($checklistArr[$kodeDok]) ? 1 : 0;
             $note = trim((string) ($catatanDocArr[$kodeDok] ?? ''));
-            $checkCol = ($tahap === 'bkk') ? 'checklist_bkk' : 'checklist_pusat';
-            $noteCol = ($tahap === 'bkk') ? 'catatan_bkk' : 'catatan_pusat';
 
             if (isset($existingDocs[$kodeDok])) {
                 $this->dokumenModel->update((int) $existingDocs[$kodeDok]['id_dokumen'], [
-                    $checkCol => $checked,
-                    $noteCol  => $note,
+                    'checklist_bkk' => $checked,
+                    'catatan_bkk'   => $note,
                 ]);
             } elseif ($checked === 1 || $note !== '') {
                 $this->dokumenModel->insert([
@@ -999,48 +976,35 @@ class TracingTb extends BaseController
                     'kode_dokumen'   => $kodeDok,
                     'nama_dokumen'   => $meta['nama_dokumen'],
                     'kategori_wajib' => $meta['kategori_wajib'],
-                    $checkCol        => $checked,
-                    $noteCol         => $note,
+                    'checklist_bkk'  => $checked,
+                    'catatan_bkk'    => $note,
                 ]);
             }
         }
 
         $updateHeader = [
-            'updated_by' => $ctx['id_user'],
+            'updated_by'        => $ctx['id_user'],
+            'status_verif_bkk'  => $keputusan,
+            'tgl_verif_bkk'     => $tglVerif !== '' ? $tglVerif : date('Y-m-d'),
+            'nama_verif_bkk'    => $namaVerif !== '' ? $namaVerif : $ctx['nama'],
+            'no_hp_verif_bkk'   => $noHpVerif,
+            'catatan_verif_bkk' => $catatanUmum,
+            'id_verif_bkk'      => $ctx['id_user'],
+            'status_pengajuan'  => ($keputusan === 'ACC') ? 'ACC BKK' : 'Perbaikan BKK',
         ];
 
-        if ($tahap === 'bkk') {
-            $updateHeader['status_verif_bkk'] = $keputusan;
-            $updateHeader['tgl_verif_bkk'] = $tglVerif !== '' ? $tglVerif : date('Y-m-d');
-            $updateHeader['nama_verif_bkk'] = $namaVerif !== '' ? $namaVerif : $ctx['nama'];
-            $updateHeader['no_hp_verif_bkk'] = $noHpVerif;
-            $updateHeader['catatan_verif_bkk'] = $catatanUmum;
-            $updateHeader['id_verif_bkk'] = $ctx['id_user'];
-            if ($parafBaru !== '' && strpos($parafBaru, 'data:image/') === 0) {
-                $updateHeader['paraf_verif_bkk'] = $parafBaru;
-            }
-            $updateHeader['status_pengajuan'] = ($keputusan === 'ACC') ? 'ACC BKK' : 'Perbaikan BKK';
-        } else {
-            $updateHeader['status_verif_pusat'] = $keputusan;
-            $updateHeader['tgl_verif_pusat'] = $tglVerif !== '' ? $tglVerif : date('Y-m-d');
-            $updateHeader['nama_verif_pusat'] = $namaVerif !== '' ? $namaVerif : $ctx['nama'];
-            $updateHeader['catatan_verif_pusat'] = $catatanUmum;
-            $updateHeader['id_verif_pusat'] = $ctx['id_user'];
-            if ($parafBaru !== '' && strpos($parafBaru, 'data:image/') === 0) {
-                $updateHeader['paraf_verif_pusat'] = $parafBaru;
-            }
-            $updateHeader['status_pengajuan'] = ($keputusan === 'ACC') ? 'ACC Pusat' : 'Perbaikan Pusat';
+        if ($parafBaru !== '' && strpos($parafBaru, 'data:image/') === 0) {
+            $updateHeader['paraf_verif_bkk'] = $parafBaru;
         }
 
         $this->tracingTbModel->update((int) $id, $updateHeader);
 
-        $labelTahap = ($tahap === 'bkk') ? 'Verifikator BKK' : 'Verifikator Pusat';
         return redirect()->to('/sinadi/tracing-tb/detail/' . (int) $id)
-            ->with('pesan', "Hasil pemeriksaan {$labelTahap} ({$keputusan}) berhasil disimpan.");
+            ->with('pesan', "Hasil pemeriksaan Verifikator BKK ({$keputusan}) berhasil disimpan.");
     }
 
     /**
-     * Ajukan pengajuan Draft / Perbaikan ke antrean verifikasi.
+     * Ajukan pengajuan Draft / Perbaikan ke antrean verifikasi BKK.
      */
     public function ajukan($id)
     {
@@ -1050,20 +1014,22 @@ class TracingTb extends BaseController
             return redirect()->to('/sinadi/tracing-tb')->with('error', 'Data tidak dapat diajukan.');
         }
 
-        $nextStatus = (($row['status_pengajuan'] ?? '') === 'Perbaikan Pusat') ? 'ACC BKK' : 'Diajukan';
+        if (empty($row['ttd_pengaju'])) {
+            return redirect()->to('/sinadi/tracing-tb/edit/' . (int) $id)
+                ->with('error', 'Silakan lengkapi tanda tangan pengaju terlebih dahulu sebelum mengajukan verifikasi.');
+        }
+
         $update = [
-            'status_pengajuan' => $nextStatus,
+            'status_pengajuan' => 'Diajukan',
             'updated_by'       => $ctx['id_user'],
         ];
         if (($row['status_pengajuan'] ?? '') === 'Perbaikan BKK') {
             $update['status_verif_bkk'] = null;
-        } elseif (($row['status_pengajuan'] ?? '') === 'Perbaikan Pusat') {
-            $update['status_verif_pusat'] = null;
         }
 
         $this->tracingTbModel->update((int) $id, $update);
         return redirect()->to('/sinadi/tracing-tb/detail/' . (int) $id)
-            ->with('pesan', 'Pengajuan Tracing TB berhasil dikirim untuk verifikasi.');
+            ->with('pesan', 'Pengajuan Tracing TB berhasil dikirim untuk verifikasi BKK.');
     }
 
     /**
@@ -1126,7 +1092,7 @@ class TracingTb extends BaseController
     }
 
     /**
-     * Manajemen Verifikator Tracing TB (Verifikator BKK & Verifikator Pusat).
+     * Manajemen Verifikator BKK Tracing TB.
      */
     public function verifikator()
     {
@@ -1142,35 +1108,25 @@ class TracingTb extends BaseController
             ->orderBy('user.nama', 'ASC')
             ->findAll();
 
-        $allVerif = $this->verifikatorModel
+        $verifBkk = $this->verifikatorModel
             ->select('sinadi_tracing_tb_verifikator.*, user.nama, user.username, user.no_telp AS pegawai_no_hp, data_pegawai.nip')
             ->join('user', 'user.id_user = sinadi_tracing_tb_verifikator.id_user', 'left')
             ->join('data_pegawai', 'data_pegawai.id_user = sinadi_tracing_tb_verifikator.id_user', 'left')
+            ->where('sinadi_tracing_tb_verifikator.peran', 'verifikator_bkk')
             ->orderBy('user.nama', 'ASC')
             ->findAll();
 
-        $verifBkk = [];
-        $verifPusat = [];
-        foreach ($allVerif as $v) {
-            if ($v['peran'] === 'verifikator_bkk') {
-                $verifBkk[] = $v;
-            } elseif ($v['peran'] === 'verifikator_pusat') {
-                $verifPusat[] = $v;
-            }
-        }
-
         return view('sinadi/tracing_tb/verifikator', [
-            'title'      => 'Sinadi | Manajemen Verifikator Tracing TB',
+            'title'      => 'Sinadi | Manajemen Verifikator BKK Tracing TB',
             'activeMenu' => 'sinadiTracingTbVerifikator',
             'ctx'        => $ctx,
             'users'      => $users,
             'verifBkk'   => $verifBkk,
-            'verifPusat' => $verifPusat,
         ]);
     }
 
     /**
-     * Tambah pegawai ke daftar Verifikator BKK / Verifikator Pusat.
+     * Tambah pegawai ke daftar Verifikator BKK.
      */
     public function tambahVerifikator()
     {
@@ -1180,11 +1136,11 @@ class TracingTb extends BaseController
         }
 
         $idUser = (int) ($this->request->getPost('id_user') ?? 0);
-        $peran = trim((string) ($this->request->getPost('peran') ?? ''));
+        $peran = 'verifikator_bkk';
         $noHp = trim((string) ($this->request->getPost('no_hp') ?? ''));
 
-        if ($idUser <= 0 || !in_array($peran, ['verifikator_bkk', 'verifikator_pusat'], true)) {
-            return redirect()->to('/sinadi/tracing-tb/verifikator')->with('error', 'Pilih pegawai dan peran verifikator yang valid.');
+        if ($idUser <= 0) {
+            return redirect()->to('/sinadi/tracing-tb/verifikator')->with('error', 'Pilih pegawai yang akan dijadikan Verifikator BKK.');
         }
 
         $exists = $this->verifikatorModel
@@ -1195,9 +1151,9 @@ class TracingTb extends BaseController
         if ($exists) {
             if ($noHp !== '') {
                 $this->verifikatorModel->update((int) $exists['id_verifikator'], ['no_hp' => $noHp]);
-                return redirect()->to('/sinadi/tracing-tb/verifikator')->with('pesan', 'Nomor HP verifikator berhasil diperbarui.');
+                return redirect()->to('/sinadi/tracing-tb/verifikator')->with('pesan', 'Nomor HP Verifikator BKK berhasil diperbarui.');
             }
-            return redirect()->to('/sinadi/tracing-tb/verifikator')->with('info', 'Pegawai tersebut sudah terdaftar pada peran ini.');
+            return redirect()->to('/sinadi/tracing-tb/verifikator')->with('info', 'Pegawai tersebut sudah terdaftar sebagai Verifikator BKK.');
         }
 
         $peg = $this->dataPegawaiModel->select('id_data_pegawai')->where('id_user', $idUser)->first();
@@ -1212,8 +1168,7 @@ class TracingTb extends BaseController
             'created_by'      => $ctx['id_user'],
         ]);
 
-        $label = $peran === 'verifikator_bkk' ? 'Verifikator BKK' : 'Verifikator Pusat';
-        return redirect()->to('/sinadi/tracing-tb/verifikator')->with('pesan', "{$label} berhasil ditambahkan.");
+        return redirect()->to('/sinadi/tracing-tb/verifikator')->with('pesan', 'Verifikator BKK berhasil ditambahkan.');
     }
 
     /**

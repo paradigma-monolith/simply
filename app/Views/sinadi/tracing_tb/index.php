@@ -4,12 +4,10 @@
 
 <?php
 $statusBadgeMap = [
-    'Draft'           => 'badge-secondary',
-    'Diajukan'        => 'badge-primary',
-    'Perbaikan BKK'   => 'badge-warning',
-    'ACC BKK'         => 'badge-info',
-    'Perbaikan Pusat' => 'badge-danger',
-    'ACC Pusat'       => 'badge-success',
+    'Draft'         => 'badge-secondary',
+    'Diajukan'      => 'badge-primary',
+    'Perbaikan BKK' => 'badge-warning',
+    'ACC BKK'       => 'badge-success',
 ];
 ?>
 
@@ -84,6 +82,11 @@ $statusBadgeMap = [
   .tb-stat-warning .tb-stat-icon { background: rgba(245, 158, 11, 0.14); color: #b45309; }
   .tb-stat-success { border-left-color: #28a745; }
   .tb-stat-success .tb-stat-icon { background: rgba(40, 167, 69, 0.12); color: #1e7e34; }
+  .tb-flex-header::before,
+  .tb-flex-header::after {
+    display: none !important;
+    content: none !important;
+  }
 </style>
 
 <section class="content">
@@ -145,24 +148,24 @@ $statusBadgeMap = [
         </a>
       </div>
       <div class="col-xl-3 col-sm-6 mb-2 mb-sm-0">
-        <a href="/sinadi/tracing-tb?status=ACC+BKK" class="tb-stat-card tb-stat-warning <?= $statusFilter === 'ACC BKK' ? 'is-active' : ''; ?>">
+        <a href="/sinadi/tracing-tb?status=Perbaikan+BKK" class="tb-stat-card tb-stat-warning <?= $statusFilter === 'Perbaikan BKK' ? 'is-active' : ''; ?>">
           <div class="tb-stat-left">
-            <div class="tb-stat-icon"><i class="fas fa-hourglass-half"></i></div>
+            <div class="tb-stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
             <div class="min-width-0">
-              <div class="tb-stat-value"><?= (int) $summary['menunggu_pusat'] + (int) $summary['perbaikan']; ?></div>
-              <div class="tb-stat-label">Proses Pusat / Perbaikan (<?= (int) $summary['menunggu_pusat']; ?>)</div>
+              <div class="tb-stat-value"><?= (int) $summary['perbaikan']; ?></div>
+              <div class="tb-stat-label">Perlu Perbaikan BKK</div>
             </div>
           </div>
           <i class="fas fa-chevron-right tb-stat-arrow"></i>
         </a>
       </div>
       <div class="col-xl-3 col-sm-6">
-        <a href="/sinadi/tracing-tb?status=ACC+Pusat" class="tb-stat-card tb-stat-success <?= $statusFilter === 'ACC Pusat' ? 'is-active' : ''; ?>">
+        <a href="/sinadi/tracing-tb?status=ACC+BKK" class="tb-stat-card tb-stat-success <?= $statusFilter === 'ACC BKK' ? 'is-active' : ''; ?>">
           <div class="tb-stat-left">
             <div class="tb-stat-icon"><i class="fas fa-check-double"></i></div>
             <div class="min-width-0">
-              <div class="tb-stat-value"><?= (int) $summary['acc_lengkap']; ?></div>
-              <div class="tb-stat-label">ACC Lengkap (Pusat)</div>
+              <div class="tb-stat-value"><?= (int) $summary['acc_bkk']; ?></div>
+              <div class="tb-stat-label">ACC BKK (Lengkap)</div>
             </div>
           </div>
           <i class="fas fa-chevron-right tb-stat-arrow"></i>
@@ -170,44 +173,28 @@ $statusBadgeMap = [
       </div>
     </div>
 
-    <!-- Info Verifikator Aktif (Compact) -->
-    <div class="row mb-2">
-      <div class="col-md-6 mb-1 mb-md-0">
-        <div class="callout callout-info py-1 px-3 mb-0 small">
-          <strong><i class="fas fa-user-check text-info mr-1"></i> Verifikator BKK:</strong>
-          <?php if (!empty($verifBkkNames)) : ?>
-            <?= esc(implode(', ', $verifBkkNames)); ?>
-          <?php else : ?>
-            <span class="text-muted">Belum diatur</span>
-          <?php endif; ?>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="callout callout-success py-1 px-3 mb-0 small">
-          <strong><i class="fas fa-user-tie text-success mr-1"></i> Verifikator Pusat:</strong>
-          <?php if (!empty($verifPusatNames)) : ?>
-            <?= esc(implode(', ', $verifPusatNames)); ?>
-          <?php else : ?>
-            <span class="text-muted">Belum diatur</span>
-          <?php endif; ?>
-        </div>
-      </div>
+    <!-- Info Verifikator BKK Aktif -->
+    <div class="callout callout-info py-1 px-3 mb-2 small">
+      <strong><i class="fas fa-user-check text-info mr-1"></i> Verifikator BKK Aktif:</strong>
+      <?php if (!empty($verifBkkNames)) : ?>
+        <?= esc(implode(', ', $verifBkkNames)); ?>
+      <?php else : ?>
+        <span class="text-muted">Belum diatur</span>
+      <?php endif; ?>
     </div>
 
     <!-- Filter & Daftar Pengajuan -->
     <div class="card shadow-sm">
-      <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center" style="gap: 8px;">
-        <h3 class="card-title mb-0"><i class="fas fa-list-alt mr-1 text-primary"></i> Daftar Dokumen Tracing TB</h3>
+      <div class="card-header bg-light tb-flex-header d-flex flex-wrap justify-content-between align-items-center" style="gap: 8px;">
+        <h3 class="card-title float-none mb-0"><i class="fas fa-list-alt mr-1 text-primary"></i> Daftar Dokumen Tracing TB</h3>
         <div class="btn-group btn-group-sm flex-wrap" role="group">
           <?php
           $filters = [
-              ''                => 'Semua',
-              'Draft'           => 'Draft',
-              'Diajukan'        => 'Diajukan',
-              'Perbaikan BKK'   => 'Perbaikan BKK',
-              'ACC BKK'         => 'ACC BKK',
-              'Perbaikan Pusat' => 'Perbaikan Pusat',
-              'ACC Pusat'       => 'ACC Pusat',
+              ''              => 'Semua',
+              'Draft'         => 'Draft',
+              'Diajukan'      => 'Diajukan',
+              'Perbaikan BKK' => 'Perbaikan BKK',
+              'ACC BKK'       => 'ACC BKK',
           ];
           foreach ($filters as $val => $lbl) :
               $active = ($statusFilter === $val) ? 'btn-primary' : 'btn-outline-secondary';
@@ -227,11 +214,10 @@ $statusBadgeMap = [
                 <th width="4%">No</th>
                 <th>Lokus &amp; Instansi</th>
                 <th width="12%">Tanggal</th>
-                <th width="14%">Total Realisasi</th>
-                <th width="13%">Dokumen</th>
-                <th width="12%">Verif BKK</th>
-                <th width="12%">Verif Pusat</th>
-                <th width="11%">Status</th>
+                <th width="16%">Total Realisasi</th>
+                <th width="14%">Dokumen</th>
+                <th width="14%">Verifikator BKK</th>
+                <th width="12%">Status</th>
                 <th width="13%">Aksi</th>
               </tr>
             </thead>
@@ -248,7 +234,12 @@ $statusBadgeMap = [
                     <div class="font-weight-bold text-dark"><?= esc($r['lokus']); ?></div>
                     <small class="text-muted d-block"><?= esc($r['instansi']); ?></small>
                     <small class="text-muted">
-                      <i class="fas fa-user mr-1"></i><?= esc($r['nama_pengaju'] ?: '-'); ?>
+                      <i class="fas fa-user mr-1"></i><?= esc($r['nama_pengaju_ttd'] ?: ($r['nama_pengaju'] ?: '-')); ?>
+                      <?php if (!empty($r['ttd_pengaju'])) : ?>
+                        <span class="badge badge-success ml-1" title="Sudah ditandatangani pengaju"><i class="fas fa-signature"></i> TTD</span>
+                      <?php else : ?>
+                        <span class="badge badge-light border text-muted ml-1" title="Belum ada tanda tangan pengaju">Belum TTD</span>
+                      <?php endif; ?>
                       <?php if (!empty($r['non_radiografer'])) : ?>
                         <span class="badge badge-light border ml-1">Non Radiografer</span>
                       <?php endif; ?>
@@ -276,22 +267,11 @@ $statusBadgeMap = [
                   </td>
                   <td class="text-center align-middle">
                     <?php if (($r['status_verif_bkk'] ?? '') === 'ACC') : ?>
-                      <span class="badge badge-success"><i class="fas fa-check mr-1"></i>ACC</span>
+                      <span class="badge badge-success"><i class="fas fa-check-double mr-1"></i>ACC</span>
                       <div class="small text-muted mt-1"><?= esc($r['nama_verif_bkk'] ?? ''); ?></div>
                     <?php elseif (($r['status_verif_bkk'] ?? '') === 'PERBAIKAN') : ?>
                       <span class="badge badge-warning"><i class="fas fa-exclamation-circle mr-1"></i>Perbaikan</span>
                       <div class="small text-muted mt-1"><?= esc($r['nama_verif_bkk'] ?? ''); ?></div>
-                    <?php else : ?>
-                      <span class="badge badge-light border text-muted">Belum</span>
-                    <?php endif; ?>
-                  </td>
-                  <td class="text-center align-middle">
-                    <?php if (($r['status_verif_pusat'] ?? '') === 'ACC') : ?>
-                      <span class="badge badge-success"><i class="fas fa-check-double mr-1"></i>ACC</span>
-                      <div class="small text-muted mt-1"><?= esc($r['nama_verif_pusat'] ?? ''); ?></div>
-                    <?php elseif (($r['status_verif_pusat'] ?? '') === 'PERBAIKAN') : ?>
-                      <span class="badge badge-danger"><i class="fas fa-times-circle mr-1"></i>Perbaikan</span>
-                      <div class="small text-muted mt-1"><?= esc($r['nama_verif_pusat'] ?? ''); ?></div>
                     <?php else : ?>
                       <span class="badge badge-light border text-muted">Belum</span>
                     <?php endif; ?>
