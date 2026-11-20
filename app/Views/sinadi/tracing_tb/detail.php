@@ -14,6 +14,12 @@ $badgeMap = [
     'ACC BKK'       => 'badge-success',
 ];
 $badgeCls = $badgeMap[$statusPengajuan] ?? 'badge-secondary';
+$uploadedDocsCount = 0;
+foreach ($dokumenMap as $dmRow) {
+    if (!empty($dmRow['nama_file'])) {
+        $uploadedDocsCount++;
+    }
+}
 ?>
 
 <style>
@@ -61,6 +67,17 @@ $badgeCls = $badgeMap[$statusPengajuan] ?? 'badge-secondary';
         <a href="/sinadi/tracing-tb/pdf/<?= $idRecord; ?>" class="btn btn-danger btn-sm">
           <i class="fas fa-file-pdf mr-1"></i> Download PDF
         </a>
+        <?php if ($uploadedDocsCount > 0) : ?>
+          <a href="/sinadi/tracing-tb/download-zip/<?= $idRecord; ?>" class="btn btn-info btn-sm">
+            <i class="fas fa-file-archive mr-1"></i> Download Semua File (.ZIP)
+            <span class="badge badge-light ml-1"><?= $uploadedDocsCount; ?></span>
+          </a>
+        <?php else : ?>
+          <button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Belum ada file dokumen yang diunggah">
+            <i class="fas fa-file-archive mr-1"></i> Download Semua File (.ZIP)
+            <span class="badge badge-secondary ml-1">0</span>
+          </button>
+        <?php endif; ?>
         <a href="/sinadi/tracing-tb/cetak/<?= $idRecord; ?>" target="_blank" class="btn btn-dark btn-sm">
           <i class="fas fa-print mr-1"></i> Cetak Form Checklist
         </a>

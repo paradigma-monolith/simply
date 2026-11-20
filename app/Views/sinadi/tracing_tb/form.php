@@ -456,7 +456,7 @@ $tabShortNames = [
                     <i class="fas fa-file-upload text-<?= esc($akun['badge_color']); ?> mr-1"></i>
                     Upload Dokumen Klaim &amp; Pertanggungjawaban (<?= count($akun['dokumen']); ?> Item)
                   </div>
-                  <small class="text-muted">PDF / JPG / PNG / XLSX / DOCX (maks 15 MB)</small>
+                  <small class="text-muted">Hanya format PDF (.pdf, maks 15 MB)</small>
                 </div>
 
                 <div class="table-responsive">
@@ -496,7 +496,7 @@ $tabShortNames = [
                                 name="dokumen[<?= esc($kodeDok); ?>]"
                                 data-kode="<?= esc($kodeDok); ?>"
                                 data-akun="<?= esc($kodeAkun); ?>"
-                                accept=".pdf,.jpg,.jpeg,.png,.webp,.xls,.xlsx,.doc,.docx">
+                                accept=".pdf,application/pdf">
                               <label for="file_<?= esc($kodeDok); ?>" class="btn btn-outline-primary tb-file-btn">
                                 <i class="fas fa-upload mr-1"></i><?= $hasFile ? 'Ganti' : 'Pilih'; ?>
                               </label>
@@ -833,6 +833,14 @@ $tabShortNames = [
       var $cell = $('#status_' + kode);
 
       if (!file) {
+        return;
+      }
+
+      var isPdfExt = /\.pdf$/i.test(file.name || '');
+      var isPdfMime = !file.type || file.type === 'application/pdf' || file.type === 'application/x-pdf';
+      if (!isPdfExt || !isPdfMime) {
+        Swal.fire('Format Tidak Didukung', 'Hanya file PDF (.pdf) yang diperbolehkan.', 'warning');
+        input.value = '';
         return;
       }
 

@@ -291,6 +291,11 @@ $statusBadgeMap = [
                     <a href="/sinadi/tracing-tb/pdf/<?= (int) $r['id_tracing_tb']; ?>" class="btn btn-outline-danger btn-xs" title="Download PDF Form Checklist">
                       <i class="fas fa-file-pdf"></i>
                     </a>
+                    <?php if ($uploaded > 0) : ?>
+                      <a href="/sinadi/tracing-tb/download-zip/<?= (int) $r['id_tracing_tb']; ?>" class="btn btn-outline-info btn-xs" title="Download Semua File Upload (.ZIP) — <?= $uploaded; ?> file">
+                        <i class="fas fa-file-archive"></i>
+                      </a>
+                    <?php endif; ?>
                     <a href="/sinadi/tracing-tb/cetak/<?= (int) $r['id_tracing_tb']; ?>" target="_blank" class="btn btn-secondary btn-xs" title="Cetak Form Checklist">
                       <i class="fas fa-print"></i>
                     </a>

@@ -17,7 +17,7 @@ class TracingTb extends BaseController
     protected SinadiTracingTbDokumenModel $dokumenModel;
     protected SinadiTracingTbVerifikatorModel $verifikatorModel;
 
-    private const ALLOWED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'xls', 'xlsx', 'doc', 'docx'];
+    private const ALLOWED_EXTENSIONS = ['pdf'];
     private const MAX_FILE_BYTES = 15728640; // 15 MB
 
     public function initController(RequestInterface $request, ResponseInterface $response, LoggerInterface $logger)
@@ -679,7 +679,19 @@ class TracingTb extends BaseController
 
         $ext = strtolower((string) $file->getClientExtension());
         if (!in_array($ext, self::ALLOWED_EXTENSIONS, true)) {
-            return ['ok' => false, 'message' => 'Format file tidak didukung. Gunakan PDF, JPG, PNG, WEBP, XLS/XLSX, atau DOC/DOCX.'];
+            return ['ok' => false, 'message' => 'Format file tidak didukung. Hanya file PDF (.pdf) yang diperbolehkan.'];
+        }
+
+        $tmpPath = (string) $file->getTempName();
+        if ($tmpPath !== '' && is_readable($tmpPath)) {
+            $fp = @fopen($tmpPath, 'rb');
+            $sig = $fp !== false ? fread($fp, 5) : '';
+            if ($fp !== false) {
+                fclose($fp);
+            }
+            if ($sig !== '%PDF-') {
+                return ['ok' => false, 'message' => 'File tidak valid sebagai dokumen PDF. Pastikan file benar-benar berformat PDF.'];
+            }
         }
 
         $catalog = SinadiTracingTbSchema::getDokumenMap();
@@ -1170,6 +1182,118 @@ class TracingTb extends BaseController
         header('Cache-Control: private, max-age=0, must-revalidate', true);
 
         echo $pdfBytes;
+        exit;
+    }
+
+    /**
+     * Download semua file dokumen yang telah diunggah pengaju pada satu pengajuan dalam format ZIP.
+     */
+    public function downloadDokumenZip($id)
+    {
+        $ctx = $this->getUserContext();
+        $row = $this->tracingTbModel->find((int) $id);
+        if (!$row || !$this->canViewRecord($row, $ctx)) {
+            return redirect()->to('/sinadi/tracing-tb')->with('error', 'Data tidak ditemukan atau akses ditolak.');
+        }
+
+        if (!class_exists('\ZipArchive')) {
+            return redirect()->back()->with('error', 'Ekstensi ZipArchive tidak tersedia di server.');
+        }
+
+        $dokumenMap = $this->getDokumenIndexed((int) $id);
+        $accounts = SinadiTracingTbSchema::getAccounts();
+        $storageDir = $this->getStorageDir();
+
+        $tempZip = tempnam(sys_get_temp_dir(), 'tb_docs_');
+        if ($tempZip === false) {
+            return redirect()->back()->with('error', 'Gagal menyiapkan file ZIP sementara.');
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($tempZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            @unlink($tempZip);
+            return redirect()->back()->with('error', 'Gagal membuat arsip ZIP dokumen.');
+        }
+
+        $addedCount = 0;
+        foreach ($accounts as $kodeAkun => $akun) {
+            $akunSlug = preg_replace('/[^A-Za-z0-9]+/', '_', (string) ($akun['nama'] ?? ''));
+            $folderName = $kodeAkun . '_' . trim((string) $akunSlug, '_');
+
+            $no = 1;
+            foreach ($akun['dokumen'] as $doc) {
+                $kodeDok = $doc['kode'];
+                $saved = $dokumenMap[$kodeDok] ?? null;
+                if (empty($saved['nama_file'])) {
+                    $no++;
+                    continue;
+                }
+
+                $physicalPath = $storageDir . basename((string) $saved['nama_file']);
+                if (!is_file($physicalPath) || !is_readable($physicalPath)) {
+                    $no++;
+                    continue;
+                }
+
+                $ext = strtolower((string) pathinfo($physicalPath, PATHINFO_EXTENSION));
+                if ($ext === '' && !empty($saved['nama_file_asli'])) {
+                    $ext = strtolower((string) pathinfo((string) $saved['nama_file_asli'], PATHINFO_EXTENSION));
+                }
+
+                $docSlug = preg_replace('/[^A-Za-z0-9]+/', '_', (string) $doc['nama']);
+                $docSlug = trim((string) $docSlug, '_');
+                $docSlug = mb_substr($docSlug, 0, 75);
+                $entryName = sprintf('%s/%02d_%s%s', $folderName, $no, $docSlug ?: $kodeDok, $ext !== '' ? '.' . $ext : '');
+
+                if ($zip->addFile($physicalPath, $entryName)) {
+                    $addedCount++;
+                }
+                $no++;
+            }
+        }
+
+        $zip->close();
+
+        if ($addedCount === 0 || !is_file($tempZip) || filesize($tempZip) === 0) {
+            @unlink($tempZip);
+            return redirect()->back()->with('error', 'Belum ada file dokumen yang diunggah pada pengajuan ini.');
+        }
+
+        $lokusSlug = preg_replace('/[^A-Za-z0-9_-]+/', '_', trim((string) ($row['lokus'] ?? 'Lokus')));
+        $lokusSlug = trim((string) $lokusSlug, '_') ?: 'Lokus';
+        $tglSlug = !empty($row['tanggal_kegiatan'])
+            ? date('Ymd', strtotime((string) $row['tanggal_kegiatan']))
+            : date('Ymd');
+        $zipFilename = 'Dokumen_Tracing_TB_' . mb_substr($lokusSlug, 0, 50) . '_' . $tglSlug . '.zip';
+        $filesize = (int) filesize($tempZip);
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        @set_time_limit(0);
+        http_response_code(200);
+        header('Content-Type: application/zip', true);
+        header('Content-Disposition: attachment; filename="' . str_replace(['"', "\r", "\n"], '', $zipFilename) . '"', true);
+        header('Content-Length: ' . $filesize, true);
+        header('Cache-Control: private, max-age=0, must-revalidate', true);
+
+        $fp = fopen($tempZip, 'rb');
+        if ($fp !== false) {
+            while (!feof($fp)) {
+                $chunk = fread($fp, 65536);
+                if ($chunk === false || $chunk === '') {
+                    break;
+                }
+                echo $chunk;
+                flush();
+            }
+            fclose($fp);
+        }
+        @unlink($tempZip);
         exit;
     }
 
