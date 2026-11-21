@@ -578,18 +578,26 @@ if (!function_exists('name_uppercase')) {
 if (!function_exists('selisi_waktu')) {
     function selisi_waktu($waktuAwal, $waktuAkhir = null)
     {
-        // Membuat objek DateTime untuk waktu awal
-        $waktuAwal = new DateTime($waktuAwal);
+        if (empty($waktuAwal)) {
+            return '-';
+        }
 
-        // Membuat objek DateTime untuk waktu akhir (waktu saat ini)
-        if ($waktuAkhir == null) {
-            $waktuAkhir = new DateTime();
-        } else {
-            $waktuAkhir = new DateTime($waktuAkhir);
+        try {
+            // Membuat objek DateTime untuk waktu awal
+            $dtAwal = new DateTime((string) $waktuAwal);
+
+            // Membuat objek DateTime untuk waktu akhir (waktu saat ini jika kosong)
+            if (empty($waktuAkhir)) {
+                $dtAkhir = new DateTime();
+            } else {
+                $dtAkhir = new DateTime((string) $waktuAkhir);
+            }
+        } catch (\Throwable $e) {
+            return '-';
         }
 
         // Menghitung selisih waktu
-        $selisih = $waktuAwal->diff($waktuAkhir);
+        $selisih = $dtAwal->diff($dtAkhir);
 
         // Menampilkan selisih waktu sesuai kriteria
         if ($selisih->y >= 1) {
@@ -692,14 +700,20 @@ if (!function_exists('replaceStarWithDegree')) {
 
 if (!function_exists('hitungSelisihMenitAbsensi')) {
     function hitungSelisihMenitAbsensi($waktu1, $waktu2) {
-        $datetime1 = strtotime($waktu1);
-        $datetime2 = strtotime($waktu2);
+        if (empty($waktu1) || empty($waktu2)) {
+            return 0;
+        }
+        $datetime1 = strtotime((string) $waktu1);
+        $datetime2 = strtotime((string) $waktu2);
+        if ($datetime1 === false || $datetime2 === false) {
+            return 0;
+        }
         return abs(($datetime2 - $datetime1) / 60);
     }
 }
 if (!function_exists('statusAbsensi')) {
     function statusAbsensi($jamMasuk, $jamPulang, $aturanJamMasuk, $aturanJamPulang, $toleransiKeterlambatan) {
-        if ($aturanJamMasuk == null && $aturanJamPulang == null && $toleransiKeterlambatan == null) {
+        if (empty($aturanJamMasuk) && empty($aturanJamPulang) && empty($toleransiKeterlambatan)) {
             return [
                 'masuk' => 'hijau',
                 'pulang' => 'hijau'
@@ -708,15 +722,21 @@ if (!function_exists('statusAbsensi')) {
         $statusmasuk = "merah"; 
         $statuspulang = "merah"; 
         $hitungKeterlambatan = null; 
+
+        $hasMasuk = !empty($jamMasuk);
+        $hasPulang = !empty($jamPulang);
+        $aturanMasukStr = (string) ($aturanJamMasuk ?? '07:30:00');
+        $aturanPulangStr = (string) ($aturanJamPulang ?? '16:00:00');
+        $toleransiStr = (string) ($toleransiKeterlambatan ?? '00:00:00');
         
-        if ($jamMasuk !== null && $jamPulang !== null) {
-            $jamMasukFormatted = substr($jamMasuk, 11, 8);
-            $jamPulangFormatted = substr($jamPulang, 11, 8);
+        if ($hasMasuk && $hasPulang) {
+            $jamMasukFormatted = substr((string) $jamMasuk, 11, 8);
+            $jamPulangFormatted = substr((string) $jamPulang, 11, 8);
         
-            $batasToleransiFormatted = date("H:i", strtotime($aturanJamMasuk) + (hitungSelisihMenitAbsensi("00:00", $toleransiKeterlambatan) * 60));
+            $batasToleransiFormatted = date("H:i", strtotime($aturanMasukStr) + (hitungSelisihMenitAbsensi("00:00", $toleransiStr) * 60));
         
-            if ($jamMasukFormatted > $aturanJamMasuk && $jamMasukFormatted <= $batasToleransiFormatted) {
-                $hitungKeterlambatan = hitungSelisihMenitAbsensi($aturanJamMasuk, $jamMasukFormatted);
+            if ($jamMasukFormatted > $aturanMasukStr && $jamMasukFormatted <= $batasToleransiFormatted) {
+                $hitungKeterlambatan = hitungSelisihMenitAbsensi($aturanMasukStr, $jamMasukFormatted);
                 $statusmasuk = "kuning"; 
             } elseif ($jamMasukFormatted > $batasToleransiFormatted) {
                 $hitungKeterlambatan = null; 
@@ -726,7 +746,7 @@ if (!function_exists('statusAbsensi')) {
             }
         
             if ($hitungKeterlambatan !== null) { 
-                $jamPulangMinimalMenit = strtotime($aturanJamPulang) + ($hitungKeterlambatan * 60);
+                $jamPulangMinimalMenit = strtotime($aturanPulangStr) + ($hitungKeterlambatan * 60);
                 $jamPulangMinimal = date("H:i", $jamPulangMinimalMenit);
         
                 if ($jamPulangFormatted >= $jamPulangMinimal) {
@@ -737,18 +757,18 @@ if (!function_exists('statusAbsensi')) {
                     $statuspulang = "merah";
                 }
             } else { 
-                if ($jamPulangFormatted >= $aturanJamPulang) {
+                if ($jamPulangFormatted >= $aturanPulangStr) {
                     $statuspulang = "hijau"; 
                 } else {
                     $statuspulang = "merah"; 
                 }
             }
-        } elseif ($jamMasuk !== null) {
-            $jamMasukFormatted = substr($jamMasuk, 11, 8);
-            $batasToleransiFormatted = date("H:i", strtotime($aturanJamMasuk) + (hitungSelisihMenitAbsensi("00:00", $toleransiKeterlambatan) * 60));
+        } elseif ($hasMasuk) {
+            $jamMasukFormatted = substr((string) $jamMasuk, 11, 8);
+            $batasToleransiFormatted = date("H:i", strtotime($aturanMasukStr) + (hitungSelisihMenitAbsensi("00:00", $toleransiStr) * 60));
         
-            if ($jamMasukFormatted > $aturanJamMasuk && $jamMasukFormatted <= $batasToleransiFormatted) {
-                $hitungKeterlambatan = hitungSelisihMenitAbsensi($aturanJamMasuk, $jamMasukFormatted);
+            if ($jamMasukFormatted > $aturanMasukStr && $jamMasukFormatted <= $batasToleransiFormatted) {
+                $hitungKeterlambatan = hitungSelisihMenitAbsensi($aturanMasukStr, $jamMasukFormatted);
                 $statusmasuk = "kuning";
             } elseif ($jamMasukFormatted > $batasToleransiFormatted) {
                 $hitungKeterlambatan = null; 

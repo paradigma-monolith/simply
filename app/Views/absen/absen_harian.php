@@ -1,1097 +1,876 @@
-  <?= $this->extend('layouts/adminLTE-3.2.0'); ?>
+<?= $this->extend('layouts/adminLTE-3.2.0'); ?>
 
-  <?= $this->section('content'); ?>
-  <section class="content">
-    <div class="container-fluid">
-      <div class="card">
-        <div class="card-header">
-          <h3 class="card-title mt-1 font-weight-bold">Daftar Hadir Harian</h3>
-          
-          <div class="card-tools d-flex align-items-center" style="gap: 10px;">
-            <?php if (session()->get('role') == "Admin") : ?>
-              <button type="button" class="btn btn-warning btn-sm absenAddEdit">
-                <i class="fas fa-edit"></i> Perbaharui Data
-              </button>
-            <?php endif; ?>
+<?= $this->section('content'); ?>
+<style>
+  .absen-thumb {
+    width: auto;
+    height: auto;
+    max-width: 84px;
+    max-height: 84px;
+    object-fit: contain;
+    border-radius: 4px;
+    cursor: pointer;
+    background: #f4f6f9;
+    transition: transform 0.15s ease;
+  }
+  .absen-thumb:hover {
+    transform: scale(1.04);
+  }
+</style>
+<section class="content">
+  <div class="container-fluid">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title mt-1 font-weight-bold">Daftar Hadir Harian</h3>
 
-            <?php if($superUser): ?>
-              <button type="button" class="btn btn-info btn-sm absenAddKeterangan">
-                <i class="fas fa-info-circle"></i> Tambahkan Keterangan
-              </button>
-              
-              <form id="myForm" action="" method="post" class="m-0 d-flex align-items-center" style="gap: 10px;">
-                <div class="input-group input-group-sm m-0">
-                  <div class="input-group-prepend">
-                    <span class="input-group-text">
-                      <input type="checkbox" data-id="tanggalSuperUserAbsen">
-                    </span>
-                  </div>
-                  <input type="text" disabled name="tanggal" class="form-control" placeholder="Akses Super User" autocomplete="off" style="min-width: 200px;" />
+        <div class="card-tools d-flex align-items-center" style="gap: 10px;">
+          <?php if (!empty($isAdmin)) : ?>
+            <button type="button" class="btn btn-warning btn-sm absenAddEdit">
+              <i class="fas fa-edit"></i> Perbaharui Data
+            </button>
+          <?php endif; ?>
+
+          <?php if (!empty($superUser)) : ?>
+            <button type="button" class="btn btn-info btn-sm absenAddKeterangan">
+              <i class="fas fa-info-circle"></i> Tambahkan Keterangan
+            </button>
+
+            <form id="myForm" action="" method="post" class="m-0 d-flex align-items-center" style="gap: 10px;">
+              <div class="input-group input-group-sm m-0">
+                <div class="input-group-prepend">
+                  <span class="input-group-text">
+                    <input type="checkbox" data-id="tanggalSuperUserAbsen">
+                  </span>
                 </div>
-                
-                <button type="submit" data-url="/absen/export/rekamAbsen" class="btn btn-success btn-sm text-nowrap">
-                  <i class="fas fa-file-excel"></i> Rekam Absensi
-                </button>
-              </form>
-            <?php endif; ?>
-          </div>
-        </div>
-        <div class="card-body dataAbsenHarian">
-          <table id="tableWithoutExporting" class="table table-stripped table-sm table-bordered">
-            <thead>
-              <tr>
-                <th style="width: 2%;">No</th>
-                <th>Nama</th>
-                <th>Status Masuk</th>
-                <th style="width: 18%;">Alamat Masuk</th>
-                <th>Jam Masuk</th>
-                <th style="width: 7%;">Foto Masuk</th>
-                <th>Status Pulang</th>
-                <th style="width: 18%;">Alamat Pulang</th>
-                <th>Jam Pulang</th>
-                <th style="width: 7%;">Foto Pulang</th>
-                <th>Jam Kerja</th>
-                <th>Rekam Absen</th>
-                <th style="width: 10%;">Aksi</th>
-              </tr>
-            </thead>
-            <tbody class="addDataAbsenHarian">
-              <?php
-              $nomor = 1;
-              foreach ($absen as $data) : 
-              $konfirmasiAlamatMasuk = false;
-              $konfirmasiAlamatPulang = false;
-              
-              $jamMasuk = $data['jam_masuk'];
-              $jamPulang = $data['jam_pulang'];
-              
-              $aturanJamMasuk = $data["aturan_jam_masuk"];
-              $aturanJamPulang = $data["aturan_jam_pulang"];
-              $toleransiKeterlambatan = $data["toleransi_keterlambatan"];
-              
-              $statusAbsensi = statusAbsensi($jamMasuk,$jamPulang,$aturanJamMasuk,$aturanJamPulang,$toleransiKeterlambatan);
-          
-              if ($data['status_pulang'] == null) {
-                  $statusAbsen = "";
-              } elseif ($data['status_pulang'] != $data['status_masuk']) {
-                  $statusAbsen = 'style="background-color: #f5c6cb !important;"';
-              } else {
-                  $statusAbsen = "";
-              }
-              ?>
-              
-                <tr>
-                  <td><?= $nomor++; ?></td>
-                  <td><?= $data['nama']; ?></td>
-                  <td><?= $data['status_masuk']; ?></td>
-                  <td <?= $statusAbsen; ?> class="class-absen-alamat-masuk" data-validation="<?= $data['validation_masuk']; ?>" data-jam="<?= $data['jam_masuk']; ?>" data-alamat="<?= $data['alamat_masuk']; ?>" data-longitude="<?= $data['longitude_masuk']; ?>" data-latitude="<?= $data['latitude_masuk']; ?>">
-                      <?php if($data['jam_masuk'] != null): ?>
-                          <i class='fas fa-sync-alt fa-spin'></i> <span class='text-bold pt-2'>Loading...</span>
-                      <?php endif; ?>
-                  </td>
-                  <td <?= $statusAbsen; ?> class="
-                  <?php
-                  if($jamMasuk == null) {
-                      echo "table-danger";
-                  } elseif($statusAbsensi['masuk'] == 'merah') {
-                      echo "table-danger";
-                  } elseif($statusAbsensi['masuk'] == 'kuning') {
-                      echo "table-warning";
-                  } elseif($statusAbsensi['masuk'] == 'hijau') {
-                      echo "table-success";
-                  }
-                  ?>
-                  ">
-                    <?= $data['jam_masuk'];
-                    ?>
-                  </td>
-          
-                  <td <?= $statusAbsen; ?> class="text-center">
-                      
-                    <?php if ($data['jam_masuk'] != null && $data['jam_masuk'] != '') : ?>
-                      <?php if($data['keterangan'] == ""): ?>
-                          <img src="/dist/img/boxed-bg.jpg" data-waktu="masuk" data-src="<?= $data['id_absen']; ?>" data-idabsen="<?= $data['id_absen']; ?>" data-ket="masuk" class="lazy galleryAction" alt="Foto Masuk" style="width: 100%; aspect-ratio: 9 / 16; object-fit: contain;" />
-                      <?php else: ?>
-                          <h4><?= $data['keterangan']; ?></h4>
-                      <?php endif; ?>
-                    <?php endif; ?>
-                  </td>
-                  <td <?= $statusAbsen; ?>><?= $data['status_pulang']; ?></td>
-                  <td <?= $statusAbsen; ?> class="class-absen-alamat-pulang" data-validation="<?= $data['validation_pulang']; ?>" data-jam="<?= $data['jam_pulang']; ?>" data-alamat="<?= $data['alamat_pulang']; ?>" data-longitude="<?= $data['longitude_pulang']; ?>" data-latitude="<?= $data['latitude_pulang']; ?>">
-                      <?php if($data['jam_pulang'] != null): ?>
-                          <i class='fas fa-sync-alt fa-spin'></i> <span class='text-bold pt-2'>Loading...</span>
-                      <?php endif; ?>
-                  </td>
-                  <td <?= $statusAbsen; ?> class="
-                  <?php
-                  if($jamPulang == null) {
-                      echo "table-danger";
-                  } elseif($statusAbsensi['pulang'] == 'merah') {
-                      echo "table-danger";
-                  } elseif($statusAbsensi['pulang'] == 'kuning') {
-                      echo "table-warning";
-                  } elseif($statusAbsensi['pulang'] == 'hijau') {
-                      echo "table-success";
-                  }
-                  ?>
-                  ">
-                    <?= $data['jam_pulang']; 
-                    ?>
-                  </td>
-          
-                  <td <?= $statusAbsen; ?> class="text-center">
-                    <?php if ($data['jam_pulang'] != null && $data['jam_pulang'] != '') : ?>
-                      <?php if($data['keterangan'] == ""): ?>
-                          <img src="/dist/img/boxed-bg.jpg" data-waktu="pulang" data-src="<?= $data['id_absen']; ?>" data-idabsen="<?= $data['id_absen']; ?>" data-ket="pulang" class="lazy galleryAction" alt="Foto Pulang" style="width: 100%; aspect-ratio: 9 / 16; object-fit: contain;" />
-                      <?php else: ?>
-                          <h4><?= $data['keterangan']; ?></h4>
-                      <?php endif; ?>
-                    <?php endif; ?>
-                  </td>
-                  <td <?= $statusAbsen; ?>>
-                    <?= selisi_waktu($data['jam_masuk'], $data['jam_pulang']); ?>
-                  </td>
-                  <td>
-                      <?php if($data['id_absen'] && $data['jumlah_array'] > 0): ?>
-                          <button class="btn btn-sm btn-info showRekamAbsen" data-id="<?= $data['id_absen']; ?>"> Lihat </button> <br />
-                          <span><?= $data['jumlah_array']; ?> rekaman tersedia!</span>
-                      <?php endif; ?>
-                  </td>
-                  <td>
-                      <?php if($data['id_absen'] && (session()->get('role') == 'Admin' || (isset($aksesEditDel) && $aksesEditDel))): ?>
-                          <div class="btn-group mb-2" role="group">
-                              <button type="button" data-id="<?= $data['id_absen']; ?>" data-idpegawai="<?= $data['dp_id_data_pegawai']; ?>" class="btn btn-sm btn-warning btn-edit-absen"><i class="fas fa-edit"></i> Edit</button>
-                              <button type="button" data-id="<?= $data['id_absen']; ?>" class="btn btn-sm btn-danger btn-delete-absen"><i class="fas fa-trash"></i> Delete</button>
-                          </div>
-                      <?php endif; ?>
-                      <h6 class="m-0 btn-verifikasi-masuk d-none">Verifikasi Masuk</h6>
-                      <div class="btn-group btn-verifikasi-masuk d-none" role="group" aria-label="Basic example">
-                        <button type="button" data-id="<?= $data['id_absen']; ?>" class="btn btn-sm btn-success btn-absen-validasi-masuk"><i class="fas fa-map-marker-alt"></i> Validasi</button>
-                        <button type="button" data-id="<?= $data['id_absen']; ?>" class="btn btn-sm btn-danger btn-absen-invalidasi-masuk"><i class="fas fa-map-marker"></i> Invalidasi</button>
-                      </div>
-                      <h6 class="m-0 mt-1 btn-verifikasi-pulang d-none">Verifikasi Pulang</h6>
-                      <div class="btn-group btn-verifikasi-pulang d-none" role="group" aria-label="Basic example">
-                        <button type="button" data-id="<?= $data['id_absen']; ?>" class="btn btn-sm btn-success btn-absen-validasi-pulang"><i class="fas fa-map-marker-alt"></i> Validasi</button>
-                        <button type="button" data-id="<?= $data['id_absen']; ?>" class="btn btn-sm btn-danger btn-absen-invalidasi-pulang"><i class="fas fa-map-marker"></i> Invalidasi</button>
-                      </div>
-                  </td>
-                </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
+                <input type="text" disabled name="tanggal" class="form-control" placeholder="Akses Super User" autocomplete="off" style="min-width: 200px;" />
+              </div>
+
+              <button type="submit" data-url="/absen/export/rekamAbsen" class="btn btn-success btn-sm text-nowrap">
+                <i class="fas fa-file-excel"></i> Rekam Absensi
+              </button>
+            </form>
+          <?php endif; ?>
         </div>
       </div>
-    </div>
-  </section>
+      <div class="card-body dataAbsenHarian">
+        <table id="tableWithoutExporting" class="table table-striped table-sm table-bordered">
+          <thead>
+            <tr>
+              <th style="width: 2%;">No</th>
+              <th>Nama</th>
+              <th>Status Masuk</th>
+              <th style="width: 18%;">Alamat Masuk</th>
+              <th>Jam Masuk</th>
+              <th style="width: 7%;">Foto Masuk</th>
+              <th>Status Pulang</th>
+              <th style="width: 18%;">Alamat Pulang</th>
+              <th>Jam Pulang</th>
+              <th style="width: 7%;">Foto Pulang</th>
+              <th>Jam Kerja</th>
+              <th>Rekam Absen</th>
+              <th style="width: 10%;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="addDataAbsenHarian">
+            <?php
+            $nomor = 1;
+            $canEditDel = !empty($isAdmin) || !empty($aksesEditDel);
+            foreach ($absen as $data) :
+              $jamMasuk = $data['jam_masuk'];
+              $jamPulang = $data['jam_pulang'];
 
+              $statusAbsensi = statusAbsensi(
+                $jamMasuk,
+                $jamPulang,
+                $data['aturan_jam_masuk'] ?? null,
+                $data['aturan_jam_pulang'] ?? null,
+                $data['toleransi_keterlambatan'] ?? null
+              );
 
-  <script>
-  $('input[data-id="tanggalSuperUserAbsen"]').on('change', function() {
-      var isChecked = $(this).is(':checked');
-
-      if (isChecked) {
-          $('input[name="tanggal"]').attr('disabled', false);
-          $('input[name="tanggal"]').daterangepicker({
-              startDate: moment(),
-              endDate: moment(),
-              locale: {
-                format: 'YYYY-MM-DD'
+              if ($data['status_pulang'] == null) {
+                $statusAbsen = '';
+              } elseif ($data['status_pulang'] != $data['status_masuk']) {
+                $statusAbsen = 'style="background-color: #f5c6cb !important;"';
+              } else {
+                $statusAbsen = '';
               }
-            });
-      } else {
-          $('input[name="tanggal"]').val("");
-          $('input[name="tanggal"]').attr('disabled', true);
+
+              $evalMasuk = $data['eval_masuk'] ?? ['cell_class' => 'table-danger', 'html' => '', 'show_verifikasi' => false];
+              $evalPulang = $data['eval_pulang'] ?? ['cell_class' => 'table-danger', 'html' => '', 'show_verifikasi' => false];
+
+              $jamMasukClass = 'table-danger';
+              if (!empty($jamMasuk)) {
+                if ($statusAbsensi['masuk'] === 'kuning') $jamMasukClass = 'table-warning';
+                elseif ($statusAbsensi['masuk'] === 'hijau') $jamMasukClass = 'table-success';
+              }
+
+              $jamPulangClass = 'table-danger';
+              if (!empty($jamPulang)) {
+                if ($statusAbsensi['pulang'] === 'kuning') $jamPulangClass = 'table-warning';
+                elseif ($statusAbsensi['pulang'] === 'hijau') $jamPulangClass = 'table-success';
+              }
+
+              $idAbsen = (int) ($data['id_absen'] ?? 0);
+              $ver = !empty($data['updated_at']) ? (int) strtotime((string) $data['updated_at']) : 0;
+              $verQ = $ver > 0 ? '?v=' . $ver : '';
+            ?>
+              <tr>
+                <td><?= $nomor++; ?></td>
+                <td><?= esc($data['nama']); ?></td>
+                <td><?= esc($data['status_masuk'] ?? ''); ?></td>
+                <td <?= $statusAbsen; ?>
+                    class="class-absen-alamat-masuk <?= $evalMasuk['cell_class']; ?>"
+                    data-alamat="<?= esc($data['alamat_masuk'] ?? '', 'attr'); ?>"
+                    data-longitude="<?= esc($data['longitude_masuk'] ?? '', 'attr'); ?>"
+                    data-latitude="<?= esc($data['latitude_masuk'] ?? '', 'attr'); ?>">
+                  <?= $evalMasuk['html']; ?>
+                </td>
+                <td <?= $statusAbsen; ?> class="<?= $jamMasukClass; ?>">
+                  <?= esc($jamMasuk ?? ''); ?>
+                </td>
+                <td <?= $statusAbsen; ?> class="text-center">
+                  <?php if (!empty($jamMasuk)) : ?>
+                    <?php if (empty($data['keterangan'])) : ?>
+                      <?php if ($idAbsen > 0 && !empty($data['has_foto_masuk'])) : ?>
+                        <img src="/absen/foto/<?= $idAbsen; ?>/masuk<?= $verQ; ?>"
+                             data-idabsen="<?= $idAbsen; ?>"
+                             data-ket="masuk"
+                             <?= !empty($data['has_foto_masuk_2']) ? 'data-second-src="/absen/foto/' . $idAbsen . '/masuk2' . $verQ . '"' : ''; ?>
+                             loading="lazy"
+                             decoding="async"
+                             class="galleryAction absen-thumb"
+                             alt="Foto Masuk"
+                             onerror="this.onerror=null;this.src='/dist/img/boxed-bg.jpg';" />
+                      <?php endif; ?>
+                    <?php else : ?>
+                      <h4><?= esc($data['keterangan']); ?></h4>
+                    <?php endif; ?>
+                  <?php endif; ?>
+                </td>
+                <td <?= $statusAbsen; ?>><?= esc($data['status_pulang'] ?? ''); ?></td>
+                <td <?= $statusAbsen; ?>
+                    class="class-absen-alamat-pulang <?= $evalPulang['cell_class']; ?>"
+                    data-alamat="<?= esc($data['alamat_pulang'] ?? '', 'attr'); ?>"
+                    data-longitude="<?= esc($data['longitude_pulang'] ?? '', 'attr'); ?>"
+                    data-latitude="<?= esc($data['latitude_pulang'] ?? '', 'attr'); ?>">
+                  <?= $evalPulang['html']; ?>
+                </td>
+                <td <?= $statusAbsen; ?> class="<?= $jamPulangClass; ?>">
+                  <?= esc($jamPulang ?? ''); ?>
+                </td>
+                <td <?= $statusAbsen; ?> class="text-center">
+                  <?php if (!empty($jamPulang)) : ?>
+                    <?php if (empty($data['keterangan'])) : ?>
+                      <?php if ($idAbsen > 0 && !empty($data['has_foto_pulang'])) : ?>
+                        <img src="/absen/foto/<?= $idAbsen; ?>/pulang<?= $verQ; ?>"
+                             data-idabsen="<?= $idAbsen; ?>"
+                             data-ket="pulang"
+                             <?= !empty($data['has_foto_pulang_2']) ? 'data-second-src="/absen/foto/' . $idAbsen . '/pulang2' . $verQ . '"' : ''; ?>
+                             loading="lazy"
+                             decoding="async"
+                             class="galleryAction absen-thumb"
+                             alt="Foto Pulang"
+                             onerror="this.onerror=null;this.src='/dist/img/boxed-bg.jpg';" />
+                      <?php endif; ?>
+                    <?php else : ?>
+                      <h4><?= esc($data['keterangan']); ?></h4>
+                    <?php endif; ?>
+                  <?php endif; ?>
+                </td>
+                <td <?= $statusAbsen; ?>>
+                  <?= esc($data['jam_kerja_text'] ?? '-'); ?>
+                </td>
+                <td>
+                  <?php if ($idAbsen > 0 && (int) ($data['jumlah_array'] ?? 0) > 0) : ?>
+                    <button type="button" class="btn btn-sm btn-info showRekamAbsen" data-id="<?= $idAbsen; ?>"> Lihat </button><br />
+                    <span><?= (int) $data['jumlah_array']; ?> rekaman tersedia!</span>
+                  <?php endif; ?>
+                </td>
+                <td>
+                  <?php if ($idAbsen > 0 && $canEditDel) : ?>
+                    <div class="btn-group mb-2" role="group">
+                      <button type="button" data-id="<?= $idAbsen; ?>" data-idpegawai="<?= (int) $data['dp_id_data_pegawai']; ?>" class="btn btn-sm btn-warning btn-edit-absen"><i class="fas fa-edit"></i> Edit</button>
+                      <button type="button" data-id="<?= $idAbsen; ?>" class="btn btn-sm btn-danger btn-delete-absen"><i class="fas fa-trash"></i> Delete</button>
+                    </div>
+                  <?php endif; ?>
+                  <?php if ($idAbsen > 0 && !empty($evalMasuk['show_verifikasi'])) : ?>
+                    <h6 class="m-0 btn-verifikasi-masuk">Verifikasi Masuk</h6>
+                    <div class="btn-group btn-verifikasi-masuk" role="group" aria-label="Verifikasi Masuk">
+                      <button type="button" data-id="<?= $idAbsen; ?>" class="btn btn-sm btn-success btn-absen-validasi-masuk"><i class="fas fa-map-marker-alt"></i> Validasi</button>
+                      <button type="button" data-id="<?= $idAbsen; ?>" class="btn btn-sm btn-danger btn-absen-invalidasi-masuk"><i class="fas fa-map-marker"></i> Invalidasi</button>
+                    </div>
+                  <?php endif; ?>
+                  <?php if ($idAbsen > 0 && !empty($evalPulang['show_verifikasi'])) : ?>
+                    <h6 class="m-0 mt-1 btn-verifikasi-pulang">Verifikasi Pulang</h6>
+                    <div class="btn-group btn-verifikasi-pulang" role="group" aria-label="Verifikasi Pulang">
+                      <button type="button" data-id="<?= $idAbsen; ?>" class="btn btn-sm btn-success btn-absen-validasi-pulang"><i class="fas fa-map-marker-alt"></i> Validasi</button>
+                      <button type="button" data-id="<?= $idAbsen; ?>" class="btn btn-sm btn-danger btn-absen-invalidasi-pulang"><i class="fas fa-map-marker"></i> Invalidasi</button>
+                    </div>
+                  <?php endif; ?>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+(function() {
+  var cachedPegawaiOptions = null;
+  var currentAbsenXhr = null;
+
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function loadPegawaiOptions(onReady) {
+    if (cachedPegawaiOptions !== null) {
+      onReady(cachedPegawaiOptions);
+      return;
+    }
+    $.ajax({
+      url: '/absen/getPegawai',
+      method: 'get',
+      dataType: 'json',
+      beforeSend: function() {
+        $("#overlay").show();
+      },
+      success: function(response) {
+        if (response.data && Array.isArray(response.data.pegawai)) {
+          cachedPegawaiOptions = response.data.pegawai.map(function(pegawai) {
+            return '<option value="' + escapeHtml(pegawai.id_data_pegawai) + '">' + escapeHtml(pegawai.nama) + '</option>';
+          }).join('');
+          onReady(cachedPegawaiOptions);
+        }
+      },
+      error: function(xhr, ajaxOptions, thrownError) {
+        Swal.fire({
+          icon: 'error',
+          text: xhr.status + "\n" + (xhr.responseText || thrownError)
+        });
+      },
+      complete: function() {
+        $("#overlay").hide();
       }
+    });
+  }
+
+  function initAbsenDataTable() {
+    var $tbl = $("#tableWithoutExporting");
+    if (!$tbl.length || !$.fn.DataTable) return;
+    if ($.fn.DataTable.isDataTable($tbl)) {
+      $tbl.DataTable().destroy();
+    }
+    var responsiveOpt = (typeof DataTable !== 'undefined' && DataTable.Responsive && DataTable.Responsive.renderer)
+      ? { details: { renderer: DataTable.Responsive.renderer.listHiddenNodes() } }
+      : true;
+
+    $tbl.DataTable({
+      deferRender: true,
+      lengthChange: true,
+      autoWidth: false,
+      pageLength: 10,
+      lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+      responsive: responsiveOpt,
+      buttons: ["copy", "colvis"]
+    }).buttons().container().appendTo('#tableWithoutExporting_wrapper .col-md-6:eq(0)');
+  }
+
+  function fetchAbsenHarian(tanggalVal) {
+    tanggalVal = $.trim(tanggalVal || '');
+    if (!tanggalVal) return;
+
+    if (currentAbsenXhr && currentAbsenXhr.readyState !== 4) {
+      currentAbsenXhr.abort();
+    }
+
+    currentAbsenXhr = $.ajax({
+      url: '/absen/get_absen_harian',
+      data: { tanggal: tanggalVal },
+      method: 'post',
+      dataType: 'json',
+      beforeSend: function() {
+        $(".dataAbsenHarian").html(
+          '<div class="text-center py-4"><i class="fas fa-sync-alt fa-spin mr-1"></i> <span class="text-bold">Memuat data absensi...</span></div>'
+        );
+      },
+      success: function(response) {
+        if (response && response.data) {
+          $(".dataAbsenHarian").html(response.data);
+          initAbsenDataTable();
+        }
+      },
+      error: function(xhr, status, thrownError) {
+        if (status === 'abort') return;
+        $(".dataAbsenHarian").html(
+          '<div class="alert alert-danger mb-0">Gagal memuat data absensi. Silakan coba pilih tanggal kembali.</div>'
+        );
+        Swal.fire({
+          icon: 'error',
+          title: 'Gagal Memuat Data',
+          text: xhr.status + ' ' + (thrownError || '')
+        });
+      },
+      complete: function() {
+        currentAbsenXhr = null;
+      }
+    });
+  }
+
+  // Toggle Super User date range picker
+  $(document).on('change', 'input[data-id="tanggalSuperUserAbsen"]', function() {
+    var isChecked = $(this).is(':checked');
+    var $tglInput = $('input[name="tanggal"]');
+
+    if (isChecked) {
+      $tglInput.prop('disabled', false);
+      $tglInput.daterangepicker({
+        startDate: moment(),
+        endDate: moment(),
+        locale: {
+          format: 'YYYY-MM-DD'
+        }
+      });
+    } else {
+      if (currentAbsenXhr && currentAbsenXhr.readyState !== 4) {
+        currentAbsenXhr.abort();
+      }
+      if ($tglInput.data('daterangepicker')) {
+        $tglInput.data('daterangepicker').remove();
+      }
+      $tglInput.val('').prop('disabled', true);
+    }
   });
 
-  var cachedPegawaiOptions = null;
+  // Muat data absensi langsung saat rentang tanggal berubah (tanpa delay buatan)
+  $(document).on('change', 'input[name="tanggal"]', function() {
+    var value = $.trim($(this).val() || '');
+    if (value !== '') {
+      fetchAbsenHarian(value);
+    }
+  });
 
-    $(document).on('click', '.absenAddEdit', function() {
-      function showModalWithOptions(optionsHtml) {
-          var formHtml = `
-                <form method="post" action="/absen/addDataAbsen" enctype="multipart/form-data">
-                  <input type="hidden" name="id_absen_post" id="id_absen_post_input" value="">
-                  <div class="row">
-                    <div class="col-12 text-right">
-                      <select required name="id_data_pegawai" class="select2" style="width: 100%;">
-                        <option value="">--Pilih Pegawai--</option>
-                        ${optionsHtml}
-                      </select>                    
-                    </div>
-                  </div>
-                  <div class="row mt-3">
-                    <div class="col-4">
-                      <div class="form-check">
-                        <input required class="form-check-input" type="radio" name="keterangan" id="InputJamMasuk" value="masuk">
-                        <label class="form-check-label" for="InputJamMasuk">Jam Masuk</label>
-                      </div>
-                    </div>
-                    <div class="col-4">
-                      <div class="form-check">
-                        <input required class="form-check-input" type="radio" name="keterangan" id="InputJamPulang" value="pulang">
-                        <label class="form-check-label" for="InputJamPulang">Jam Pulang</label>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="custom-file mt-3">
-                    <input type="file" class="custom-file-input" name="foto" id="customFileImage" accept="image/*">
-                    <label class="custom-file-label" for="customFileImage">Pilih Gambar</label>
-                  </div>
-                  <div class="bootstrap-timepicker">
-                    <div class="form-group mt-3">
-                      <div class="input-group date" id="timepicker" data-target-input="nearest">
-                        <input required name="jam" type="text" class="form-control datetimepicker-input" data-target="#timepicker"/>
-                        <div class="input-group-append" data-target="#timepicker" data-toggle="datetimepicker">
-                            <div class="input-group-text"><i class="far fa-clock"></i></div>
-                        </div>
-                        </div>
-                    </div>
-                  </div>
-                  <div class="form-group">
-                      <select class="select2" name="alamat" style="width: 100%;">
-                          <option value="">Opsional</option>
-                      <?php foreach($alamat as $data): ?>
-                          <option value="<?= $data['ket_tempat']; ?>"><?= $data['ket_tempat']; ?></option>
-                      <?php endforeach; ?>
-                      </select>
-                  </div>
-                  <div class="form-group row">
-                      <div class="col-6">
-                          <input type="text" name="longitude" placeholder="lon" class="form-control" />
-                      </div>
-                      <div class="col-6">
-                          <input type="text" name="latitude" placeholder="lat" class="form-control" />
-                      </div>
-                  </div>
-                  <button type="submit" class="btn btn-success float-right mt-3">
-                    <i class="fas fa-share"></i> Simpan
-                  </button>
-                </form>
-              `;
+  // Update label file upload di modal
+  $(document).on('change', '.custom-file-input', function() {
+    var fileName = $(this).val().split('\\').pop();
+    $(this).next('.custom-file-label').text(fileName || 'Pilih Gambar');
+  });
 
-            $("#modal-md").find(".modal-body").html(formHtml);
-            $("#modal-md").modal('show');
-            $(".select2").select2();
+  // Modal Perbaharui Data (Admin)
+  $(document).on('click', '.absenAddEdit', function() {
+    loadPegawaiOptions(function(optionsHtml) {
+      var formHtml = `
+        <form method="post" action="/absen/addDataAbsen" enctype="multipart/form-data">
+          <input type="hidden" name="id_absen_post" id="id_absen_post_input" value="">
+          <div class="row">
+            <div class="col-12 text-right">
+              <select required name="id_data_pegawai" class="select2" style="width: 100%;">
+                <option value="">--Pilih Pegawai--</option>
+                ${optionsHtml}
+              </select>
+            </div>
+          </div>
+          <div class="row mt-3">
+            <div class="col-4">
+              <div class="form-check">
+                <input required class="form-check-input" type="radio" name="keterangan" id="InputJamMasuk" value="masuk">
+                <label class="form-check-label" for="InputJamMasuk">Jam Masuk</label>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="form-check">
+                <input required class="form-check-input" type="radio" name="keterangan" id="InputJamPulang" value="pulang">
+                <label class="form-check-label" for="InputJamPulang">Jam Pulang</label>
+              </div>
+            </div>
+          </div>
+          <div class="custom-file mt-3">
+            <input type="file" class="custom-file-input" name="foto" id="customFileImage" accept="image/*">
+            <label class="custom-file-label" for="customFileImage">Pilih Gambar</label>
+          </div>
+          <div class="bootstrap-timepicker">
+            <div class="form-group mt-3">
+              <div class="input-group date" id="timepicker" data-target-input="nearest">
+                <input required name="jam" type="text" class="form-control datetimepicker-input" data-target="#timepicker"/>
+                <div class="input-group-append" data-target="#timepicker" data-toggle="datetimepicker">
+                  <div class="input-group-text"><i class="far fa-clock"></i></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <select class="select2" name="alamat" style="width: 100%;">
+              <option value="">Opsional</option>
+              <?php foreach ($alamat as $al) : ?>
+                <option value="<?= esc($al['ket_tempat'], 'attr'); ?>"><?= esc($al['ket_tempat']); ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="form-group row">
+            <div class="col-6">
+              <input type="text" name="longitude" placeholder="lon" class="form-control" />
+            </div>
+            <div class="col-6">
+              <input type="text" name="latitude" placeholder="lat" class="form-control" />
+            </div>
+          </div>
+          <button type="submit" class="btn btn-success float-right mt-3">
+            <i class="fas fa-share"></i> Simpan
+          </button>
+        </form>
+      `;
 
-            // Inisialisasi Timepicker setelah elemen ditambahkan ke modal
-            $('#timepicker').datetimepicker({
-              format: 'YYYY-MM-DD HH:mm' // Format tanggal dan waktu
-            });
-      }
-
-      if (cachedPegawaiOptions) {
-          showModalWithOptions(cachedPegawaiOptions);
-      } else {
-          $.ajax({
-            url: `/absen/getPegawai`,
-            method: 'get',
-            dataType: 'json',
-            beforeSend: function() {
-              $("#overlay").show();
-            },
-            success: function(response) {
-              if (response.data) {
-                cachedPegawaiOptions = response.data.pegawai.map(function(pegawai) {
-                  return `<option value="${pegawai.id_data_pegawai}">${pegawai.nama}</option>`;
-                }).join('');
-                
-                showModalWithOptions(cachedPegawaiOptions);
-              }
-            },
-            error: function(xhr, ajaxOptions, thrownError) {
-              Swal.fire({
-                text: xhr.status + "\n" + xhr.responseText + "\n" + thrownError
-              })
-            },
-            complete: function() {
-              $("#overlay").hide();
-            }
-          });
-      }
+      $("#modal-md").find(".modal-body").html(formHtml);
+      $("#modal-md").modal('show');
+      $("#modal-md .select2").select2();
+      $('#timepicker').datetimepicker({ format: 'YYYY-MM-DD HH:mm' });
     });
+  });
 
-    $(document).on('click', '.btn-edit-absen', function() {
-      var idAbsen = $(this).data('id');
-      $.ajax({
-        url: '/absen/getAbsenById/' + idAbsen,
-        method: 'GET',
-        dataType: 'json',
-        beforeSend: function() {
-          $("#overlay").show();
-        },
-        success: function(response) {
-          if (response.data) {
-            var data = response.data;
-            var formHtml = `
-                <form method="post" action="/absen/updateDataAbsenAll" enctype="multipart/form-data">
-                  <input type="hidden" name="id_absen" value="${data.id_absen}">
-                  <div class="row">
-                    <div class="col-12 text-center mb-3">
-                      <h5 class="font-weight-bold">Edit Absensi: ${data.nama}</h5>
-                    </div>
-                  </div>
-                  
-                  <div class="row">
-                    <div class="col-md-6 border-right">
-                      <h6 class="text-info font-weight-bold text-center border-bottom pb-2">Data Masuk</h6>
-                      <div class="form-group">
-                        <label>Status Masuk</label>
-                        <select name="status_masuk" class="form-control">
-                          <option value="">-- Pilih Status --</option>
-                          <option value="WFO" ${data.status_masuk == 'WFO' ? 'selected' : ''}>WFO</option>
-                          <option value="WFH" ${data.status_masuk == 'WFH' ? 'selected' : ''}>WFH</option>
-                          <option value="DL" ${data.status_masuk == 'DL' ? 'selected' : ''}>DL</option>
-                          <option value="TL" ${data.status_masuk == 'TL' ? 'selected' : ''}>TL</option>
-                          <option value="Cuti" ${data.status_masuk == 'Cuti' ? 'selected' : ''}>Cuti</option>
-                          <option value="Sakit" ${data.status_masuk == 'Sakit' ? 'selected' : ''}>Sakit</option>
-                          <option value="Izin" ${data.status_masuk == 'Izin' ? 'selected' : ''}>Izin</option>
-                          <option value="Alpa" ${data.status_masuk == 'Alpa' ? 'selected' : ''}>Alpa</option>
-                          ${(data.status_masuk && !['WFO', 'WFH', 'DL', 'TL', 'Cuti', 'Sakit', 'Izin', 'Alpa'].includes(data.status_masuk)) ? `<option value="${data.status_masuk}" selected>${data.status_masuk}</option>` : ''}
-                        </select>
-                      </div>
-                      <div class="bootstrap-timepicker">
-                        <div class="form-group">
-                          <label>Jam Masuk</label>
-                          <div class="input-group date" id="timepickerMasuk" data-target-input="nearest">
-                            <input name="jam_masuk" type="text" class="form-control datetimepicker-input" data-target="#timepickerMasuk" value="${data.jam_masuk ? data.jam_masuk.substring(0, 16) : ''}"/>
-                            <div class="input-group-append" data-target="#timepickerMasuk" data-toggle="datetimepicker">
-                                <div class="input-group-text"><i class="far fa-clock"></i></div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="form-group">
-                          <label>Alamat Masuk</label>
-                          <input type="text" name="alamat_masuk" class="form-control" value="${data.alamat_masuk || ''}" placeholder="Alamat Masuk">
-                      </div>
-                      <div class="form-group row">
-                          <div class="col-6">
-                              <label>Longitude</label>
-                              <input type="text" name="longitude_masuk" value="${data.longitude_masuk || ''}" placeholder="lon" class="form-control" />
-                          </div>
-                          <div class="col-6">
-                              <label>Latitude</label>
-                              <input type="text" name="latitude_masuk" value="${data.latitude_masuk || ''}" placeholder="lat" class="form-control" />
-                          </div>
-                      </div>
-                      <div class="form-group">
-                        <label>Foto Masuk (Opsional)</label>
-                        <div class="custom-file">
-                          <input type="file" class="custom-file-input" name="foto_masuk" id="fotoMasukFile" accept="image/*">
-                          <label class="custom-file-label" for="fotoMasukFile">Pilih Gambar</label>
-                        </div>
-                      </div>
-                    </div>
+  // Modal Tambahkan Keterangan (Super User) — memakai cache pegawai yang sama
+  $(document).on('click', '.absenAddKeterangan', function() {
+    loadPegawaiOptions(function(optionsHtml) {
+      var formHtml = `
+        <form method="post" action="/absen/addKeterangan">
+          <div class="row">
+            <div class="col-4">
+              <div class="form-group">
+                <input required type="date" class="form-control" name="tanggal_masuk" value="">
+              </div>
+            </div>
+            <div class="col-8 text-right">
+              <select required name="id_data_pegawai" class="select2" style="width: 100%;">
+                <option value="">--Pilih Pegawai--</option>
+                ${optionsHtml}
+              </select>
+              <button type="button" class="absenCekSinadi btn-sm btn btn-info py-0 px-1 mt-1">Cek Sinadi</button>
+              <button type="button" class="absenCekCuti btn-sm btn btn-info py-0 px-1 mt-1">Cek Cuti</button>
+              <button type="button" class="absenCekPerizinan btn-sm btn btn-info py-0 px-1 mt-1">Cek Perizinan</button>
+            </div>
+          </div>
+          <div class="row mt-3">
+            <div class="col-4"><div class="form-check"><input class="form-check-input" type="radio" name="keterangan" id="ct" value="CT"><label class="form-check-label" for="ct">CT</label></div></div>
+            <div class="col-4"><div class="form-check"><input class="form-check-input" type="radio" name="keterangan" id="cap" value="CAP"><label class="form-check-label" for="cap">CAP</label></div></div>
+            <div class="col-4"><div class="form-check"><input class="form-check-input" type="radio" name="keterangan" id="cm" value="CM"><label class="form-check-label" for="cm">CM</label></div></div>
+            <div class="col-4"><div class="form-check"><input class="form-check-input" type="radio" name="keterangan" id="cs" value="CS"><label class="form-check-label" for="cs">CS</label></div></div>
+            <div class="col-4"><div class="form-check"><input class="form-check-input" type="radio" name="keterangan" id="i" value="I"><label class="form-check-label" for="i">I</label></div></div>
+            <div class="col-4"><div class="form-check"><input class="form-check-input" type="radio" name="keterangan" id="tb" value="TB"><label class="form-check-label" for="tb">TB</label></div></div>
+            <div class="col-4"><div class="form-check"><input class="form-check-input" type="radio" name="keterangan" id="dl" value="DL"><label class="form-check-label" for="dl">DL</label></div></div>
+            <div class="col-4"><div class="form-check"><input class="form-check-input" type="radio" name="keterangan" id="tanpa" value="" checked><label class="form-check-label" for="tanpa">Tanpa Keterangan</label></div></div>
+          </div>
+          <button type="submit" class="btn btn-success float-right mt-3">
+            <i class="fas fa-share"></i> Simpan
+          </button>
+        </form>
+      `;
 
-                    <div class="col-md-6">
-                      <h6 class="text-danger font-weight-bold text-center border-bottom pb-2">Data Pulang</h6>
-                      <div class="form-group">
-                        <label>Status Pulang</label>
-                        <select name="status_pulang" class="form-control">
-                          <option value="">-- Pilih Status --</option>
-                          <option value="WFO" ${data.status_pulang == 'WFO' ? 'selected' : ''}>WFO</option>
-                          <option value="WFH" ${data.status_pulang == 'WFH' ? 'selected' : ''}>WFH</option>
-                          <option value="DL" ${data.status_pulang == 'DL' ? 'selected' : ''}>DL</option>
-                          <option value="TL" ${data.status_pulang == 'TL' ? 'selected' : ''}>TL</option>
-                          <option value="Cuti" ${data.status_pulang == 'Cuti' ? 'selected' : ''}>Cuti</option>
-                          <option value="Sakit" ${data.status_pulang == 'Sakit' ? 'selected' : ''}>Sakit</option>
-                          <option value="Izin" ${data.status_pulang == 'Izin' ? 'selected' : ''}>Izin</option>
-                          <option value="Alpa" ${data.status_pulang == 'Alpa' ? 'selected' : ''}>Alpa</option>
-                          ${(data.status_pulang && !['WFO', 'WFH', 'DL', 'TL', 'Cuti', 'Sakit', 'Izin', 'Alpa'].includes(data.status_pulang)) ? `<option value="${data.status_pulang}" selected>${data.status_pulang}</option>` : ''}
-                        </select>
-                      </div>
-                      <div class="bootstrap-timepicker">
-                        <div class="form-group">
-                          <label>Jam Pulang</label>
-                          <div class="input-group date" id="timepickerPulang" data-target-input="nearest">
-                            <input name="jam_pulang" type="text" class="form-control datetimepicker-input" data-target="#timepickerPulang" value="${data.jam_pulang ? data.jam_pulang.substring(0, 16) : ''}"/>
-                            <div class="input-group-append" data-target="#timepickerPulang" data-toggle="datetimepicker">
-                                <div class="input-group-text"><i class="far fa-clock"></i></div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="form-group">
-                          <label>Alamat Pulang</label>
-                          <input type="text" name="alamat_pulang" class="form-control" value="${data.alamat_pulang || ''}" placeholder="Alamat Pulang">
-                      </div>
-                      <div class="form-group row">
-                          <div class="col-6">
-                              <label>Longitude</label>
-                              <input type="text" name="longitude_pulang" value="${data.longitude_pulang || ''}" placeholder="lon" class="form-control" />
-                          </div>
-                          <div class="col-6">
-                              <label>Latitude</label>
-                              <input type="text" name="latitude_pulang" value="${data.latitude_pulang || ''}" placeholder="lat" class="form-control" />
-                          </div>
-                      </div>
-                      <div class="form-group">
-                        <label>Foto Pulang (Opsional)</label>
-                        <div class="custom-file">
-                          <input type="file" class="custom-file-input" name="foto_pulang" id="fotoPulangFile" accept="image/*">
-                          <label class="custom-file-label" for="fotoPulangFile">Pilih Gambar</label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="row mt-3 border-top pt-3">
-                    <div class="col-12">
-                      <div class="form-group">
-                        <label>Keterangan Tambahan</label>
-                        <textarea name="keterangan" class="form-control" rows="2" placeholder="Masukkan keterangan (Opsional)">${data.keterangan || ''}</textarea>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button type="submit" class="btn btn-primary btn-block mt-2">
-                    <i class="fas fa-save"></i> Simpan Perubahan Lengkap
-                  </button>
-                </form>
-              `;
-
-            $("#modal-lg").find(".modal-body").html(formHtml);
-            $("#modal-lg").modal('show');
-            
-            $('#timepickerMasuk').datetimepicker({ format: 'YYYY-MM-DD HH:mm' });
-            $('#timepickerPulang').datetimepicker({ format: 'YYYY-MM-DD HH:mm' });
-          }
-        },
-        error: function(xhr, ajaxOptions, thrownError) {
-          Swal.fire({
-            text: xhr.status + "\n" + xhr.responseText + "\n" + thrownError
-          })
-        },
-        complete: function() {
-          $("#overlay").hide();
-        }
-      });
+      $("#modal-md").find(".modal-body").html(formHtml);
+      $("#modal-md").modal('show');
+      $("#modal-md .select2").select2();
     });
-  </script>
-  <script>
-    $(document).on('click', '.absenAddKeterangan', function() {
-      $.ajax({
-        url: `/absen/getPegawai`,
-        method: 'get',
-        dataType: 'json',
-        beforeSend: function() {
-          $("#overlay").show();
-        },
-        success: function(response) {
-          if (response.data) {
-            var options = response.data.pegawai.map(function(pegawai) {
-              return `<option value="${pegawai.id_data_pegawai}">${pegawai.nama}</option>`;
-            }).join('');
+  });
 
-            var formHtml = `
-                <form method="post" action="/absen/addKeterangan">
-                  <div class="row">
-                    <div class="col-4">
-                      <div class="form-group">
-                        <input required type="date" class="form-control" name="tanggal_masuk" value="">
-                      </div>
-                    </div>
-                    <div class="col-8 text-right">
-                      <select required name="id_data_pegawai" class="select2" style="width: 100%;">
-                        <option value="">--Pilih Pegawai--</option>
-                        ${options}
-                      </select>
-                      <button type="button" class="absenCekSinadi btn-sm btn btn-info py-0 px-1">Cek Sinadi</button>
-                      <button type="button" class="absenCekCuti btn-sm btn btn-info py-0 px-1">Cek Cuti</button>
-                      <button type="button" class="absenCekPerizinan btn-sm btn btn-info py-0 px-1">Cek Perizinan</button>
-                    </div>
-                  </div>
-                  <div class="row mt-3">
-                    <div class="col-4">
-                      <div class="form-check">
-                        <input class="form-check-input" type="radio" name="keterangan" id="ct" value="CT">
-                        <label class="form-check-label" for="ct">CT</label>
-                      </div>
-                    </div>
-                    <div class="col-4">
-                      <div class="form-check">
-                        <input class="form-check-input" type="radio" name="keterangan" id="cap" value="CAP">
-                        <label class="form-check-label" for="cap">CAP</label>
-                      </div>
-                    </div>
-                    <div class="col-4">
-                      <div class="form-check">
-                        <input class="form-check-input" type="radio" name="keterangan" id="cm" value="CM">
-                        <label class="form-check-label" for="cm">CM</label>
-                      </div>
-                    </div>
-                    <div class="col-4">
-                      <div class="form-check">
-                        <input class="form-check-input" type="radio" name="keterangan" id="cs" value="CS">
-                        <label class="form-check-label" for="cs">CS</label>
-                      </div>
-                    </div>
-                    <div class="col-4">
-                      <div class="form-check">
-                        <input class="form-check-input" type="radio" name="keterangan" id="i" value="I">
-                        <label class="form-check-label" for="i">I</label>
-                      </div>
-                    </div>
-                    <div class="col-4">
-                      <div class="form-check">
-                        <input class="form-check-input" type="radio" name="keterangan" id="tb" value="TB">
-                        <label class="form-check-label" for="tb">TB</label>
-                      </div>
-                    </div>
-                    <div class="col-4">
-                      <div class="form-check">
-                        <input class="form-check-input" type="radio" name="keterangan" id="dl" value="DL">
-                        <label class="form-check-label" for="dl">DL</label>
-                      </div>
-                    </div>
-                    <div class="col-4">
-                      <div class="form-check">
-                        <input class="form-check-input" type="radio" name="keterangan" id="tanpa" value="" checked>
-                        <label class="form-check-label" for="tanpa">Tanpa Keterangan</label>
-                      </div>
-                    </div>
-                  </div>
-                  <button type="submit" class="btn btn-success float-right mt-3">
-                    <i class="fas fa-share"></i> Simpan
-                  </button>
-                </form>
-              `;
-            $("#modal-md").find(".modal-body").html(formHtml);
-            $("#modal-md").modal('show');
-            $(".select2").select2();
-          }
-        },
-        error: function(xhr, ajaxOptions, thrownError) {
-          Swal.fire({
-            text: xhr.status + "\n" + xhr.responseText + "\n" + thrownError
-          })
-        },
-        complete: function() {
-          $("#overlay").hide();
-        }
-      });
-    });
-    
-    $(document).on('click', '.absenCekSinadi', function() {
-      var id = $('select[name="id_data_pegawai"]').val();
-      var tgl_masuk = $('input[name="tanggal_masuk"]').val();
+  // Helper Cek Sinadi / Cuti / Perizinan
+  function runAbsenCek(url) {
+    var id = $('#modal-md select[name="id_data_pegawai"]').val();
+    var tgl_masuk = $('#modal-md input[name="tanggal_masuk"]').val();
 
-      if (id != '' && tgl_masuk != '') {
-        var formData = {
-          id_data_pegawai: id,
-          tgl_masuk: tgl_masuk
-        };
-      }
-
-      $.ajax({
-        url: '/absen/absenCekSinadi',
-        data: formData,
-        method: 'post',
-        dataType: 'json',
-        beforeSend: function() {
-          $("#overlay").show();
-        },
-        success: function(response) {
-          if (response.data == 'sukses') {
-            Toast.fire({
-              icon: 'success',
-              title: response.nama,
-              html: response.pesan
-              // text: 'Sedang melakukan perjalanan dinas dari tanggal!'
-            })
-          } else {
-            Toast.fire({
-              icon: 'error',
-              title: response.nama,
-              html: response.pesan
-            })
-          }
-        },
-        error: function(xhr, ajaxOptions, thrownError) {
-          Toast.fire({
-            icon: 'error',
-            text: xhr.status + "\n" + xhr.responseText + "\n" + thrownError
-            // text: 'kesalahan pada kode, hubungi pihak terkait!'
-          })
-        },
-        complete: function() {
-          $("#overlay").hide();
-        }
-      });
-    });
-    $(document).on('click', '.absenCekCuti', function() {
-      var id = $('select[name="id_data_pegawai"]').val();
-      var tgl_masuk = $('input[name="tanggal_masuk"]').val();
-
-      if (id != '' && tgl_masuk != '') {
-        var formData = {
-          id_data_pegawai: id,
-          tgl_masuk: tgl_masuk
-        };
-      }
-
-      $.ajax({
-        url: '/absen/absenCekCuti',
-        data: formData,
-        method: 'post',
-        dataType: 'json',
-        beforeSend: function() {
-          $("#overlay").show();
-        },
-        success: function(response) {
-          if (response.data == 'sukses') {
-            Toast.fire({
-              icon: 'success',
-              title: response.nama,
-              html: response.pesan
-              // text: 'Sedang melakukan perjalanan dinas dari tanggal!'
-            })
-          } else {
-            Toast.fire({
-              icon: 'error',
-              title: response.nama,
-              html: response.pesan
-            })
-          }
-        },
-        error: function(xhr, ajaxOptions, thrownError) {
-          Toast.fire({
-            icon: 'error',
-            text: xhr.status + "\n" + xhr.responseText + "\n" + thrownError
-            // text: 'kesalahan pada kode, hubungi pihak terkait!'
-          })
-        },
-        complete: function() {
-          $("#overlay").hide();
-        }
-      });
-    });
-    $(document).on('click', '.absenCekPerizinan', function() {
-      var id = $('select[name="id_data_pegawai"]').val();
-      var tgl_masuk = $('input[name="tanggal_masuk"]').val();
-
-      if (id != '' && tgl_masuk != '') {
-        var formData = {
-          id_data_pegawai: id,
-          tgl_masuk: tgl_masuk
-        };
-      }
-
-      $.ajax({
-        url: '/absen/absenCekPerizinan',
-        data: formData,
-        method: 'post',
-        dataType: 'json',
-        beforeSend: function() {
-          $("#overlay").show();
-        },
-        success: function(response) {
-          if (response.data == 'sukses') {
-            Toast.fire({
-              icon: 'success',
-              title: response.nama,
-              html: response.pesan
-              // text: 'Sedang melakukan perjalanan dinas dari tanggal!'
-            })
-          } else {
-            Toast.fire({
-              icon: 'error',
-              title: response.nama,
-              html: response.pesan
-            })
-          }
-        },
-        error: function(xhr, ajaxOptions, thrownError) {
-          Toast.fire({
-            icon: 'error',
-            text: xhr.status + "\n" + xhr.responseText + "\n" + thrownError
-            // text: 'kesalahan pada kode, hubungi pihak terkait!'
-          })
-        },
-        complete: function() {
-          $("#overlay").hide();
-        }
-      });
-    });
-    
-    $(document).ready(function() {
-      $('button[data-url]').click(function() {
-        var url = $(this).data('url');
-        $('#myForm').attr('action', url).submit();
-      });
-    });
-  </script>
-
-  <script>
-    $(document).on('change', 'input[name="tanggal"]', function() {
-      $(".dataAbsenHarian").html(`<div class="text-center"><i class='fas fa-sync-alt fa-spin'></i> <span class='text-bold pt-2'>Loading...</span></div>`);
-      
-      var value = $(this).val();
-      
-      
-      setTimeout(() => {
-        if (value != "") {
-          var formData = {
-            tanggal: value
-          };
-      
-          $.ajax({
-            url: '/absen/get_absen_harian',
-            data: formData,
-            method: 'post',
-            dataType: 'json',
-            beforeSend: function() {
-              $("#overlay").show();
-              $(".dataAbsenHarian").html(`<div class="text-center"><i class='fas fa-sync-alt fa-spin'></i> <span class='text-bold pt-2'>Loading...</span></div>`)
-            },
-            success: function(response) {
-              if (response.data) {
-                  // console.log(response.data);
-                setTimeout(() => {
-                  $(".dataAbsenHarian").html(response.data)
-                }, 1500);
-              }
-            },
-            error: function(xhr, ajaxOptions, thrownError) {
-              Swal.fire({
-                text: xhr.status + "\n" + xhr.responseText + "\n" + thrownError
-              })
-            }, complete: function() {
-                $("#overlay").hide();
-            }
-          });
-        }
-      }, 500);
-    });
-  </script>
-
-  <!-- ============================================================================================================================================================================================== -->
-
-  <script>
-      $(document).on("click", ".showRekamAbsen", function(){
-          var id = $(this).data('id');
-          var $modal = $("#modal-lg");
-
-          $.ajax({
-              url: `/absen/getRekamAbsen/${id}`,
-              method: 'get',
-              dataType: 'json',
-              beforeSend: function() {
-                  $("#overlay").show();
-              },
-              success: function(response) {
-                if (response.data) {
-                    $modal.find(".modal-body").html(response.data);
-                    $modal.modal('show');
-                }
-              },error: function(xhr, ajaxOptions, thrownError) {
-                Swal.fire({
-                    'text' : xhr.status + "\n" + xhr.responseText + "\n" + thrownError
-                })
-              },
-              complete: function() {
-                  $("#overlay").hide();
-              }
-          });
-      });
-
-          
-      // Data Zona Target (Multiple Polygons)
-      var targetPolygons = [];
-      var checkTargetPolygons = false;
-
-      getTargetPolygons();
-
-      function getTargetPolygons() {
-        $.ajax({
-          url: '/getTargetAreaAbsen',
-          dataType: 'json',
-          success: function(response) {
-            if (response.data) {
-              // response.data[]['ket_tempat']
-              response.data.forEach(function(item) {
-                // Menghapus whitespace dan newline dari string poligon
-                const cleanedPolygon = item.polygon
-                  .replace(/\r\n|\r|\n/g, '')
-                  .replace(/\s+/g, ' ')
-                  .trim();
-
-                // Mengonversi string poligon menjadi array
-                try {
-                  const polygonArray = JSON.parse(cleanedPolygon);
-                  targetPolygons.push({
-                    polygon: polygonArray,
-                    ket_tempat: item.ket_tempat // Simpan ket_tempat bersama dengan poligon
-                  });
-                } catch (e) {
-                  console.error('Error parsing polygon data:', e);
-                }
-              });
-            }
-          }, complete: function() {
-              checkTargetPolygons = true;
-          }
-        });
-      }
-        
-  </script>
-  <script>
-      // Fungsi untuk memeriksa apakah titik berada di dalam salah satu poligon
-      function getLocationDescription(point, polygons) {
-        const x = point[0];
-        const y = point[1];
-
-        // Function to check if a point is in a single polygon
-        function isInSinglePolygon(polygon) {
-          let inside = false;
-          for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-            const xi = polygon[i][0],
-              yi = polygon[i][1];
-            const xj = polygon[j][0],
-              yj = polygon[j][1];
-
-            const intersect = ((yi > y) !== (yj > y)) &&
-              (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-            if (intersect) inside = !inside;
-          }
-          return inside;
-        }
-
-        // Check if the point is in any of the polygons
-        for (let i = 0; i < polygons.length; i++) {
-          if (isInSinglePolygon(polygons[i].polygon)) {
-            return polygons[i].ket_tempat; // Return the location description
-          }
-        }
-        return 'Anda berada diluar wilayah absen'; // Default message if no match
-      }
-      
-      function lazyLoad() {
-          // $('.class-absen-alamat-pulang').each(function() {});
-          $('.lazy').each(function() {
-              const $img = $(this);
-      
-              // Check if the image has already been processed
-              if ($img.data('loaded')) {
-                  return; // Skip this image if it has already been loaded
-              }
-      
-              if ($img.offset().top < $(window).scrollTop() + $(window).height()) {
-                  var formData = {
-                      id_absen: $img.data('idabsen')
-                  };
-      
-                  $.ajax({
-                      url: "/absen/getImage",
-                      data: formData,
-                      method: 'post',
-                      dataType: 'json',
-                      beforeSend: function() {
-                          console.log("Loading!");
-                          Swal.fire({
-                              toast: true,
-                              position: 'top-end',
-                              icon: 'info',
-                              title: 'Memuat gambar...',
-                              showConfirmButton: false,
-                              didOpen: (toast) => {
-                                  toast.addEventListener('mouseenter', Swal.stopTimer)
-                                  toast.addEventListener('mouseleave', Swal.resumeTimer)
-                              }
-                          }).then((result) => {
-                              // Jika needed, do something after the toast is shown.
-                          });
-                      },
-                      success: function(response) {
-                          if (response.data) {
-                              console.log("Berhasil!");
-                              console.log(response.data);
-                              if ($img.data('waktu') == 'pulang') {
-                                  $img.attr('src', response.data['image_pulang_1']);
-                                  $img.data('src', response.data['image_pulang_1']);
-                              } else {
-                                  $img.attr('src', response.data['image_masuk_1']);
-                                  $img.data('src', response.data['image_masuk_1']);
-                              }
-                              $img.removeClass('lazy');
-                              $img.data('loaded', true); // Mark this image as loaded
-                          } else {
-                              console.log("Gagal!");
-                          }
-                      },
-                      error: function(xhr, ajaxOptions, thrownError) {
-                          console.log("Error!");
-                          Toast.fire({
-                              icon: 'error',
-                              title: 'Gagal memuat gambar'
-                          })
-                      },
-                      complete: function() {
-                          setTimeout(() => {
-                            Swal.close();
-                          }, 1000);
-                      }
-                  });
-              }
-          });
-        }
-      
-        // Initial lazy load
-        //   lazyLoad();
-      
-        // Lazy load on scroll
-        $('#tableWithoutExporting tbody').on('mouseenter', 'tr', function() {
-          // Menangkap semua gambar lazy dalam baris yang dihover
-          var $lazyImages = $(this).find('.lazy');
-          lazyLoad($lazyImages);
-        });
-        
-        $(document).ready(function() {
-          function processElements() {
-              $('.class-absen-alamat-masuk').each(function() {
-                  const $location_masuk = $(this);
-                  if ($location_masuk.data('loaded')) {
-                      return; // Skip if already processed
-                  }
-                  if ($location_masuk.offset().top < $(window).scrollTop() + $(window).height()) {
-                      var longitude = $location_masuk.data('longitude');
-                      var latitude = $location_masuk.data('latitude');
-                      var validation = $location_masuk.data('validation');
-                      var jam = $location_masuk.data('jam');
-                      
-                      if(longitude != "" && latitude != "") {
-                          const data = [parseFloat(longitude), parseFloat(latitude)];
-                          const isDataInside = getLocationDescription(data, targetPolygons);
-                          
-                          if (isDataInside == "Anda berada diluar wilayah absen") {
-                              if(validation == "Validasi") {
-                                  $location_masuk.html("<strong class='text-success'>Absen Terverifikasi <i class='fas fa-check-circle'></i></strong> <br/>" + $location_masuk.data('alamat')+ "<br/><i>lon: " + longitude + ", lat: " + latitude + "</i>");
-                                  $location_masuk.addClass('table-warning').removeClass('table-success table-danger');
-                                  $location_masuk.data('loaded', true);
-                              } else {
-                                  $location_masuk.html("<strong>Diluar Zona Absen</strong> <br/>" + $location_masuk.data('alamat')+ "<br/><i>lon: " + longitude + ", lat: " + latitude + "</i>");
-                                  $location_masuk.addClass('table-danger').removeClass('table-success');
-                                  $location_masuk.data('loaded', true);
-                                  if(validation == "Default") {
-                                      $location_masuk.parent().find('.btn-verifikasi-masuk').removeClass('d-none');
-                                  }
-                              }
-                          } else {
-                              $location_masuk.html(isDataInside + "<br/><i>lon: " + longitude + ", lat: " + latitude + "</i>");
-                              $location_masuk.removeClass('table-danger').addClass('table-success');
-                              $location_masuk.data('loaded', true);
-                              
-                          }
-                      } else {
-                          if(jam != null && jam != "") {
-                              $location_masuk.addClass('table-success').removeClass('table-danger');
-                              $location_masuk.text("Data Sesuai");
-                          } else {
-                              $location_masuk.addClass('table-danger').removeClass('table-warning');
-                          }
-                          $location_masuk.data('loaded', true);
-                      }
-      
-                  }
-              });
-              $('.class-absen-alamat-pulang').each(function() {
-                const $location_pulang = $(this);
-                if ($location_pulang.data('loaded')) {
-                    return; // Skip if already processed
-                }
-                if ($location_pulang.offset().top < $(window).scrollTop() + $(window).height()) {
-                    var longitude = $location_pulang.data('longitude');
-                    var latitude = $location_pulang.data('latitude');
-                    var validation = $location_pulang.data('validation');
-                    var jam = $location_pulang.data('jam');
-                    
-                    if(longitude != "" && latitude != "") {
-                        const data = [parseFloat(longitude), parseFloat(latitude)];
-                        const isDataInside = getLocationDescription(data, targetPolygons);
-                        
-                        if (isDataInside == "Anda berada diluar wilayah absen") {
-                            if(validation == "Valid") {
-                                $location_pulang.html("<strong class='text-success'>Absen Terverifikasi <i class='fas fa-check-circle'></i></strong> <br/>" + $location_pulang.data('alamat')+ "<br/><i>lon: " + longitude + ", lat: " + latitude + "</i>");
-                                $location_pulang.addClass('table-danger').removeClass('table-warning');
-                                $location_pulang.data('loaded', true);
-                            } else {
-                                $location_pulang.html("<strong>Diluar Zona Absen</strong> <br/>" + $location_pulang.data('alamat')+ "<br/><i>lon: " + longitude + ", lat: " + latitude + "</i>");
-                                $location_pulang.addClass('table-danger').removeClass('table-warning');
-                                $location_pulang.data('loaded', true);
-                                if(validation == "Default") {
-                                    $location_pulang.parent().find('.btn-verifikasi-pulang').removeClass('d-none');
-                                }
-                            }
-                        } else {
-                            $location_pulang.html(isDataInside + "<br/><i>lon: " + longitude + ", lat: " + latitude + "</i>");
-                            $location_pulang.removeClass('table-danger').addClass('table-success');
-                            $location_pulang.data('loaded', true);
-                            
-                        }
-                    } else {
-                      if(jam != null && jam != "") {
-                          $location_pulang.addClass('table-success').removeClass('table-danger');
-                          $location_pulang.text("Data Sesuai");
-                      } else {
-                          $location_pulang.addClass('table-danger').removeClass('table-warning');
-                      }
-                      $location_pulang.data('loaded', true);
-                    }
-              
-                }
-            });
-          }
-          
-          
-          $(window).on('scroll, mouseenter', function() {
-              if(checkTargetPolygons){
-                  processElements();
-              }
-          });
-          
-      });
-
-      
-  </script>
-
-  <script>
-    $(document).on('click', '.btn-delete-absen', function() {
-      var id = $(this).data('id');
-      Swal.fire({
-        title: 'Apakah Anda yakin?',
-        text: "Data absen ini akan dihapus permanen!",
+    if (!id || !tgl_masuk) {
+      Toast.fire({
         icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Ya, Hapus!'
-      }).then((result) => {
-        if (result.isConfirmed) {
-          $.ajax({
-            url: '/absen/deleteAbsen/' + id,
-            method: 'DELETE',
-            dataType: 'json',
-            beforeSend: function() {
-              $("#overlay").show();
-            },
-            success: function(response) {
-              if (response.data == 'sukses') {
-                Swal.fire('Terhapus!', 'Data absen berhasil dihapus.', 'success');
-                setTimeout(() => { location.reload(); }, 1000);
-              } else {
-                Swal.fire('Gagal!', 'Data gagal dihapus.', 'error');
-              }
-            },
-            error: function(xhr, ajaxOptions, thrownError) {
-              Swal.fire('Error!', xhr.responseText, 'error');
-            },
-            complete: function() {
-              $("#overlay").hide();
-            }
+        title: 'Pilih tanggal dan pegawai terlebih dahulu!'
+      });
+      return;
+    }
+
+    $.ajax({
+      url: url,
+      data: { id_data_pegawai: id, tgl_masuk: tgl_masuk },
+      method: 'post',
+      dataType: 'json',
+      beforeSend: function() { $("#overlay").show(); },
+      success: function(response) {
+        Toast.fire({
+          icon: response.data === 'sukses' ? 'success' : 'error',
+          title: response.nama || '',
+          html: response.pesan || ''
+        });
+      },
+      error: function(xhr, ajaxOptions, thrownError) {
+        Toast.fire({
+          icon: 'error',
+          text: xhr.status + "\n" + (xhr.responseText || thrownError)
+        });
+      },
+      complete: function() { $("#overlay").hide(); }
+    });
+  }
+
+  $(document).on('click', '.absenCekSinadi', function() { runAbsenCek('/absen/absenCekSinadi'); });
+  $(document).on('click', '.absenCekCuti', function() { runAbsenCek('/absen/absenCekCuti'); });
+  $(document).on('click', '.absenCekPerizinan', function() { runAbsenCek('/absen/absenCekPerizinan'); });
+
+  // Edit Absensi lengkap
+  $(document).on('click', '.btn-edit-absen', function() {
+    var idAbsen = $(this).data('id');
+    $.ajax({
+      url: '/absen/getAbsenById/' + idAbsen,
+      method: 'GET',
+      dataType: 'json',
+      beforeSend: function() { $("#overlay").show(); },
+      success: function(response) {
+        if (!response.data) return;
+        var data = response.data;
+        var stdStatuses = ['WFO', 'WFH', 'DL', 'TL', 'Cuti', 'Sakit', 'Izin', 'Alpa'];
+        var statusOpts = function(val) {
+          var html = '<option value="">-- Pilih Status --</option>';
+          stdStatuses.forEach(function(s) {
+            html += '<option value="' + s + '"' + (val === s ? ' selected' : '') + '>' + s + '</option>';
           });
+          if (val && stdStatuses.indexOf(val) === -1) {
+            html += '<option value="' + escapeHtml(val) + '" selected>' + escapeHtml(val) + '</option>';
+          }
+          return html;
+        };
+
+        var formHtml = `
+          <form method="post" action="/absen/updateDataAbsenAll" enctype="multipart/form-data">
+            <input type="hidden" name="id_absen" value="${escapeHtml(data.id_absen)}">
+            <div class="row">
+              <div class="col-12 text-center mb-3">
+                <h5 class="font-weight-bold">Edit Absensi: ${escapeHtml(data.nama)}</h5>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 border-right">
+                <h6 class="text-info font-weight-bold text-center border-bottom pb-2">Data Masuk</h6>
+                <div class="form-group">
+                  <label>Status Masuk</label>
+                  <select name="status_masuk" class="form-control">${statusOpts(data.status_masuk)}</select>
+                </div>
+                <div class="bootstrap-timepicker">
+                  <div class="form-group">
+                    <label>Jam Masuk</label>
+                    <div class="input-group date" id="timepickerMasuk" data-target-input="nearest">
+                      <input name="jam_masuk" type="text" class="form-control datetimepicker-input" data-target="#timepickerMasuk" value="${escapeHtml(data.jam_masuk ? data.jam_masuk.substring(0, 16) : '')}"/>
+                      <div class="input-group-append" data-target="#timepickerMasuk" data-toggle="datetimepicker">
+                        <div class="input-group-text"><i class="far fa-clock"></i></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Alamat Masuk</label>
+                  <input type="text" name="alamat_masuk" class="form-control" value="${escapeHtml(data.alamat_masuk || '')}" placeholder="Alamat Masuk">
+                </div>
+                <div class="form-group row">
+                  <div class="col-6">
+                    <label>Longitude</label>
+                    <input type="text" name="longitude_masuk" value="${escapeHtml(data.longitude_masuk || '')}" placeholder="lon" class="form-control" />
+                  </div>
+                  <div class="col-6">
+                    <label>Latitude</label>
+                    <input type="text" name="latitude_masuk" value="${escapeHtml(data.latitude_masuk || '')}" placeholder="lat" class="form-control" />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Foto Masuk (Opsional)</label>
+                  <div class="custom-file">
+                    <input type="file" class="custom-file-input" name="foto_masuk" id="fotoMasukFile" accept="image/*">
+                    <label class="custom-file-label" for="fotoMasukFile">Pilih Gambar</label>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <h6 class="text-danger font-weight-bold text-center border-bottom pb-2">Data Pulang</h6>
+                <div class="form-group">
+                  <label>Status Pulang</label>
+                  <select name="status_pulang" class="form-control">${statusOpts(data.status_pulang)}</select>
+                </div>
+                <div class="bootstrap-timepicker">
+                  <div class="form-group">
+                    <label>Jam Pulang</label>
+                    <div class="input-group date" id="timepickerPulang" data-target-input="nearest">
+                      <input name="jam_pulang" type="text" class="form-control datetimepicker-input" data-target="#timepickerPulang" value="${escapeHtml(data.jam_pulang ? data.jam_pulang.substring(0, 16) : '')}"/>
+                      <div class="input-group-append" data-target="#timepickerPulang" data-toggle="datetimepicker">
+                        <div class="input-group-text"><i class="far fa-clock"></i></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Alamat Pulang</label>
+                  <input type="text" name="alamat_pulang" class="form-control" value="${escapeHtml(data.alamat_pulang || '')}" placeholder="Alamat Pulang">
+                </div>
+                <div class="form-group row">
+                  <div class="col-6">
+                    <label>Longitude</label>
+                    <input type="text" name="longitude_pulang" value="${escapeHtml(data.longitude_pulang || '')}" placeholder="lon" class="form-control" />
+                  </div>
+                  <div class="col-6">
+                    <label>Latitude</label>
+                    <input type="text" name="latitude_pulang" value="${escapeHtml(data.latitude_pulang || '')}" placeholder="lat" class="form-control" />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Foto Pulang (Opsional)</label>
+                  <div class="custom-file">
+                    <input type="file" class="custom-file-input" name="foto_pulang" id="fotoPulangFile" accept="image/*">
+                    <label class="custom-file-label" for="fotoPulangFile">Pilih Gambar</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="row mt-3 border-top pt-3">
+              <div class="col-12">
+                <div class="form-group">
+                  <label>Keterangan Tambahan</label>
+                  <textarea name="keterangan" class="form-control" rows="2" placeholder="Masukkan keterangan (Opsional)">${escapeHtml(data.keterangan || '')}</textarea>
+                </div>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block mt-2">
+              <i class="fas fa-save"></i> Simpan Perubahan Lengkap
+            </button>
+          </form>
+        `;
+
+        $("#modal-lg").find(".modal-body").html(formHtml);
+        $("#modal-lg").modal('show');
+        $('#timepickerMasuk').datetimepicker({ format: 'YYYY-MM-DD HH:mm' });
+        $('#timepickerPulang').datetimepicker({ format: 'YYYY-MM-DD HH:mm' });
+      },
+      error: function(xhr, ajaxOptions, thrownError) {
+        Swal.fire({ icon: 'error', text: xhr.status + "\n" + (xhr.responseText || thrownError) });
+      },
+      complete: function() { $("#overlay").hide(); }
+    });
+  });
+
+  // Hapus Absensi
+  $(document).on('click', '.btn-delete-absen', function() {
+    var id = $(this).data('id');
+    Swal.fire({
+      title: 'Apakah Anda yakin?',
+      text: "Data absen ini akan dihapus permanen!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Ya, Hapus!'
+    }).then(function(result) {
+      if (!result.isConfirmed) return;
+      $.ajax({
+        url: '/absen/deleteAbsen/' + id,
+        method: 'DELETE',
+        dataType: 'json',
+        beforeSend: function() { $("#overlay").show(); },
+        success: function(response) {
+          if (response.data === 'sukses') {
+            Swal.fire({ title: 'Terhapus!', text: 'Data absen berhasil dihapus.', icon: 'success', timer: 900, showConfirmButton: false });
+            var activeDate = $.trim($('input[name="tanggal"]').val() || '');
+            if (activeDate !== '' && !$('input[name="tanggal"]').prop('disabled')) {
+              fetchAbsenHarian(activeDate);
+            } else {
+              setTimeout(function() { location.reload(); }, 900);
+            }
+          } else {
+            Swal.fire('Gagal!', 'Data gagal dihapus.', 'error');
+          }
+        },
+        error: function(xhr) {
+          Swal.fire('Error!', xhr.responseText || 'Terjadi kesalahan', 'error');
+        },
+        complete: function() { $("#overlay").hide(); }
+      });
+    });
+  });
+
+  // Lihat Rekam Absen
+  $(document).on("click", ".showRekamAbsen", function() {
+    var id = $(this).data('id');
+    var $modal = $("#modal-lg");
+
+    $.ajax({
+      url: '/absen/getRekamAbsen/' + id,
+      method: 'get',
+      dataType: 'json',
+      beforeSend: function() { $("#overlay").show(); },
+      success: function(response) {
+        if (response.data) {
+          $modal.find(".modal-body").html(response.data);
+          $modal.modal('show');
+        }
+      },
+      error: function(xhr, ajaxOptions, thrownError) {
+        Swal.fire({ icon: 'error', text: xhr.status + "\n" + (xhr.responseText || thrownError) });
+      },
+      complete: function() { $("#overlay").hide(); }
+    });
+  });
+
+  // Pilih data dari Rekam Absen (hanya terdaftar satu kali di halaman utama)
+  $(document).on('click', '.setNewRekamAbsen', function() {
+    var container = $(this).closest('.media');
+    var rekamText = container.find(".setAbsenRekam").text();
+
+    var formData = {
+      id_absen: container.find(".d-none").text(),
+      rekam: rekamText,
+      alamat: container.find(".setAbsenAlamat").text(),
+      longitude: container.find(".setAbsenLongitude").text(),
+      latitude: container.find(".setAbsenLatitude").text(),
+      jam: container.find(".setAbsenJam").text(),
+      image: container.find(".setAbsenImage").data("src")
+    };
+
+    $.ajax({
+      url: '/absen/setNewAbsen',
+      data: formData,
+      method: 'post',
+      dataType: 'json',
+      beforeSend: function() { $("#overlay").show(); },
+      success: function(response) {
+        Swal.fire({
+          icon: response.data ? "success" : "error",
+          title: "Data " + rekamText + (response.data ? " Berhasil Diperbaharui!" : " Gagal Diperbaharui!"),
+          showConfirmButton: false,
+          timer: 1500
+        });
+      },
+      complete: function() { $("#overlay").hide(); }
+    });
+  });
+
+  // Galeri foto instan menggunakan URL ter-cache (/absen/foto/{id}/...) tanpa AJAX tambahan
+  $(document).on('click', '.galleryAction', function(e) {
+    e.preventDefault();
+    var $img = $(this);
+    var firstSrc = $img.attr('src');
+    if (!firstSrc) return false;
+
+    var items = [{ src: firstSrc, type: 'image' }];
+    var secondSrc = $img.attr('data-second-src');
+    if (secondSrc) {
+      items.push({ src: secondSrc, type: 'image' });
+    }
+
+    if ($.magnificPopup) {
+      $.magnificPopup.open({
+        items: items,
+        gallery: { enabled: items.length > 1 },
+        closeBtnInside: true
+      });
+    } else {
+      // Fallback ke modal Bootstrap jika CDN Magnific Popup tidak termuat
+      var imgsHtml = items.map(function(item, idx) {
+        return '<div class="' + (items.length > 1 ? 'col-md-6' : 'col-12') + ' text-center mb-2">'
+          + '<img src="' + escapeHtml(item.src) + '" class="img-fluid rounded border" style="max-height:70vh;" alt="Foto ' + (idx + 1) + '">'
+          + '</div>';
+      }).join('');
+      $("#modal-lg").find(".modal-body").html('<div class="row">' + imgsHtml + '</div>');
+      $("#modal-lg").modal('show');
+    }
+    return false;
+  });
+
+  // Helper update tampilan sel alamat setelah Validasi / Invalidasi
+  function getMainRow($btn) {
+    var $tr = $btn.closest('tr');
+    return $tr.hasClass('child') ? $tr.prev() : $tr;
+  }
+
+  function applyValidationUI($btn, tipe, isValid) {
+    var $row = getMainRow($btn);
+    var $cell = $row.find(tipe === 'masuk' ? '.class-absen-alamat-masuk' : '.class-absen-alamat-pulang');
+    var alamat = $cell.attr('data-alamat') || '';
+    var lon = $cell.attr('data-longitude') || '';
+    var lat = $cell.attr('data-latitude') || '';
+    var coordHtml = (lon && lat) ? '<br/><i>lon: ' + escapeHtml(lon) + ', lat: ' + escapeHtml(lat) + '</i>' : '';
+
+    if (isValid) {
+      $cell.removeClass('table-danger table-success').addClass('table-warning');
+      $cell.html("<strong class='text-success'>Absen Terverifikasi <i class='fas fa-check-circle'></i></strong> <br/>" + escapeHtml(alamat) + coordHtml);
+    } else {
+      $cell.removeClass('table-success table-warning').addClass('table-danger');
+      $cell.html("<strong class='text-danger'>Absen Tidak Valid <i class='fas fa-times-circle'></i></strong> <br/>" + escapeHtml(alamat) + coordHtml);
+    }
+
+    var btnClass = tipe === 'masuk' ? '.btn-verifikasi-masuk' : '.btn-verifikasi-pulang';
+    $row.find(btnClass).remove();
+    $btn.closest('tr').find(btnClass).remove();
+  }
+
+  function handleValidasi($btn, tipe, isValid) {
+    var id = parseInt($btn.data('id'), 10);
+    var url = (tipe === 'masuk' ? '/absen/validasiMasuk/' : '/absen/validasiPulang/') + (isValid ? '1/' : '0/') + id;
+    var fieldName = tipe === 'masuk' ? 'keterangan_validasi_masuk' : 'keterangan_validasi_pulang';
+
+    var swalOpts = isValid
+      ? {
+          title: 'Validasi alamat ' + tipe + '?',
+          showCancelButton: true,
+          confirmButtonText: 'Valid',
+          cancelButtonText: 'Batal'
+        }
+      : {
+          title: 'Invalidasi alamat ' + tipe + '?',
+          input: 'text',
+          inputPlaceholder: 'Masukkan alasan invalidasi (opsional)',
+          showCancelButton: true,
+          confirmButtonText: 'Invalid',
+          cancelButtonText: 'Batal',
+          confirmButtonColor: '#d33'
+        };
+
+    Swal.fire(swalOpts).then(function(result) {
+      if (!result.isConfirmed) return;
+      var formData = {};
+      formData[fieldName] = isValid ? '' : (result.value || '');
+
+      $.ajax({
+        url: url,
+        method: 'post',
+        data: formData,
+        dataType: 'json',
+        success: function(response) {
+          if (response && response.data) {
+            Swal.fire({
+              title: 'Berhasil diperbaharui!',
+              icon: 'success',
+              timer: 800,
+              showConfirmButton: false
+            });
+            applyValidationUI($btn, tipe, isValid);
+          }
+        },
+        error: function(xhr, ajaxOptions, thrownError) {
+          Swal.fire({ icon: 'error', text: xhr.status + "\n" + (xhr.responseText || thrownError) });
         }
       });
     });
-  </script>
+  }
 
-  <?= $this->endSection(); ?>
+  $(document).on('click', '.btn-absen-validasi-masuk', function() { handleValidasi($(this), 'masuk', true); });
+  $(document).on('click', '.btn-absen-invalidasi-masuk', function() { handleValidasi($(this), 'masuk', false); });
+  $(document).on('click', '.btn-absen-validasi-pulang', function() { handleValidasi($(this), 'pulang', true); });
+  $(document).on('click', '.btn-absen-invalidasi-pulang', function() { handleValidasi($(this), 'pulang', false); });
+
+  $(document).ready(function() {
+    $('button[data-url]').on('click', function() {
+      var url = $(this).data('url');
+      $('#myForm').attr('action', url).submit();
+    });
+  });
+})();
+</script>
+
+<?= $this->endSection(); ?>

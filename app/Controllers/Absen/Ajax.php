@@ -10,40 +10,149 @@ class Ajax extends BaseController
 {
   public function getRekamAbsen($id) {
       if($this->request->isAJAX()) {
-          $getData = $this->absenModel->select('rekam_absen')->where('id_absen', $id)->first();
-          $data['id_absen'] = $id;
+          $username = (string) session()->get('username');
+          if (session_status() === PHP_SESSION_ACTIVE) {
+              session_write_close();
+          }
+
+          $getData = $this->absenModel->select('rekam_absen')->where('id_absen', (int) $id)->first();
+          $data['id_absen'] = (int) $id;
           $data['superUser'] = false;
           
-          $cek = $this->absenAksesModel->join('user', 'id_user')->where(['username' => session()->get('username'), 'status' => 'Akses Diterima'])->first();
+          $cek = $this->absenAksesModel
+              ->select('absen_akses.id_absen_akses')
+              ->join('user', 'user.id_user = absen_akses.id_user')
+              ->where(['user.username' => $username, 'absen_akses.status' => 'Akses Diterima'])
+              ->first();
           
           if ($cek) {
-            $data['superUser'] = true; 
+              $data['superUser'] = true;
           }
           
-          if ($getData['rekam_absen'] == "") {
+          if (!$getData || empty($getData['rekam_absen'])) {
               $msg = [
-                'data' => '<div class="d-flex justify-content-center align-items-center vh-100"><h4>Sistem Belum Menambahkan Rekam Absen!</h4></div>'    
+                'data' => '<div class="d-flex justify-content-center align-items-center py-5"><h4>Sistem Belum Menambahkan Rekam Absen!</h4></div>'
               ];
           } else {
-            $data['getData'] = json_decode($getData['rekam_absen'], true);
-              $msg = [
-                'data' => view('absen/rekam_absen', $data)    
-              ];
+              $decoded = json_decode((string) $getData['rekam_absen'], true);
+              if (!is_array($decoded) || empty($decoded)) {
+                  $msg = [
+                    'data' => '<div class="d-flex justify-content-center align-items-center py-5"><h4>Sistem Belum Menambahkan Rekam Absen!</h4></div>'
+                  ];
+              } else {
+                  $data['getData'] = $decoded;
+                  $msg = [
+                    'data' => view('absen/rekam_absen', $data)
+                  ];
+              }
           }
           
-          echo json_encode($msg);
+          return $this->response->setJSON($msg);
       }
   }
   
   public function getImage() {
       if ($this->request->isAjax()) {
-          $id_absen = $this->request->getVar("id_absen");
-          $cek = $this->absenModel->where("id_absen", $id_absen)->first();
+          if (session_status() === PHP_SESSION_ACTIVE) {
+              session_write_close();
+          }
+          $id_absen = (int) $this->request->getVar("id_absen");
+          $cek = $this->absenModel
+              ->select('id_absen, image_masuk_1, image_pulang_1')
+              ->where("id_absen", $id_absen)
+              ->first();
           
-          $msg = ['data' => $cek];
-          
-          echo json_encode($msg);
+          return $this->response->setJSON(['data' => $cek]);
       }
+  }
+
+  /**
+   * Serve foto absen dalam format biner langsung dengan browser HTTP cache + ETag (tanpa session lock).
+   */
+  public function serveFoto($idAbsen, $jenis = 'masuk')
+  {
+      if (session_status() === PHP_SESSION_ACTIVE) {
+          session_write_close();
+      }
+
+      $columnMap = [
+          'masuk'   => 'image_masuk_1',
+          'masuk2'  => 'image_masuk_2',
+          'pulang'  => 'image_pulang_1',
+          'pulang2' => 'image_pulang_2',
+      ];
+
+      $jenis = strtolower((string) $jenis);
+      if (!isset($columnMap[$jenis])) {
+          return $this->response->setStatusCode(404);
+      }
+
+      $column = $columnMap[$jenis];
+      $row = $this->absenModel
+          ->select("{$column}, updated_at")
+          ->where('id_absen', (int) $idAbsen)
+          ->first();
+
+      $raw = isset($row[$column]) ? trim((string) $row[$column]) : '';
+      if ($raw === '') {
+          return $this->response->setStatusCode(404);
+      }
+
+      // Hapus header no-cache bawaan PHP session agar browser benar-benar meng-cache foto absen
+      header_remove('Cache-Control');
+      header_remove('Pragma');
+      header_remove('Expires');
+      $this->response->removeHeader('Cache-Control');
+      $this->response->removeHeader('Pragma');
+      $this->response->removeHeader('Expires');
+
+      $etag = '"' . md5($idAbsen . '|' . $jenis . '|' . strlen($raw) . '|' . ($row['updated_at'] ?? '')) . '"';
+      if (trim($this->request->getHeaderLine('If-None-Match')) === $etag) {
+          return $this->response
+              ->setStatusCode(304)
+              ->setHeader('Cache-Control', 'private, max-age=86400')
+              ->setHeader('ETag', $etag);
+      }
+
+      $mime = 'image/jpeg';
+      $binary = null;
+
+      if (preg_match('/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/s', $raw, $matches)) {
+          $mime = $matches[1];
+          $binary = base64_decode($matches[2], true);
+      } elseif (strpos($raw, '/') === 0 || strpos($raw, 'dist/') === 0) {
+          $relPath = ltrim($raw, '/');
+          $fullPath = FCPATH . $relPath;
+          if (is_file($fullPath)) {
+              $binary = file_get_contents($fullPath);
+              $ext = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
+              $mimeMap = [
+                  'jpg'  => 'image/jpeg',
+                  'jpeg' => 'image/jpeg',
+                  'png'  => 'image/png',
+                  'webp' => 'image/webp',
+                  'gif'  => 'image/gif',
+              ];
+              $mime = $mimeMap[$ext] ?? 'image/jpeg';
+          }
+      } else {
+          $decoded = base64_decode($raw, true);
+          if ($decoded !== false && strlen($decoded) > 16) {
+              $binary = $decoded;
+          }
+      }
+
+      if ($binary === null || $binary === false || $binary === '') {
+          return $this->response->setStatusCode(404);
+      }
+
+      return $this->response
+          ->setStatusCode(200)
+          ->setHeader('Content-Type', $mime)
+          ->setHeader('Content-Length', (string) strlen($binary))
+          ->setHeader('Cache-Control', 'private, max-age=86400')
+          ->setHeader('ETag', $etag)
+          ->setBody($binary);
   }
   public function dataAbsenDinasLuar()
   {
@@ -137,66 +246,89 @@ class Ajax extends BaseController
   public function dataAbsen()
   {
     if ($this->request->isAJAX()) {
-        
-      $tanggalArray = explode(' - ', $this->request->getVar("tanggal"));
-
-      $day1 = $tanggalArray[0];
-      $day2 = isset($tanggalArray[1]) ? $tanggalArray[1] : $day1;
-      
-      $data['aksesEditDel'] = false;
-      $cek_akses = $this->absenAksesModel->join('user', 'user.id_user = absen_akses.id_user')->where(['user.username' => session()->get('username'), 'absen_akses.status' => 'Akses Diterima'])->first();
-      if ($cek_akses && isset($cek_akses['akses_edit_del']) && $cek_akses['akses_edit_del'] == 1) {
-          $data['aksesEditDel'] = true;
+      $username = (string) session()->get('username');
+      $isAdmin = (session()->get('role') === 'Admin');
+      if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
       }
-      
-      if($day1 == $day2){
 
-        $builderDataPegawai = $this->dataPegawaiModel->builder();
-        $builderAbsen = $this->absenModel->builder();
-        $builderGolongan = $this->golonganModel->builder();
-    
-        // Membuat subquery menggunakan model
-        $subquery = $builderDataPegawai
-          ->select('id_data_pegawai')
-          ->union(
-            $builderAbsen
-              ->select('id_data_pegawai')
-          )
-        ->getCompiledSelect(); // Menghasilkan query subquery yang dikompilasi
+      $tanggalInput = trim((string) $this->request->getVar("tanggal"));
+      $tanggalArray = explode(' - ', $tanggalInput);
 
-        // Mengatur query utama untuk menampilkan kolom tertentu
+      $day1 = trim($tanggalArray[0] ?? '');
+      $day2 = trim($tanggalArray[1] ?? $day1);
+
+      if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $day1) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $day2)) {
+        return $this->response->setStatusCode(400)->setJSON(['error' => 'Format tanggal tidak valid.']);
+      }
+
+      if ($day1 > $day2) {
+        [$day1, $day2] = [$day2, $day1];
+      }
+
+      $data['isAdmin'] = $isAdmin;
+      $data['aksesEditDel'] = false;
+      $cek_akses = $this->absenAksesModel
+        ->select('absen_akses.akses_edit_del')
+        ->join('user', 'user.id_user = absen_akses.id_user')
+        ->where(['user.username' => $username, 'absen_akses.status' => 'Akses Diterima'])
+        ->first();
+      if ($cek_akses && isset($cek_akses['akses_edit_del']) && (int) $cek_akses['akses_edit_del'] === 1) {
+        $data['aksesEditDel'] = true;
+      }
+
+      $db = \Config\Database::connect();
+      $startDt = $day1 . ' 00:00:00';
+      $endDt   = $day2 . ' 23:59:59';
+      $isMultiMonth = (substr($day1, 0, 7) !== substr($day2, 0, 7));
+
+      $fotoSelect = $isMultiMonth ? '' : "
+          CASE WHEN absen.image_masuk_1 IS NOT NULL AND absen.image_masuk_1 != '' THEN 1 ELSE 0 END AS has_foto_masuk,
+          CASE WHEN absen.image_masuk_2 IS NOT NULL AND absen.image_masuk_2 != '' THEN 1 ELSE 0 END AS has_foto_masuk_2,
+          CASE WHEN absen.image_pulang_1 IS NOT NULL AND absen.image_pulang_1 != '' THEN 1 ELSE 0 END AS has_foto_pulang,
+          CASE WHEN absen.image_pulang_2 IS NOT NULL AND absen.image_pulang_2 != '' THEN 1 ELSE 0 END AS has_foto_pulang_2,
+          absen.updated_at,
+      ";
+
+      $commonSelect = "
+          CASE
+              WHEN absen.rekam_absen IS NULL OR absen.rekam_absen = '' THEN 0
+              ELSE JSON_LENGTH(absen.rekam_absen)
+          END AS jumlah_array,
+          {$fotoSelect}
+          data_pegawai.id_data_pegawai AS dp_id_data_pegawai,
+          data_pegawai.nama,
+          absen.id_absen,
+          absen.status_masuk,
+          absen.status_pulang,
+          absen.longitude_masuk,
+          absen.latitude_masuk,
+          absen.longitude_pulang,
+          absen.latitude_pulang,
+          absen.alamat_masuk,
+          absen.alamat_pulang,
+          absen.jam_masuk,
+          absen.jam_pulang,
+          absen.validation_masuk,
+          absen.validation_pulang,
+          absen.keterangan,
+          absen.aturan_jam_masuk,
+          absen.aturan_jam_pulang,
+          absen.toleransi_keterlambatan,
+          golongan.id_golongan,
+          golongan.golongan,
+          golongan.urutan
+      ";
+
+      if ($day1 === $day2) {
+        // Satu hari: tampilkan seluruh pegawai aktif beserta status absennya pada tanggal tersebut (SARGable range)
         $builder = $this->dataPegawaiModel->builder();
-        $builder->select("
-              CASE
-                  WHEN rekam_absen = '' THEN 0
-                  ELSE JSON_LENGTH(rekam_absen)
-              END AS jumlah_array,
-              absen.ttd_masuk, absen.ttd_pulang,
-              data_pegawai.id_data_pegawai AS dp_id_data_pegawai, 
-            data_pegawai.nama,
-            absen.id_absen,
-            absen.status_masuk,
-            absen.status_pulang,
-            absen.longitude_masuk,
-            absen.latitude_masuk,
-            absen.longitude_pulang,
-            absen.latitude_pulang,
-            absen.alamat_masuk,
-            absen.alamat_pulang,
-            absen.jam_masuk,
-            absen.jam_pulang,
-            absen.validation_masuk,
-            absen.validation_pulang,
-            absen.keterangan,
-            absen.aturan_jam_masuk,
-            absen.aturan_jam_pulang,
-            absen.toleransi_keterlambatan,
-            golongan.id_golongan,
-            golongan.golongan,
-            golongan.urutan
-        ");
-        $builder->join("($subquery) tu", 'data_pegawai.id_data_pegawai = tu.id_data_pegawai', 'inner');
-        $builder->join('absen', 'data_pegawai.id_data_pegawai = absen.id_data_pegawai AND DATE(absen.jam_masuk) = \'' . $day1 . '\'', 'left');
+        $builder->select($commonSelect, false);
+        $builder->join(
+          'absen',
+          'data_pegawai.id_data_pegawai = absen.id_data_pegawai AND absen.jam_masuk >= ' . $db->escape($startDt) . ' AND absen.jam_masuk <= ' . $db->escape($endDt),
+          'left'
+        );
         $builder->join('golongan', 'data_pegawai.id_golongan = golongan.id_golongan');
         $builder->where('data_pegawai.status_bekerja', 'Aktif');
 
@@ -204,126 +336,51 @@ class Ajax extends BaseController
         $builder->where('absen.status_masuk !=', 'DL');
         $builder->orWhere('absen.status_masuk IS NULL');
         $builder->groupEnd();
-        
+
         $builder->groupStart();
         $builder->where('absen.status_pulang !=', 'DL');
         $builder->orWhere('absen.status_pulang IS NULL');
         $builder->groupEnd();
 
         $builder->orderBy('golongan.urutan', 'desc');
-    
-        // Menjalankan query
-        $query = $builder->get();
-        $data['absen'] = $query->getResultArray();
+        $builder->orderBy('data_pegawai.nama', 'asc');
 
-    
-    
-          // Ambil semua data alamat dari model
-          $alamat_zona = $this->absenZonaModel
-            ->select("alamat")
-            ->where('status', 'Terkonfirmasi')
-            ->findAll();
-    
-          // Ubah format $alamat_zona menjadi array asosiatif
-          $getData = [];
-          foreach ($alamat_zona as $row) {
-            $getData[] = $row['alamat'];
-          }
-    
-          $data['zona'] = $getData;
-
-          $viewPage = view('absen/get_absen_harian_v5', $data);
-          $msg = [
-            'cekData' => $data['absen'],
-            'data' => $viewPage
-          ];
+        $rows = $builder->get()->getResultArray();
       } else {
+        // Rentang beberapa hari: filter rentang waktu langsung di WHERE agar memakai index absen.jam_masuk
+        $builder = $this->absenModel->builder();
+        $builder->select($commonSelect, false);
+        $builder->join('data_pegawai', 'data_pegawai.id_data_pegawai = absen.id_data_pegawai', 'inner');
+        $builder->join('golongan', 'data_pegawai.id_golongan = golongan.id_golongan', 'left');
+        $builder->where('absen.jam_masuk >=', $startDt);
+        $builder->where('absen.jam_masuk <=', $endDt);
+        $builder->where('data_pegawai.status_bekerja', 'Aktif');
 
-          // Membuat query menggunakan builder model
-            $builder = $this->absenModel->builder();
-            
-            // Menentukan kolom yang akan dipilih
-            $builder->select("
-                (SELECT COUNT(*) FROM data_pegawai WHERE status_bekerja = 'Aktif') AS jumlah_array,
-                absen.ttd_masuk,
-                absen.ttd_pulang,
-                data_pegawai.id_data_pegawai AS dp_id_data_pegawai,
-                data_pegawai.nama,
-                absen.id_absen,
-                absen.status_masuk,
-                absen.status_pulang,
-                absen.longitude_masuk,
-                absen.latitude_masuk,
-                absen.longitude_pulang,
-                absen.latitude_pulang,
-                absen.alamat_masuk,
-                absen.alamat_pulang,
-                absen.jam_masuk,
-                absen.jam_pulang,
-                absen.validation_masuk,
-                absen.validation_pulang,
-                absen.keterangan,
-                absen.aturan_jam_masuk,
-                absen.aturan_jam_pulang,
-                absen.toleransi_keterlambatan,
-            ");
-            
-            // Bergabung dengan tabel data_pegawai
-            $builder->join('data_pegawai', 'data_pegawai.id_data_pegawai = absen.id_data_pegawai 
-                AND DATE(absen.jam_masuk) BETWEEN \'' . $day1 . '\' AND \'' . $day2 . '\'', 'left');
-            
-            // Bergabung dengan tabel golongan
-            $builder->join('golongan', 'data_pegawai.id_golongan = golongan.id_golongan', 'left');
-            
-            // Menambahkan kondisi where
-            $builder->where('data_pegawai.status_bekerja', 'Aktif');
-            
-            $builder->groupStart();
-            $builder->where('absen.status_masuk !=', 'DL');
-            $builder->orWhere('absen.status_masuk IS NULL');
-            $builder->groupEnd();
-            
-            $builder->groupStart();
-            $builder->where('absen.status_pulang !=', 'DL');
-            $builder->orWhere('absen.status_pulang IS NULL');
-            $builder->groupEnd();
-            
-            // Mengurutkan hasil query
-            $builder->orderBy('golongan.urutan', 'desc');
-            
-            // Menjalankan query dan mendapatkan hasilnya
-            $data['absen'] = $builder->get()->getResultArray();
+        $builder->groupStart();
+        $builder->where('absen.status_masuk !=', 'DL');
+        $builder->orWhere('absen.status_masuk IS NULL');
+        $builder->groupEnd();
 
-    
-    
-          // Ambil semua data alamat dari model
-          $alamat_zona = $this->absenZonaModel
-            ->select("alamat")
-            ->where('status', 'Terkonfirmasi')
-            ->findAll();
-    
-          // Ubah format $alamat_zona menjadi array asosiatif
-          $getData = [];
-          foreach ($alamat_zona as $row) {
-            $getData[] = $row['alamat'];
-          }
-    
-          $viewPage = view('absen/get_absen_harian_v5', $data);
-          
-          $data['zona'] = $getData;
-          $msg = [
-            'cekData' => $data['absen'],
-            'data' => $viewPage
-          ];
+        $builder->groupStart();
+        $builder->where('absen.status_pulang !=', 'DL');
+        $builder->orWhere('absen.status_pulang IS NULL');
+        $builder->groupEnd();
+
+        $builder->orderBy('golongan.urutan', 'desc');
+        $builder->orderBy('absen.jam_masuk', 'desc');
+
+        $rows = $builder->get()->getResultArray();
       }
-      if (date('Y-m', strtotime($day1)) != date('Y-m', strtotime($day2))) {
-        $viewPage = view('absen/get_absen_harian_rekap', $data);
-        $msg = [
-          'cekData' => $data['absen'],
-          'data' => $viewPage
-        ];
-      }
-      echo json_encode($msg);
+
+      \App\Libraries\AbsenZonaEvaluator::enrichRows($rows);
+      $data['absen'] = $rows;
+
+      $viewName = $isMultiMonth ? 'absen/get_absen_harian_rekap' : 'absen/get_absen_harian_v5';
+      $viewPage = view($viewName, $data);
+
+      return $this->response->setJSON([
+        'data' => $viewPage,
+      ]);
     }
   }
   
@@ -386,47 +443,61 @@ class Ajax extends BaseController
   }
   public function getSecondImage($id) {
       if($this->request->isAjax()) {
+          if (session_status() === PHP_SESSION_ACTIVE) {
+              session_write_close();
+          }
           $msg = [];
           
-          $data = $this->absenModel->where('id_absen',$id)->first();
+          $data = $this->absenModel
+              ->select('id_absen, image_masuk_2, image_pulang_2')
+              ->where('id_absen', (int) $id)
+              ->first();
           if($data) {
               $msg = [
                   'data' => $data
               ];
           }
-          echo json_encode($msg);
+          return $this->response->setJSON($msg);
       }
   }
   public function getPegawai()
   {
     if ($this->request->isAJAX()) {
-      $data['pegawai'] = $this->dataPegawaiModel
-        ->join('golongan', 'id_golongan')
-        ->where('data_pegawai.status_bekerja', 'Aktif')
-        ->orderBy('golongan.urutan', 'desc')
-        ->findAll();
+      if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+      }
 
-      $msg = [
-        'data' => $data
-      ];
+      $cache = Services::cache();
+      $pegawai = $cache->get('absen_pegawai_aktif_v1');
+      if (!is_array($pegawai)) {
+        $pegawai = $this->dataPegawaiModel
+          ->select('data_pegawai.id_data_pegawai, data_pegawai.nama')
+          ->join('golongan', 'data_pegawai.id_golongan = golongan.id_golongan')
+          ->where('data_pegawai.status_bekerja', 'Aktif')
+          ->orderBy('golongan.urutan', 'desc')
+          ->orderBy('data_pegawai.nama', 'asc')
+          ->findAll();
+        $cache->save('absen_pegawai_aktif_v1', $pegawai, 300);
+      }
 
-      echo json_encode($msg);
+      return $this->response->setJSON([
+        'data' => ['pegawai' => $pegawai],
+      ]);
     }
   }
 
   public function getAbsenById($id)
   {
     if ($this->request->isAJAX()) {
-      $absen = $this->absenModel
-        ->select('absen.*, data_pegawai.nama')
-        ->join('data_pegawai', 'data_pegawai.id_data_pegawai = absen.id_data_pegawai', 'left')
-        ->where('id_absen', $id)
-        ->first();
-      if ($absen) {
-        echo json_encode(['data' => $absen]);
-      } else {
-        echo json_encode(['data' => null]);
+      if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
       }
+      $absen = $this->absenModel
+        ->select('absen.id_absen, absen.id_data_pegawai, data_pegawai.nama, absen.status_masuk, absen.jam_masuk, absen.alamat_masuk, absen.longitude_masuk, absen.latitude_masuk, absen.status_pulang, absen.jam_pulang, absen.alamat_pulang, absen.longitude_pulang, absen.latitude_pulang, absen.keterangan')
+        ->join('data_pegawai', 'data_pegawai.id_data_pegawai = absen.id_data_pegawai', 'left')
+        ->where('absen.id_absen', (int) $id)
+        ->first();
+      return $this->response->setJSON(['data' => $absen ?: null]);
     }
   }
 

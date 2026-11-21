@@ -142,53 +142,21 @@ class Data extends BaseController
     $data['title'] = "Absen | Daftar Hadir";
     $data['activeMenu'] = "absenHarian";
 
-    $day = date("Y-m-d");
+    $username = (string) session()->get('username');
+    $data['isAdmin'] = (session()->get('role') === 'Admin');
 
-    $dataPegawai = $this->dataPegawaiModel->join('user', 'id_user')->where('user.username', session()->get('username'))->first();
-
-// if (session()->get('role') != "Admin") {
-//     $this->absenModel
-//       ->join('data_pegawai', 'absen.id_data_pegawai = data_pegawai.id_data_pegawai', 'RIGHT')
-//       ->join('golongan', 'data_pegawai.id_golongan = golongan.id_golongan')
-//       ->where('data_pegawai.status_bekerja', 'Aktif');
-//     // if (session()->get('role') == "Admin") {
-//     //   $this->absenModel
-//     //     ->groupStart()
-//     //     ->where('DATE(jam_masuk)', $day)
-//     //     ->orWhere('jam_masuk IS NULL')
-//     //     ->groupEnd();
-//     // }
-//     $this->absenModel
-//       ->orderBy('golongan.urutan', 'desc');
-//     if ($dataPegawai)
-//       $this->absenModel->where('absen.id_data_pegawai', $dataPegawai['id_data_pegawai']);
-//     $data['absen'] = $this->absenModel->findAll();
-// } else {
-//     // dd($data['absen']);
-//     $data['absen'] = array();
-// }
-
-    $builderDataPegawai = $this->dataPegawaiModel->builder();
-    $builderAbsen = $this->absenModel->builder();
-    $builderGolongan = $this->golonganModel->builder();
-
-    // Membuat subquery menggunakan model
-    $subquery = $builderDataPegawai
-      ->select('id_data_pegawai')
-      ->union(
-        $builderAbsen
-          ->select('id_data_pegawai')
-      )
-      ->getCompiledSelect();
-
-    // Mengatur query utama untuk menampilkan kolom tertentu
+    // Query langsung ke data_pegawai tanpa subquery UNION & tanpa memuat kolom mediumtext/blob gambar
     $builder = $this->dataPegawaiModel->builder();
     $builder->select("
-        CASE 
-            WHEN rekam_absen = '' THEN 0
-            ELSE JSON_LENGTH(rekam_absen) 
+        CASE
+            WHEN absen.rekam_absen IS NULL OR absen.rekam_absen = '' THEN 0
+            ELSE JSON_LENGTH(absen.rekam_absen)
         END AS jumlah_array,
-        data_pegawai.id_data_pegawai AS dp_id_data_pegawai, 
+        CASE WHEN absen.image_masuk_1 IS NOT NULL AND absen.image_masuk_1 != '' THEN 1 ELSE 0 END AS has_foto_masuk,
+        CASE WHEN absen.image_masuk_2 IS NOT NULL AND absen.image_masuk_2 != '' THEN 1 ELSE 0 END AS has_foto_masuk_2,
+        CASE WHEN absen.image_pulang_1 IS NOT NULL AND absen.image_pulang_1 != '' THEN 1 ELSE 0 END AS has_foto_pulang,
+        CASE WHEN absen.image_pulang_2 IS NOT NULL AND absen.image_pulang_2 != '' THEN 1 ELSE 0 END AS has_foto_pulang_2,
+        data_pegawai.id_data_pegawai AS dp_id_data_pegawai,
         data_pegawai.nama,
         absen.id_absen,
         absen.status_masuk,
@@ -207,57 +175,49 @@ class Data extends BaseController
         absen.aturan_jam_masuk,
         absen.aturan_jam_pulang,
         absen.toleransi_keterlambatan,
+        absen.updated_at,
         golongan.id_golongan,
         golongan.golongan,
         golongan.urutan
     ");
-    $builder->join("($subquery) tu", 'data_pegawai.id_data_pegawai = tu.id_data_pegawai', 'inner');
-    $builder->join('absen', 'data_pegawai.id_data_pegawai = absen.id_data_pegawai', 'left');
+    $builder->join('user', 'user.id_user = data_pegawai.id_user');
     $builder->join('golongan', 'data_pegawai.id_golongan = golongan.id_golongan');
-    $builder->join('user','user.id_user=data_pegawai.id_user');
-    $builder->where('user.username', session()->get('username'));
+    $builder->join('absen', 'data_pegawai.id_data_pegawai = absen.id_data_pegawai', 'left');
+    $builder->where('user.username', $username);
 
     $builder->groupStart();
     $builder->where('absen.status_masuk !=', 'DL');
     $builder->orWhere('absen.status_masuk IS NULL');
     $builder->groupEnd();
-    
+
     $builder->groupStart();
     $builder->where('absen.status_pulang !=', 'DL');
     $builder->orWhere('absen.status_pulang IS NULL');
     $builder->groupEnd();
 
+    $builder->orderBy('absen.jam_masuk', 'desc');
     $builder->limit(40);
-    $builder->orderBy('jam_masuk', 'desc');
 
-    // Menjalankan query
-    $query = $builder->get();
-    $data['absen'] = $query->getResultArray();
+    $rows = $builder->get()->getResultArray();
+    \App\Libraries\AbsenZonaEvaluator::enrichRows($rows);
+    $data['absen'] = $rows;
 
-    // Ambil semua data alamat dari model
-    $alamat_zona = $this->absenZonaModel
-      ->select("alamat")
-      ->where('status', 'Terkonfirmasi')
-      ->findAll();
+    // Gunakan cache absen_target yang sama agar tidak query DB tambahan
+    $data['alamat'] = \App\Libraries\AbsenZonaEvaluator::getAlamatList();
 
-    // Ubah format $alamat_zona menjadi array asosiatif
-    $getData = [];
-    foreach ($alamat_zona as $row) {
-      $getData[] = $row['alamat'];
-    }
-
-    $data['zona'] = $getData;
-    $data['alamat'] = $this->absenTargetModel->select('ket_tempat')->findAll();
-    
     $data['superUser'] = false;
     $data['aksesEditDel'] = false;
-          
-    $cek = $this->absenAksesModel->join('user', 'id_user')->where(['username' => session()->get('username'), 'status' => 'Akses Diterima'])->first();
-  
+
+    $cek = $this->absenAksesModel
+      ->select('absen_akses.akses_edit_del')
+      ->join('user', 'user.id_user = absen_akses.id_user')
+      ->where(['user.username' => $username, 'absen_akses.status' => 'Akses Diterima'])
+      ->first();
+
     if ($cek) {
-      $data['superUser'] = true; 
-      if (isset($cek['akses_edit_del']) && $cek['akses_edit_del'] == 1) {
-          $data['aksesEditDel'] = true;
+      $data['superUser'] = true;
+      if (isset($cek['akses_edit_del']) && (int) $cek['akses_edit_del'] === 1) {
+        $data['aksesEditDel'] = true;
       }
     }
 

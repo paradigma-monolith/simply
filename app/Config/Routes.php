@@ -770,6 +770,7 @@ $routes->post('/absen/validasiMasuk/(:num)/(:num)', 'Absen\Crud::validasiMasuk/$
 $routes->post('/absen/validasiPulang/(:num)/(:num)', 'Absen\Crud::validasiPulang/$1/$2');
 $routes->get('/absen/getSecondImage/(:num)', 'Absen\Ajax::getSecondImage/$1');
 $routes->post('/absen/getImage', 'Absen\Ajax::getImage');
+$routes->get('/absen/foto/(:num)/(:alphanum)', 'Absen\Ajax::serveFoto/$1/$2');
 
 $routes->post('/absen/addKeterangan', 'Absen\Crud::addKeterangan');
 $routes->get('/absen/getPegawai', 'Absen\Ajax::getPegawai');
