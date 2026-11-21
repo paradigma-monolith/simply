@@ -86,10 +86,25 @@ if (!function_exists('generate_qr')) {
             ->setRoundBlockSizeMode(RoundBlockSizeMode::Margin)
             ->setForegroundColor($warna)
             ->setBackgroundColor(new Color(255, 255, 255));
-        // Create generic logo
-        $logo = Logo::create('dist/img/logo-kesehatan-border-white.png')
-            ->setResizeToWidth(50)
-            ->setPunchoutBackground(true);
+        // Create generic logo (with safe fallback if file does not exist)
+        $logo = null;
+        $baseDir = defined('FCPATH') ? FCPATH : '';
+        $candidates = [
+            $baseDir . 'dist/img/logo-kesehatan-border-white.png',
+            'dist/img/logo-kesehatan-border-white.png',
+            $baseDir . 'dist/img/LOGO_KARANTINA.png',
+            'dist/img/LOGO_KARANTINA.png',
+            $baseDir . 'dist/img/logo.png',
+            'dist/img/logo.png',
+        ];
+        foreach ($candidates as $cand) {
+            if (is_file($cand) && is_readable($cand)) {
+                $logo = Logo::create($cand)
+                    ->setResizeToWidth(50)
+                    ->setPunchoutBackground(true);
+                break;
+            }
+        }
 
         // Create generic label
         $label = Label::create($title)

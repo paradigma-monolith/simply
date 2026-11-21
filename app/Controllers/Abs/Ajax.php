@@ -11,45 +11,77 @@ class Ajax extends BaseController
   public function getLantai()
   {
     if ($this->request->isAJAX()) {
-      $data['lantai'] = $this->absLantaiModel
+      $counts = [];
+      foreach ($this->absLokasiModel->select('id_abs_lantai, COUNT(id_abs_bangunan) AS total')->groupBy('id_abs_lantai')->findAll() as $r) {
+        $counts[(int) ($r['id_abs_lantai'] ?? 0)] = (int) ($r['total'] ?? 0);
+      }
+
+      $rows = $this->absLantaiModel
         ->select('abs_lantai.*, user.nama as nama_pegawai')
-        ->join('user', 'user.id_user = abs_lantai.created_by')
+        ->join('user', 'user.id_user = abs_lantai.created_by', 'left')
         ->orderBy('abs_lantai.lantai', 'ASC')
         ->findAll();
+      foreach ($rows as &$row) {
+        $row['jumlah_barang'] = $counts[(int) ($row['id_abs_lantai'] ?? 0)] ?? 0;
+      }
+      unset($row);
 
+      $data['lantai'] = $rows;
       echo json_encode(['data' => view('/abs/table-lantai', $data)]);
     }
   }
   public function getRuang()
   {
     if ($this->request->isAJAX()) {
-      $data['ruang'] = $this->absRuangModel
+      $counts = [];
+      foreach ($this->absLokasiModel->select('id_abs_ruang, COUNT(id_abs_bangunan) AS total')->groupBy('id_abs_ruang')->findAll() as $r) {
+        $counts[(int) ($r['id_abs_ruang'] ?? 0)] = (int) ($r['total'] ?? 0);
+      }
+
+      $rows = $this->absRuangModel
         ->select('abs_ruang.*, user.nama as nama_pegawai')
-        ->join('user', 'user.id_user = abs_ruang.created_by')
+        ->join('user', 'user.id_user = abs_ruang.created_by', 'left')
         ->orderBy('abs_ruang.ruang', 'ASC')
         ->findAll();
+      foreach ($rows as &$row) {
+        $row['jumlah_barang'] = $counts[(int) ($row['id_abs_ruang'] ?? 0)] ?? 0;
+      }
+      unset($row);
 
+      $data['ruang'] = $rows;
       echo json_encode(['data' => view('/abs/table-ruang', $data)]);
     }
   }
   public function getJenisBarang()
   {
     if ($this->request->isAJAX()) {
-      $data['jenis'] = $this->absJenisModel
+      $counts = [];
+      foreach ($this->absLokasiModel->select('id_abs_jenis, COUNT(id_abs_bangunan) AS total')->groupBy('id_abs_jenis')->findAll() as $r) {
+        $counts[(int) ($r['id_abs_jenis'] ?? 0)] = (int) ($r['total'] ?? 0);
+      }
+
+      $rows = $this->absJenisModel
         ->select('abs_jenis.*, user.nama as nama_pegawai')
-        ->join('user', 'user.id_user = abs_jenis.created_by')
+        ->join('user', 'user.id_user = abs_jenis.created_by', 'left')
         ->orderBy('abs_jenis.jenis', 'ASC')
         ->findAll();
+      foreach ($rows as &$row) {
+        $row['jumlah_barang'] = $counts[(int) ($row['id_abs_jenis'] ?? 0)] ?? 0;
+      }
+      unset($row);
 
+      $data['jenis'] = $rows;
       echo json_encode(['data' => view('/abs/table-jenis-barang', $data)]);
     }
   }
   public function getDataBarang()
   {
     if ($this->request->isAJAX()) {
-      $label1 = $this->request->getVar("label"); // all, status_tersedia, jenis, unit_kerja
-      $label2 = $this->request->getVar("label2"); // Lantai
-      $label3 = $this->request->getVar("label3"); // Ruang
+      \App\Models\AbsLokasiModel::ensureIndexes();
+
+      $label1 = $this->request->getVar("label"); // all, status_tersedia, jenis, unit_kerja, multi
+      $label2 = $this->request->getVar("label2"); // lantai
+      $label3 = $this->request->getVar("label3"); // ruang
       $nilai1 = $this->request->getVar("nilai");
       $nilai2 = $this->request->getVar("nilai2");
       $nilai3 = $this->request->getVar("nilai3");
@@ -59,86 +91,85 @@ class Ajax extends BaseController
       $data['ruang'] = $this->absRuangModel->orderBy('ruang', 'asc')->findAll();
       $data['jenis'] = $this->absJenisModel->orderBy('jenis', 'asc')->findAll();
 
-      if ($label1 != null && $label2 != null && $label3 != null) {
-        // $data = "Pasti Data Ruang";
-        $data['getData'] = $this->absLokasiModel
-          ->join('unit_kerja', 'unit_kerja.id_unit_kerja=abs_lokasi.id_unit_kerja', 'left')
-          ->join('abs_lantai', 'abs_lantai.id_abs_lantai=abs_lokasi.id_abs_lantai', 'left')
-          ->join('abs_ruang', 'abs_ruang.id_abs_ruang=abs_lokasi.id_abs_ruang', 'left')
-          ->join('abs_jenis', 'abs_jenis.id_abs_jenis=abs_lokasi.id_abs_jenis', 'left')
-          ->where('unit_kerja.unit_kerja', ($nilai1 ? $nilai1 : null))
-          ->where('abs_lantai.lantai', ($nilai2 ? $nilai2 : null))
-          ->where('abs_ruang.ruang', ($nilai3 ? $nilai3 : null))
-          ->orderBy('abs_lokasi.created_at', 'desc')
-          ->findAll();
+      $builder = $this->absLokasiModel
+        ->select('abs_lokasi.id_abs_bangunan, abs_lokasi.id_abs_image, abs_lokasi.data_barang, abs_lokasi.kode_qr_code_pusat, abs_lokasi.kode_qr_code_internal, abs_lokasi.status_tersedia, unit_kerja.unit_kerja, abs_lantai.lantai, abs_ruang.ruang, abs_jenis.jenis')
+        ->join('unit_kerja', 'unit_kerja.id_unit_kerja=abs_lokasi.id_unit_kerja', 'left')
+        ->join('abs_lantai', 'abs_lantai.id_abs_lantai=abs_lokasi.id_abs_lantai', 'left')
+        ->join('abs_ruang', 'abs_ruang.id_abs_ruang=abs_lokasi.id_abs_ruang', 'left')
+        ->join('abs_jenis', 'abs_jenis.id_abs_jenis=abs_lokasi.id_abs_jenis', 'left');
+
+      $applyNullableFilter = function ($b, string $col, $val) {
+        if ($val === '__NULL__' || $val === '' || $val === null) {
+          $b->groupStart()->where("$col IS NULL")->orWhere($col, '')->groupEnd();
+        } else {
+          $b->where($col, $val);
+        }
+      };
+
+      $view = '/abs/all_data_barang';
+
+      if ($label1 === 'multi') {
+        $fUnit   = $this->request->getVar('f_unit_kerja');
+        $fLantai = $this->request->getVar('f_lantai');
+        $fRuang  = $this->request->getVar('f_ruang');
+        $fJenis  = $this->request->getVar('f_jenis');
+        $fStatus = $this->request->getVar('f_status');
+
+        if ($fUnit !== null && $fUnit !== '__ALL__') {
+          $applyNullableFilter($builder, 'unit_kerja.unit_kerja', $fUnit);
+        }
+        if ($fLantai !== null && $fLantai !== '__ALL__') {
+          $applyNullableFilter($builder, 'abs_lantai.lantai', $fLantai);
+        }
+        if ($fRuang !== null && $fRuang !== '__ALL__') {
+          $applyNullableFilter($builder, 'abs_ruang.ruang', $fRuang);
+        }
+        if ($fJenis !== null && $fJenis !== '__ALL__') {
+          $applyNullableFilter($builder, 'abs_jenis.jenis', $fJenis);
+        }
+        if ($fStatus !== null && $fStatus !== '__ALL__' && $fStatus !== '') {
+          $builder->where('abs_lokasi.status_tersedia', $fStatus);
+        }
+
+        $data['getData'] = $builder->orderBy('abs_lokasi.id_abs_bangunan', 'desc')->findAll();
+        $view = '/abs/all_data_barang';
+      } elseif ($label1 != null && $label2 != null && $label3 != null) {
+        $applyNullableFilter($builder, 'unit_kerja.unit_kerja', $nilai1);
+        $applyNullableFilter($builder, 'abs_lantai.lantai', $nilai2);
+        $applyNullableFilter($builder, 'abs_ruang.ruang', $nilai3);
+        $data['getData'] = $builder->orderBy('abs_lokasi.id_abs_bangunan', 'desc')->findAll();
         $view = '/abs/ruang_data_barang';
-      } else if ($label1 != null && $label2 != null) {
-        // $data = "Pasti Data Lantai";
-        $data['getData'] = $this->absLokasiModel
-          ->join('unit_kerja', 'unit_kerja.id_unit_kerja=abs_lokasi.id_unit_kerja', 'left')
-          ->join('abs_lantai', 'abs_lantai.id_abs_lantai=abs_lokasi.id_abs_lantai', 'left')
-          ->join('abs_ruang', 'abs_ruang.id_abs_ruang=abs_lokasi.id_abs_ruang', 'left')
-          ->join('abs_jenis', 'abs_jenis.id_abs_jenis=abs_lokasi.id_abs_jenis', 'left')
-          ->where('unit_kerja.unit_kerja', ($nilai1 ? $nilai1 : null))
-          ->where('abs_lantai.lantai', ($nilai2 ? $nilai2 : null))
-          ->orderBy('abs_lokasi.created_at', 'desc')
-          ->findAll();
+      } elseif ($label1 != null && $label2 != null) {
+        $applyNullableFilter($builder, 'unit_kerja.unit_kerja', $nilai1);
+        $applyNullableFilter($builder, 'abs_lantai.lantai', $nilai2);
+        $data['getData'] = $builder->orderBy('abs_lokasi.id_abs_bangunan', 'desc')->findAll();
         $view = '/abs/lantai_data_barang';
-      } else if ($label1 != null) {
+      } elseif ($label1 != null) {
         if ($label1 == 'all') {
-          // $data = "Semua data tanpa kecuali";
-          $data['getData'] = $this->absLokasiModel
-            ->join('unit_kerja', 'unit_kerja.id_unit_kerja=abs_lokasi.id_unit_kerja', 'left')
-            ->join('abs_lantai', 'abs_lantai.id_abs_lantai=abs_lokasi.id_abs_lantai', 'left')
-            ->join('abs_ruang', 'abs_ruang.id_abs_ruang=abs_lokasi.id_abs_ruang', 'left')
-            ->join('abs_jenis', 'abs_jenis.id_abs_jenis=abs_lokasi.id_abs_jenis', 'left')
-            ->orderBy('abs_lokasi.created_at', 'desc')
-            ->findAll();
+          $data['getData'] = $builder->orderBy('abs_lokasi.id_abs_bangunan', 'desc')->findAll();
           $view = '/abs/all_data_barang';
-        } else if ($label1 == 'unit_kerja') {
-          // $data = "Semua Data Unit Kerja";
-          $data['getData'] = $this->absLokasiModel
-            ->join('unit_kerja', 'unit_kerja.id_unit_kerja=abs_lokasi.id_unit_kerja', 'left')
-            ->join('abs_lantai', 'abs_lantai.id_abs_lantai=abs_lokasi.id_abs_lantai', 'left')
-            ->join('abs_ruang', 'abs_ruang.id_abs_ruang=abs_lokasi.id_abs_ruang', 'left')
-            ->join('abs_jenis', 'abs_jenis.id_abs_jenis=abs_lokasi.id_abs_jenis', 'left')
-            ->where('unit_kerja.unit_kerja', ($nilai1 ? $nilai1 : null))
-            ->orderBy('abs_lokasi.created_at', 'desc')
-            ->findAll();
+        } elseif ($label1 == 'unit_kerja') {
+          $applyNullableFilter($builder, 'unit_kerja.unit_kerja', $nilai1);
+          $data['getData'] = $builder->orderBy('abs_lokasi.id_abs_bangunan', 'desc')->findAll();
           $view = '/abs/unit_kerja_data_barang';
-        } else if ($label1 == 'status_tersedia') {
-          // $data = "Semua Data berdasarkan Status";
-          $data['getData'] = $this->absLokasiModel
-            ->join('unit_kerja', 'unit_kerja.id_unit_kerja=abs_lokasi.id_unit_kerja', 'left')
-            ->join('abs_lantai', 'abs_lantai.id_abs_lantai=abs_lokasi.id_abs_lantai', 'left')
-            ->join('abs_ruang', 'abs_ruang.id_abs_ruang=abs_lokasi.id_abs_ruang', 'left')
-            ->join('abs_jenis', 'abs_jenis.id_abs_jenis=abs_lokasi.id_abs_jenis', 'left')
-            ->where('abs_lokasi.status_tersedia', ($nilai1 ? $nilai1 : null))
-            ->orderBy('abs_lokasi.created_at', 'desc')
-            ->findAll();
+        } elseif ($label1 == 'status_tersedia') {
+          $builder->where('abs_lokasi.status_tersedia', ($nilai1 ? $nilai1 : null));
+          $data['getData'] = $builder->orderBy('abs_lokasi.id_abs_bangunan', 'desc')->findAll();
           $view = '/abs/status_data_barang';
-        } else if ($label1 == 'jenis') {
-          // $data = "Semua Data berdasarkan Jenis";
-          $data['getData'] = $this->absLokasiModel
-            ->join('unit_kerja', 'unit_kerja.id_unit_kerja=abs_lokasi.id_unit_kerja', 'left')
-            ->join('abs_lantai', 'abs_lantai.id_abs_lantai=abs_lokasi.id_abs_lantai', 'left')
-            ->join('abs_ruang', 'abs_ruang.id_abs_ruang=abs_lokasi.id_abs_ruang', 'left')
-            ->join('abs_jenis', 'abs_jenis.id_abs_jenis=abs_lokasi.id_abs_jenis', 'left')
-            ->where('abs_jenis.jenis', ($nilai1 ? $nilai1 : null))
-            ->orderBy('abs_lokasi.created_at', 'desc')
-            ->findAll();
+        } elseif ($label1 == 'jenis') {
+          $applyNullableFilter($builder, 'abs_jenis.jenis', $nilai1);
+          $data['getData'] = $builder->orderBy('abs_lokasi.id_abs_bangunan', 'desc')->findAll();
           $view = '/abs/kategori_data_barang';
         } else {
-          // $data = "Data tidak ditemukan";
-          $data['getData'] = array();
+          $data['getData'] = [];
         }
       } else {
-        // $data = "Data tidak ditemukan";
-        $data['getData'] = array();
+        $data['getData'] = [];
       }
 
       $msg = [
-        'data' => view($view, $data)
+        'data'  => view($view, $data),
+        'count' => count($data['getData']),
       ];
       echo json_encode($msg);
     }
@@ -146,33 +177,44 @@ class Ajax extends BaseController
   public function getImageAbs()
   {
     if ($this->request->isAJAX()) {
-      $data['kategori'] = $this->absLokasiModel->join('abs_jenis', 'id_abs_jenis')
-        ->join('abs_image', 'id_abs_image')
-        ->groupBy('id_abs_jenis, id_abs_image')
+      \App\Models\AbsLokasiModel::ensureIndexes();
+
+      $kategoriRows = $this->absLokasiModel
+        ->select('abs_lokasi.id_abs_jenis, abs_lokasi.id_abs_image, MAX(abs_jenis.jenis) AS jenis')
+        ->join('abs_jenis', 'id_abs_jenis')
+        ->where('abs_lokasi.id_abs_image IS NOT NULL')
+        ->where('abs_lokasi.id_abs_jenis IS NOT NULL')
+        ->groupBy('abs_lokasi.id_abs_jenis, abs_lokasi.id_abs_image')
         ->findAll();
 
-      $data['filterKategori'] = $this->absLokasiModel->join('abs_jenis', 'id_abs_jenis')
-        ->join('abs_image', 'id_abs_image')
-        ->groupBy('id_abs_jenis')
-        ->findAll();
+      $filterKategoriMap = [];
+      $jenisByImage = [];
+      foreach ($kategoriRows as $k) {
+        $idJenis = (string) ($k['id_abs_jenis'] ?? '');
+        $idImg   = (string) ($k['id_abs_image'] ?? '');
+        if ($idJenis !== '' && !isset($filterKategoriMap[$idJenis])) {
+          $filterKategoriMap[$idJenis] = [
+            'id_abs_jenis' => $k['id_abs_jenis'],
+            'jenis'        => $k['jenis'],
+          ];
+        }
+        if ($idImg !== '' && $idJenis !== '') {
+          $jenisByImage[$idImg][] = $idJenis;
+        }
+      }
+
+      $data['kategori'] = $kategoriRows;
+      $data['filterKategori'] = array_values($filterKategoriMap);
 
       $gambar = $this->absImageModel->findAll();
       $dataImage = [];
       foreach ($gambar as $i => $g) {
-        $setGambar = '';
-        foreach ($data['kategori'] as $k) {
-          if ($k['id_abs_image'] == $g['id_abs_image']) {
-            if ($setGambar == '') {
-              $setGambar .= $k['id_abs_jenis'];
-            } else {
-              $setGambar .= ', ' . $k['id_abs_jenis'];
-            }
-          }
-        }
+        $idImg = (string) ($g['id_abs_image'] ?? '');
+        $setGambar = isset($jenisByImage[$idImg]) ? implode(', ', $jenisByImage[$idImg]) : '';
         $dataImage[$i] = [
           'id_abs_image' => $g['id_abs_image'],
-          'data_jenis' => $setGambar,
-          'image' => $g['image']
+          'data_jenis'   => $setGambar,
+          'image'        => $g['image'],
         ];
       }
       $data['gambar'] = $dataImage;
@@ -187,6 +229,7 @@ class Ajax extends BaseController
   {
     if ($this->request->isAJAX()) {
       $data['label'] = $this->absLokasiModel
+        ->select('data_label')
         ->groupBy('data_label')
         ->findAll();
 
@@ -199,19 +242,27 @@ class Ajax extends BaseController
   public function dataABS()
   {
     if ($this->request->isAJAX()) {
-      $qr = $this->request->getVar("qrCode");
-      $data['label'] = $this->absLokasiModel
-        ->join('unit_kerja', 'id_unit_kerja', 'LEFT')
-        ->join('abs_lantai', 'id_abs_lantai', 'LEFT')
-        ->join('abs_ruang', 'id_abs_ruang', 'LEFT')
-        ->join('abs_jenis', 'id_abs_jenis', 'LEFT')
-        ->join('abs_image', 'id_abs_image', 'LEFT')
-        ->where("kode_qr_code_pusat", $qr)
-        ->first();
+      \App\Models\AbsLokasiModel::ensureIndexes();
+
+      $qr = trim((string) $this->request->getVar("qrCode"));
+      $data['label'] = null;
+      if ($qr !== '') {
+        $data['label'] = $this->absLokasiModel
+          ->join('unit_kerja', 'id_unit_kerja', 'LEFT')
+          ->join('abs_lantai', 'id_abs_lantai', 'LEFT')
+          ->join('abs_ruang', 'id_abs_ruang', 'LEFT')
+          ->join('abs_jenis', 'id_abs_jenis', 'LEFT')
+          ->join('abs_image', 'id_abs_image', 'LEFT')
+          ->groupStart()
+            ->where("kode_qr_code_pusat", $qr)
+            ->orWhere("kode_qr_code_internal", $qr)
+          ->groupEnd()
+          ->first();
+      }
 
       $msg = [
         'getData' => $data['label'],
-        'data' => view('abs/getVerifikasiDataAbs', $data)
+        'data'    => view('abs/getVerifikasiDataAbs', $data)
       ];
       echo json_encode($msg);
     }
@@ -219,7 +270,11 @@ class Ajax extends BaseController
   public function getFile()
   {
     if ($this->request->isAJAX()) {
-      $data['getFile'] = $this->absExportLabelModel->join('user', 'user.id_user=abs_export_label.created_by')->orderBy('abs_export_label.created_at', 'asc')->findAll();
+      $data['getFile'] = $this->absExportLabelModel
+        ->select('abs_export_label.*, user.nama')
+        ->join('user', 'user.id_user=abs_export_label.created_by', 'left')
+        ->orderBy('abs_export_label.created_at', 'desc')
+        ->findAll();
 
       $msg = [
         'data' => view('/abs/getFile', $data)

@@ -1470,7 +1470,7 @@
   <?= in_array($activeMenu, ['uklwPenjamahMakanan']) ? '<script src="/js/uklwPenjamahMakanan1.js"></script>' : ""; ?>
   <?= in_array($activeMenu, ['tpp', 'sab', 'hsbu']) ? '<script src="/js/prl.js"></script>' : ""; ?>
   <?= in_array($activeMenu, ['sivera']) ? '<script src="/js/sivera.js?v=' . filemtime(FCPATH . 'js/sivera.js') . '"></script>' : ""; ?>
-  <?= in_array($activeMenu, ['bangunan', 'lokasi']) ? '<script src="/js/abs.js"></script>' : ""; ?>
+  <?= in_array($activeMenu, ['bangunan', 'lokasi']) ? '<script src="/js/abs.js?v=' . (@filemtime(FCPATH . 'js/abs.js') ?: '2') . '"></script>' : ""; ?>
   <?= in_array($activeMenu, ['lhkpnSpt']) ? '<script src="/js/lhkpnSpt.js"></script>' : ""; ?>
   <?= in_array($activeMenu, ['absenBlockir']) ? '<script src="/js/absenBlockir.js"></script>' : ""; ?>
   <?= in_array($activeMenu, ['pengawasanKapal']) ? '<script src="/js/pengawasanKapal.js"></script>' : ""; ?>

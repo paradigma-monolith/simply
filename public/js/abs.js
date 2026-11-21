@@ -1,7 +1,13 @@
 $(document).ready(function () {
-  absGetLantai();
-  absGetRuang();
-  absGetJenisBarang();
+  if ($("#absLantai").length && !$("#absLantai").attr("data-prerendered")) {
+    absGetLantai();
+  }
+  if ($("#absRuang").length && !$("#absRuang").attr("data-prerendered")) {
+    absGetRuang();
+  }
+  if ($("#absJenisBarang").length && !$("#absJenisBarang").attr("data-prerendered")) {
+    absGetJenisBarang();
+  }
 });
 
 function absGetLantai() {

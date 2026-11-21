@@ -1,251 +1,242 @@
 <?= $this->extend('layouts/adminLTE-3.2.0'); ?>
-
 <?= $this->section('content'); ?>
 
 <style>
-  .plus {
+  .abs-form-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+  }
+  .abs-form-head {
+    padding: 13px 18px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .abs-form-title {
+    font-size: 0.96rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0;
+  }
+  .abs-form-body {
+    padding: 18px;
+  }
+  .abs-form-foot {
+    padding: 12px 18px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .plus, .min, .min-disabled {
     cursor: pointer;
-    top: 0;
-    right: 1px;
-    height: 1em;
-    width: 1em;
-    margin-top: 8px;
-    display: block;
+    top: 6px;
+    right: 6px;
+    height: 22px;
+    width: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     position: absolute;
-    color: white;
-    border: .15em solid white;
-    border-radius: 1em;
-    box-shadow: 0 0 0.2em #444;
-    box-sizing: content-box;
-    text-align: center;
-    text-indent: 0 !important;
-    font-family: "Courier New", Courier, monospace;
-    line-height: 1em;
-    content: "+";
-    background-color: #0275d8;
+    color: #ffffff;
+    border-radius: 50%;
+    font-weight: 800;
+    font-size: 0.85rem;
+    line-height: 1;
+    user-select: none;
   }
-
-  .min {
-    cursor: pointer;
-    top: 0;
-    right: 1px;
-    height: 1em;
-    width: 1em;
-    margin-top: 8px;
-    display: block;
-    position: absolute;
-    color: white;
-    border: .15em solid white;
-    border-radius: 1em;
-    box-shadow: 0 0 0.2em #444;
-    box-sizing: content-box;
-    text-align: center;
-    text-indent: 0 !important;
-    font-family: "Courier New", Courier, monospace;
-    line-height: 1em;
-    content: "-";
-    background-color: #d33333;
-  }
-
-  .min-disabled {
-    cursor: not-allowed;
-    top: 0;
-    right: 1px;
-    height: 1em;
-    width: 1em;
-    margin-top: 8px;
-    display: block;
-    position: absolute;
-    color: white;
-    border: .15em solid white;
-    border-radius: 1em;
-    box-shadow: 0 0 0.2em #444;
-    box-sizing: content-box;
-    text-align: center;
-    text-indent: 0 !important;
-    font-family: "Courier New", Courier, monospace;
-    line-height: 1em;
-    content: "-";
-  }
+  .plus { background-color: #0d9488; }
+  .min { background-color: #dc2626; }
+  .min-disabled { cursor: not-allowed; background-color: #94a3b8; }
 </style>
 
-<section class="content">
+<section class="content pt-2 pb-3">
   <div class="container-fluid">
-    <div class="row">
-      <div class="col-12">
-        <div class="card card-default">
-          <form id="absSimpanLokasi" action="/abs/simpan_lokasi" method="post" autocomplete="off" enctype="multipart/form-data">
-            <input type="hidden" name="id_abs_bangunan" value="" readonly>
-            <div class="card-header">
-              <h3 class="card-title">Formulir Tambah Data ABS BMN</h3>
-              <div class="card-tools">
-                <button type="button" class="btn btn-tool" data-card-widget="collapse">
-                  <i class="fas fa-minus"></i>
-                </button>
-              </div>
-            </div>
-
-            <div class="card-body">
-              <div class="form-group row">
-                <label class="col-sm-2">Wilayah Kerja</label>
-                <div class="col-sm-10">
-                  <select class="form-control select2" name="wilayah_kerja" id="wilayah_kerja" style="width:100%;">
-                    <option value="">-- Pilih Wilayah Kerja --</option>
-                    <?php foreach ($wilayahKerja as $dataWilker) : ?>
-                      <option value="<?= $dataWilker['id_unit_kerja']; ?>"><?= $dataWilker['unit_kerja']; ?></option>
-                    <?php endforeach; ?>
-                  </select>
-                </div>
-              </div>
-
-              <div class="form-group row">
-                <label class="col-sm-2">Lantai</label>
-                <div class="col-sm-10">
-                  <select class="form-control select2" name="lantai" id="lantai" style="width:100%;">
-                    <option value="">-- Pilih Lantai --</option>
-                    <?php foreach ($lantai as $dataLantai) : ?>
-                      <option value="<?= $dataLantai['id_abs_lantai']; ?>"><?= $dataLantai['lantai']; ?></option>
-                    <?php endforeach; ?>
-                  </select>
-                </div>
-              </div>
-
-              <div class="form-group row">
-                <label class="col-sm-2">Ruang</label>
-                <div class="col-sm-10">
-                  <select class="form-control select2" name="ruang" id="ruang" style="width:100%;">
-                    <option value="">-- Pilih Ruang --</option>
-                    <?php foreach ($ruang as $dataRuang) : ?>
-                      <option value="<?= $dataRuang['id_abs_ruang']; ?>"><?= $dataRuang['ruang']; ?></option>
-                    <?php endforeach; ?>
-                  </select>
-                </div>
-              </div>
-
-              <div class="form-group row">
-                <label class="col-sm-2">Kategori Kelompok</label>
-                <div class="col-sm-10">
-                  <select class="form-control select2" name="jenis_barang" id="jenis_barang" style="width:100%;" required>
-                    <option value="">-- Pilih Kategori --</option>
-                    <?php foreach ($jenisBarang as $dataJenisBarang) : ?>
-                      <option value="<?= $dataJenisBarang['id_abs_jenis']; ?>"><?= $dataJenisBarang['jenis']; ?></option>
-                    <?php endforeach; ?>
-                  </select>
-                </div>
-              </div>
-
-              <div class="row">
-                <div class="col mb-2">
-                  <button type="button" class="btn float-right btn-sm btn-warning" onclick="loadLabelABS()"><i class="fas fa-tags"></i> Load label </button>
-                </div>
-              </div>
-
-              <div id="labelRange">
-                <div class="form-group row">
-                  <label class="col-sm-2"><span>Data Inventaris</span><span class="plus">+</span></label>
-                  <div class="col-sm-5">
-                    <input readonly type="text" name="label[]" placeholder="Entri Informasi Barang" value="Nama Barang" class="form-control firstLabelTambahAbs" required>
-                  </div>
-                  <div class="col-sm-5">
-                    <input type="text" name="isi_label[]" placeholder="...." value="" class="form-control" required>
-                  </div>
-                </div>
-              </div>
-              <!-- Tempat untuk menambahkan input baru -->
-              <div id="newInputs">
-                <div class="form-group row">
-                  <label class="col-sm-2"><span class="min-disabled bg-secondary">-</span></label>
-                  <div class="col-sm-5">
-                    <input readonly type="text" name="label[]" placeholder="Entri Informasi Barang" value="Merek" class="form-control firstLabelTambahAbs" required>
-                  </div>
-                  <div class="col-sm-5">
-                    <input type="text" name="isi_label[]" placeholder="...." value="" class="form-control" required>
-                  </div>
-                </div>
-                <div class="form-group row">
-                  <label class="col-sm-2"><span class="min-disabled bg-secondary">-</span></label>
-                  <div class="col-sm-5">
-                    <input readonly type="text" name="label[]" placeholder="Entri Informasi Barang" value="NUP" class="form-control firstLabelTambahAbs" required>
-                  </div>
-                  <div class="col-sm-5">
-                    <input type="text" name="isi_label[]" placeholder="...." value="" class="form-control" required>
-                  </div>
-                </div>
-                <div class="form-group row">
-                  <label class="col-sm-2"><span class="min-disabled bg-secondary">-</span></label>
-                  <div class="col-sm-5">
-                    <input readonly type="text" name="label[]" placeholder="Entri Informasi Barang" value="Kode Barang" class="form-control firstLabelTambahAbs" required>
-                  </div>
-                  <div class="col-sm-5">
-                    <input type="text" name="isi_label[]" placeholder="...." value="" class="form-control" required>
-                  </div>
-                </div>
-                <div class="form-group row">
-                  <label class="col-sm-2"><span class="min-disabled bg-secondary">-</span></label>
-                  <div class="col-sm-5">
-                    <input readonly type="text" name="label[]" placeholder="Entri Informasi Barang" value="Kode Satker" class="form-control firstLabelTambahAbs" required>
-                  </div>
-                  <div class="col-sm-5">
-                    <input type="text" name="isi_label[]" readonly placeholder="...." value="024050200415712000KD" class="form-control" required>
-                  </div>
-                </div>
-                
-                <div class="form-group row">
-                  <label class="col-sm-2"><span class="min-disabled bg-secondary">-</span></label>
-                  <div class="col-sm-5">
-                    <input readonly type="text" name="label[]" placeholder="Entri Informasi Barang" value="Tgl Perolehan" class="form-control firstLabelTambahAbs" required>
-                  </div>
-                  <div class="col-sm-5">
-                    <input type="text" name="isi_label[]" placeholder="...." value="" class="form-control" required>
-                  </div>
-                </div>
-              </div>
-
-
-              <div class="form-group row">
-                <label class="col-sm-2">Status Tersedia</label>
-                <div class="col-sm-10">
-                  <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="status_tersedia" id="tersedia" value="Tersedia" required>
-                    <label class="form-check-label" for="tersedia">Barang berada di lokasi</label>
-                  </div>
-                  <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="status_tersedia" id="tidak_tersedia" value="Tidak Tersedia" required>
-                    <label class="form-check-label" for="tidak_tersedia">Barang tidak ada di lokasi</label>
-                  </div>
-                </div>
-              </div>
-
-              <div class="form-group row">
-                <label class="col-sm-2">Gambar</label>
-                <div class="col-sm-10">
-                  <div class="d-inline-block" style="width: 200px;">
-                    <img src="<?= generate_qr('', 'QR Code SIMAN'); ?>" class="img-thumbnail" style="width: 200px;">
-                    <input type="text" class="form-control" name="kode_qr_code_pusat" readonly value="">
-                  </div>
-                  <div class="d-inline-block" style="width: 200px;">
-                    <p class="text-center p-0 m-0"><strong>Gambar Barang</strong></p>
-                    <img src="/dist/img/abs/default.png" class="img-thumbnail" style="width: 200px;" id="preview">
-                    <div class="btn-group btn-block mb-1" role="group" aria-label="Basic example">
-                      <label class="btn btn-secondary" for="absImage">Upload</label>
-                      <label type="button" class="btn btn-secondary" onclick="viewGaleryABS()">Galery</label>
-                    </div>
-                    <input type="file" onchange="previewImage(event)" class="d-none custom-file-input form-control" id="absImage" name="image" accept="image/*">
-                    <input type="hidden" name="id_abs_image" value="1">
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="card-footer text-right">
-              <button type="submit" class="btn btn-success"><i class="fas fa-share"></i> Simpan</button>
-            </div>
-          </form>
+    <div class="abs-form-card">
+      <form id="absSimpanLokasi" action="/abs/simpan_lokasi" method="post" autocomplete="off" enctype="multipart/form-data">
+        <input type="hidden" name="id_abs_bangunan" value="" readonly>
+        <div class="abs-form-head">
+          <div class="d-flex align-items-center" style="gap: 10px;">
+            <a href="/abs/data_barang" class="btn btn-sm btn-light border font-weight-bold">
+              <i class="fas fa-arrow-left mr-1"></i> Kembali
+            </a>
+            <h3 class="abs-form-title">Formulir Tambah Data Inventaris ABS BMN</h3>
+          </div>
+          <button type="button" class="btn btn-sm btn-warning font-weight-bold" onclick="loadLabelABS()">
+            <i class="fas fa-tags mr-1"></i> Load Template Label
+          </button>
         </div>
-      </div>
+
+        <div class="abs-form-body">
+          <div class="row">
+            <div class="col-md-3">
+              <div class="form-group">
+                <label class="font-weight-bold small">Wilayah Kerja</label>
+                <select class="form-control select2" name="wilayah_kerja" id="wilayah_kerja" style="width:100%;">
+                  <option value="">-- Pilih Wilayah Kerja --</option>
+                  <?php foreach (($wilayahKerja ?? []) as $dataWilker) : ?>
+                    <option value="<?= $dataWilker['id_unit_kerja']; ?>"><?= esc($dataWilker['unit_kerja']); ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="form-group">
+                <label class="font-weight-bold small">Lantai</label>
+                <select class="form-control select2" name="lantai" id="lantai" style="width:100%;">
+                  <option value="">-- Pilih Lantai --</option>
+                  <?php foreach (($lantai ?? []) as $dataLantai) : ?>
+                    <option value="<?= $dataLantai['id_abs_lantai']; ?>"><?= esc($dataLantai['lantai']); ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="form-group">
+                <label class="font-weight-bold small">Ruang</label>
+                <select class="form-control select2" name="ruang" id="ruang" style="width:100%;">
+                  <option value="">-- Pilih Ruang --</option>
+                  <?php foreach (($ruang ?? []) as $dataRuang) : ?>
+                    <option value="<?= $dataRuang['id_abs_ruang']; ?>"><?= esc($dataRuang['ruang']); ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="form-group">
+                <label class="font-weight-bold small">Kategori Kelompok <span class="text-danger">*</span></label>
+                <select class="form-control select2" name="jenis_barang" id="jenis_barang" style="width:100%;" required>
+                  <option value="">-- Pilih Kategori --</option>
+                  <?php foreach (($jenisBarang ?? []) as $dataJenisBarang) : ?>
+                    <option value="<?= $dataJenisBarang['id_abs_jenis']; ?>"><?= esc($dataJenisBarang['jenis']); ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-3">
+
+          <div id="labelRange">
+            <div class="form-group row mb-2">
+              <label class="col-sm-2 font-weight-bold small pt-2">
+                <span>Atribut Barang</span>
+                <span class="plus" title="Tambah Baris Atribut">+</span>
+              </label>
+              <div class="col-sm-5">
+                <input readonly type="text" name="label[]" placeholder="Entri Informasi Barang" value="Nama Barang" class="form-control firstLabelTambahAbs" required>
+              </div>
+              <div class="col-sm-5">
+                <input type="text" name="isi_label[]" placeholder="Masukkan Nama Barang..." value="" class="form-control" required>
+              </div>
+            </div>
+          </div>
+
+          <div id="newInputs">
+            <div class="form-group row mb-2">
+              <label class="col-sm-2"><span class="min-disabled bg-secondary">-</span></label>
+              <div class="col-sm-5">
+                <input readonly type="text" name="label[]" value="Merek" class="form-control firstLabelTambahAbs" required>
+              </div>
+              <div class="col-sm-5">
+                <input type="text" name="isi_label[]" placeholder="Masukkan Merek / Tipe..." value="" class="form-control" required>
+              </div>
+            </div>
+            <div class="form-group row mb-2">
+              <label class="col-sm-2"><span class="min-disabled bg-secondary">-</span></label>
+              <div class="col-sm-5">
+                <input readonly type="text" name="label[]" value="NUP" class="form-control firstLabelTambahAbs" required>
+              </div>
+              <div class="col-sm-5">
+                <input type="text" name="isi_label[]" placeholder="Nomor Urut Pendaftaran (NUP)..." value="" class="form-control" required>
+              </div>
+            </div>
+            <div class="form-group row mb-2">
+              <label class="col-sm-2"><span class="min-disabled bg-secondary">-</span></label>
+              <div class="col-sm-5">
+                <input readonly type="text" name="label[]" value="Kode Barang" class="form-control firstLabelTambahAbs" required>
+              </div>
+              <div class="col-sm-5">
+                <input type="text" name="isi_label[]" placeholder="Kode Barang BMN..." value="" class="form-control" required>
+              </div>
+            </div>
+            <div class="form-group row mb-2">
+              <label class="col-sm-2"><span class="min-disabled bg-secondary">-</span></label>
+              <div class="col-sm-5">
+                <input readonly type="text" name="label[]" value="Kode Satker" class="form-control firstLabelTambahAbs" required>
+              </div>
+              <div class="col-sm-5">
+                <input type="text" name="isi_label[]" readonly value="024050200415712000KD" class="form-control" required>
+              </div>
+            </div>
+            <div class="form-group row mb-2">
+              <label class="col-sm-2"><span class="min-disabled bg-secondary">-</span></label>
+              <div class="col-sm-5">
+                <input readonly type="text" name="label[]" value="Tgl Perolehan" class="form-control firstLabelTambahAbs" required>
+              </div>
+              <div class="col-sm-5">
+                <input type="text" name="isi_label[]" placeholder="Contoh: 2024-05-10" value="" class="form-control" required>
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-3">
+
+          <div class="form-group row align-items-center">
+            <label class="col-sm-2 font-weight-bold small mb-0">Status Tersedia <span class="text-danger">*</span></label>
+            <div class="col-sm-10">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="status_tersedia" id="tersedia" value="Tersedia" checked required>
+                <label class="form-check-label font-weight-bold text-success" for="tersedia">Barang berada di lokasi (Tersedia)</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="status_tersedia" id="tidak_tersedia" value="Tidak Tersedia" required>
+                <label class="form-check-label font-weight-bold text-danger" for="tidak_tersedia">Barang tidak ada di lokasi (Tidak Tersedia)</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group row">
+            <label class="col-sm-2 font-weight-bold small">QR Code &amp; Gambar</label>
+            <div class="col-sm-10 d-flex flex-wrap" style="gap: 16px;">
+              <div class="p-2 border rounded bg-light text-center" style="width: 210px;">
+                <p class="small font-weight-bold mb-1">QR Code SIMAN</p>
+                <img src="<?= generate_qr('', 'QR Code SIMAN'); ?>" class="img-thumbnail mb-1" style="width: 170px; height: 170px; object-fit: contain;">
+                <input type="text" class="form-control form-control-sm" name="kode_qr_code_pusat" readonly value="" placeholder="Otomatis dari Kode+NUP">
+              </div>
+              <div class="p-2 border rounded bg-light text-center" style="width: 210px;">
+                <p class="small font-weight-bold mb-1">Gambar Barang</p>
+                <img src="/dist/img/abs/default.png" class="img-thumbnail mb-1" style="width: 170px; height: 170px; object-fit: cover;" id="preview">
+                <div class="btn-group btn-group-sm btn-block" role="group">
+                  <label class="btn btn-secondary mb-0" for="absImage" style="cursor:pointer;"><i class="fas fa-upload mr-1"></i>Upload</label>
+                  <button type="button" class="btn btn-info" onclick="viewGaleryABS()"><i class="fas fa-images mr-1"></i>Galeri</button>
+                </div>
+                <input type="file" onchange="previewImage(event)" class="d-none custom-file-input form-control" id="absImage" name="image" accept="image/*">
+                <input type="hidden" name="id_abs_image" value="1">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="abs-form-foot">
+          <a href="/abs/data_barang" class="btn btn-light border font-weight-bold">Batal</a>
+          <button type="submit" class="btn btn-success font-weight-bold px-4" style="background:#0d9488;border-color:#0d9488;">
+            <i class="fas fa-save mr-1"></i> Simpan Data Inventaris
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </section>
+
 <script>
   $(document).on('input', 'input[name="isi_label[]"]', function() {
     var index = $('input[name="isi_label[]"]').length;
@@ -254,26 +245,25 @@
     var kodeNUP = "";
 
     for (let i = 0; i < index; i++) {
-      if ($('input[name="label[]"]').eq(i).val() == "Kode Satker")
-        kodeSatker = $('input[name="isi_label[]"]').eq(i).val()
-      if ($('input[name="label[]"]').eq(i).val() == "Kode Barang")
-        kodeBarang = $('input[name="isi_label[]"]').eq(i).val()
-      if ($('input[name="label[]"]').eq(i).val() == "NUP")
-        kodeNUP = $('input[name="isi_label[]"]').eq(i).val()
+      var lbl = $('input[name="label[]"]').eq(i).val();
+      if (lbl === "Kode Satker") kodeSatker = $('input[name="isi_label[]"]').eq(i).val();
+      if (lbl === "Kode Barang") kodeBarang = $('input[name="isi_label[]"]').eq(i).val();
+      if (lbl === "NUP") kodeNUP = $('input[name="isi_label[]"]').eq(i).val();
     }
 
     var qrCode = kodeSatker + '*' + kodeBarang + '*' + kodeNUP;
     $('input[name="kode_qr_code_pusat"]').val(qrCode);
-  })
+  });
 
   function previewImage(event) {
-    $('input[name="id_abs_image"]').val('')
+    if (!event.target.files || !event.target.files[0]) return;
+    $('input[name="id_abs_image"]').val('');
 
     var reader = new FileReader();
     reader.onload = function() {
       var imgElement = document.getElementById('preview');
-      imgElement.src = reader.result;
-    }
+      if (imgElement) imgElement.src = reader.result;
+    };
     reader.readAsDataURL(event.target.files[0]);
   }
 
@@ -283,27 +273,26 @@
       method: 'get',
       dataType: 'json',
       beforeSend: function() {
-        $('#overlay').show()
+        $('#overlay').show();
       },
       success: function(response) {
-        if (response.data) {
-          $("#absImageGalery").find(".modal-body").html(response.data)
+        if (response && response.data) {
+          $("#absImageGalery").find(".modal-body").html(response.data);
           $("#absImageGalery").modal('show');
         }
-        $('#overlay').hide()
+        $('#overlay').hide();
       },
-      error: function(xhr, ajaxOptions, thrownError) {
+      error: function() {
+        $('#overlay').hide();
         Swal.fire({
           position: 'top-end',
           icon: 'error',
-          title: 'Oops... ERROR SINTAKS',
-          text: 'Terjadi kesalahan pemrograman saat mengambil data silahkan hubungi pihak yang terkait',
-          // text: (xhr.status + "\n" + xhr.responseText + "\n" + thrownError),
-        })
+          title: 'Gagal memuat galeri',
+          text: 'Terjadi kesalahan saat mengambil data gambar.'
+        });
       }
     });
   }
 </script>
-
 
 <?= $this->endSection(); ?>
