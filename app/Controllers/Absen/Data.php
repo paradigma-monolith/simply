@@ -249,83 +249,99 @@ class Data extends BaseController
     $data['title'] = "Absen | Dinas Luar";
     $data['activeMenu'] = "absenDinasLuar";
 
-    $data['alamat'] = $this->absenTargetModel->select('ket_tempat')->findAll();
+    $username = (string) session()->get('username');
+    $data['isAdmin'] = (session()->get('role') === 'Admin');
+
+    // Gunakan cache absen_target yang sama agar tidak query DB tambahan
+    $data['alamat'] = \App\Libraries\AbsenZonaEvaluator::getAlamatList();
 
     $data['superUser'] = false;
     $data['aksesEditDel'] = false;
 
-    $cek = $this->absenAksesModel->join('user', 'id_user')->where(['username' => session()->get('username'), 'status' => 'Akses Diterima'])->first();
+    $cek = $this->absenAksesModel
+      ->select('absen_akses.akses_edit_del')
+      ->join('user', 'user.id_user = absen_akses.id_user')
+      ->where(['user.username' => $username, 'absen_akses.status' => 'Akses Diterima'])
+      ->first();
 
     if ($cek) {
       $data['superUser'] = true;
-      if (isset($cek['akses_edit_del']) && $cek['akses_edit_del'] == 1) {
-          $data['aksesEditDel'] = true;
+      if (isset($cek['akses_edit_del']) && (int) $cek['akses_edit_del'] === 1) {
+        $data['aksesEditDel'] = true;
       }
     }
 
-    $builderDataPegawai = $this->dataPegawaiModel->builder();
-    $builderAbsen = $this->absenModel->builder();
-    $builderGolongan = $this->golonganModel->builder();
+    // Step 1: Ambil 1 profil pegawai untuk user login (< 1 ms)
+    $pegawai = $this->dataPegawaiModel->builder()
+      ->select('data_pegawai.id_data_pegawai AS dp_id_data_pegawai, data_pegawai.nama, golongan.id_golongan, golongan.golongan, golongan.urutan')
+      ->join('user', 'user.id_user = data_pegawai.id_user')
+      ->join('golongan', 'data_pegawai.id_golongan = golongan.id_golongan')
+      ->where('user.username', $username)
+      ->limit(1)
+      ->get()
+      ->getRowArray();
 
-    // Membuat subquery menggunakan model
-    $subquery = $builderDataPegawai
-      ->select('id_data_pegawai')
-      ->union(
-        $builderAbsen
-          ->select('id_data_pegawai')
-      )
-      ->getCompiledSelect();
+    $rows = [];
+    if ($pegawai) {
+      $idPegawai = (int) $pegawai['dp_id_data_pegawai'];
+      $db = \Config\Database::connect();
 
-    // Mengatur query utama untuk menampilkan kolom tertentu
-    $builder = $this->dataPegawaiModel->builder();
-    $builder->select("
-        CASE 
-            WHEN rekam_absen = '' THEN 0
-            ELSE JSON_LENGTH(rekam_absen) 
-        END AS jumlah_array,
-        data_pegawai.id_data_pegawai AS dp_id_data_pegawai, 
-        data_pegawai.nama,
-        absen.id_absen,
-        absen.status_masuk,
-        absen.status_pulang,
-        absen.longitude_masuk,
-        absen.latitude_masuk,
-        absen.longitude_pulang,
-        absen.latitude_pulang,
-        absen.alamat_masuk,
-        absen.alamat_pulang,
-        absen.jam_masuk,
-        absen.jam_pulang,
-        absen.validation_masuk,
-        absen.validation_pulang,
-        absen.keterangan,
-        absen.aturan_jam_masuk,
-        absen.aturan_jam_pulang,
-        absen.toleransi_keterlambatan,
-        absen.ttd_masuk,
-        absen.ttd_pulang,
-        golongan.id_golongan,
-        golongan.golongan,
-        golongan.urutan,
-        absen_akses.akses_edit_del
-    ");
-    $builder->join("($subquery) tu", 'data_pegawai.id_data_pegawai = tu.id_data_pegawai', 'inner');
-    $builder->join('absen', 'data_pegawai.id_data_pegawai = absen.id_data_pegawai', 'left');
-    $builder->join('golongan', 'data_pegawai.id_golongan = golongan.id_golongan');
-    $builder->join('user','user.id_user=data_pegawai.id_user');
-    $builder->join('absen_akses', 'absen_akses.id_user=user.id_user', 'left');
-    $builder->where('user.username', session()->get('username'));
-    // $builder->where('absen.status_masuk', 'DL'); // remove this line because some might be DL on return only
-    $builder->groupStart();
-    $builder->where('absen.status_masuk', 'DL');
-    $builder->orWhere('absen.status_pulang', 'DL');
-    $builder->groupEnd();
-    $builder->limit(40);
-    $builder->orderBy('jam_masuk', 'desc');
+      // Step 2a (Deferred PK lookup): Hanya baca kolom inline kecil, TANPA menyentuh BLOB/mediumtext (image_*, ttd_*, rekam_absen)!
+      $idRows = $db->query(
+        "SELECT id_absen
+         FROM absen
+         WHERE id_data_pegawai = ?
+           AND (status_masuk = 'DL' OR status_pulang = 'DL')
+         ORDER BY id_absen DESC
+         LIMIT 40",
+        [$idPegawai]
+      )->getResultArray();
 
-    // Menjalankan query
-    $query = $builder->get();
-    $data['absen'] = $query->getResultArray();
+      if (!empty($idRows)) {
+        $ids = array_map(static fn ($r) => (int) $r['id_absen'], $idRows);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+        // Step 2b: Ambil detail HANYA untuk <= 40 baris via PRIMARY KEY, TANPA mengirim base64 image_*/ttd_* ke HTML!
+        $absenRows = $db->query(
+          "SELECT
+              id_absen,
+              status_masuk,
+              status_pulang,
+              longitude_masuk,
+              latitude_masuk,
+              longitude_pulang,
+              latitude_pulang,
+              alamat_masuk,
+              alamat_pulang,
+              jam_masuk,
+              jam_pulang,
+              validation_masuk,
+              validation_pulang,
+              keterangan,
+              aturan_jam_masuk,
+              aturan_jam_pulang,
+              toleransi_keterlambatan,
+              updated_at,
+              CASE WHEN ttd_masuk IS NOT NULL AND ttd_masuk != '' THEN 1 ELSE 0 END AS has_ttd_masuk,
+              CASE WHEN ttd_pulang IS NOT NULL AND ttd_pulang != '' THEN 1 ELSE 0 END AS has_ttd_pulang,
+              CASE
+                  WHEN rekam_absen IS NULL OR rekam_absen = '' OR NOT JSON_VALID(rekam_absen) THEN 0
+                  ELSE JSON_LENGTH(rekam_absen)
+              END AS jumlah_array
+           FROM absen
+           WHERE id_absen IN ({$placeholders})
+           ORDER BY jam_masuk DESC, id_absen DESC",
+          $ids
+        )->getResultArray();
+
+        foreach ($absenRows as $aRow) {
+          $rows[] = array_merge($pegawai, $aRow);
+        }
+      }
+    }
+
+    \App\Libraries\AbsenZonaEvaluator::enrichRows($rows);
+    $data['absen'] = $rows;
 
     return view('absen/absen_dinas_luar', $data);
   }

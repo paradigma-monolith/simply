@@ -31,10 +31,12 @@ class Foto extends Controller
     public function show($idAbsen, $jenis = 'masuk')
     {
         $columnMap = [
-            'masuk'   => 'image_masuk_1',
-            'masuk2'  => 'image_masuk_2',
-            'pulang'  => 'image_pulang_1',
-            'pulang2' => 'image_pulang_2',
+            'masuk'     => 'image_masuk_1',
+            'masuk2'    => 'image_masuk_2',
+            'pulang'    => 'image_pulang_1',
+            'pulang2'   => 'image_pulang_2',
+            'ttdmasuk'  => 'ttd_masuk',
+            'ttdpulang' => 'ttd_pulang',
         ];
 
         $jenis = strtolower((string) $jenis);
