@@ -282,106 +282,218 @@ class Ajax extends BaseController
   
   public function agenda()
   {
-    $by = $this->userModel->where('username', session()->get('username'))->first();
+    $this->agendaUserModel->ensureMonthlySchema();
 
-    $topik = $this->request->getVar("topik");
-    $deskripsi = $this->request->getVar("deskripsi");
-    $peruntukan = $this->request->getVar("peruntukan");
-    if ($peruntukan != '') {
-      array_unshift($peruntukan, $by['id_user']);
-      $peruntukan = serialize($peruntukan);
+    $idUser = (int) session()->get('id_user');
+    $username = (string) session()->get('username');
+    if (session_status() === PHP_SESSION_ACTIVE) {
+      session_write_close();
+    }
+
+    if ($idUser <= 0 && $username !== '') {
+      $by = $this->userModel->select('id_user')->where('username', $username)->first();
+      $idUser = $by ? (int) $by['id_user'] : 0;
+    }
+
+    if ($idUser <= 0) {
+      return $this->response->setJSON(['error' => 'Sesi pengguna tidak valid.']);
+    }
+
+    $topik = trim((string) $this->request->getVar('topik'));
+    $deskripsi = (string) $this->request->getVar('deskripsi');
+    $rawPeruntukan = $this->request->getVar('peruntukan');
+
+    $peruntukanList = [(string) $idUser];
+    if (is_array($rawPeruntukan)) {
+      foreach ($rawPeruntukan as $uid) {
+        $uidStr = trim((string) $uid);
+        if ($uidStr !== '' && !in_array($uidStr, $peruntukanList, true)) {
+          $peruntukanList[] = $uidStr;
+        }
+      }
+    }
+    $peruntukan = serialize($peruntukanList);
+
+    // Parse waktu_pelaksanaan dengan aman (mendukung pemisah " - " maupun format tunggal)
+    $rawWaktu = trim((string) $this->request->getVar('waktu_pelaksanaan'));
+    if (strpos($rawWaktu, ' - ') !== false) {
+      $partsWaktu = explode(' - ', $rawWaktu, 2);
+      $waktu_pelaksana_awal = substr(trim($partsWaktu[0]), 0, 19);
+      $waktu_pelaksana_akhir = substr(trim($partsWaktu[1]), 0, 19);
     } else {
-      $peruntukan = [
-        $by['id_user']
-      ];
-      $peruntukan = serialize($peruntukan);
+      $waktu_pelaksana_awal = substr($rawWaktu, 0, 19);
+      $waktu_pelaksana_akhir = strlen($rawWaktu) >= 41 ? substr($rawWaktu, 22, 19) : $waktu_pelaksana_awal;
+    }
+    if ($waktu_pelaksana_awal === '') {
+      $waktu_pelaksana_awal = date('Y-m-d 08:00:00');
+    }
+    if ($waktu_pelaksana_akhir === '') {
+      $waktu_pelaksana_akhir = $waktu_pelaksana_awal;
     }
 
-    $waktu_pelaksana_awal = substr($this->request->getVar("waktu_pelaksanaan"), 0, 19);
-    $waktu_pelaksana_akhir = substr($this->request->getVar("waktu_pelaksanaan"), 22, 19);
-    $tgl_notif_awal = substr($this->request->getVar("tgl_notif"), 0, 10);
-    $tgl_notif_akhir = substr($this->request->getVar("tgl_notif"), 13, 10);
-    $created_by = $by['id_user'];
-    $updated_by = $by['id_user'];
+    // Parse tgl_notif dengan aman (jika start & end di hari yang sama, pastikan akhir = awal)
+    $notif = $this->request->getVar('notif');
+    $tgl_notif_awal = null;
+    $tgl_notif_akhir = null;
+    if ($notif !== null) {
+      $rawNotif = trim((string) $this->request->getVar('tgl_notif'));
+      if (strpos($rawNotif, ' - ') !== false) {
+        $partsNotif = explode(' - ', $rawNotif, 2);
+        $tgl_notif_awal = substr(trim($partsNotif[0]), 0, 10);
+        $tgl_notif_akhir = substr(trim($partsNotif[1]), 0, 10);
+      } elseif ($rawNotif !== '') {
+        $tgl_notif_awal = substr($rawNotif, 0, 10);
+        $tgl_notif_akhir = strlen($rawNotif) >= 23 ? substr($rawNotif, 13, 10) : $tgl_notif_awal;
+      } else {
+        $tgl_notif_awal = substr($waktu_pelaksana_awal, 0, 10);
+        $tgl_notif_akhir = substr($waktu_pelaksana_akhir, 0, 10);
+      }
+      if ($tgl_notif_akhir === '' || $tgl_notif_akhir === '0000-00-00') {
+        $tgl_notif_akhir = $tgl_notif_awal;
+      }
+    }
+
+    // Pengulangan di tanggal yang sama setiap bulannya
+    $ulangiBulanan = $this->request->getVar('ulangi_bulanan') ? 1 : 0;
+    $batasUlangiBulanan = null;
+    if ($ulangiBulanan === 1) {
+      $modeBatas = trim((string) $this->request->getVar('mode_batas_bulanan'));
+      $rawBatas = trim((string) $this->request->getVar('batas_ulangi_bulanan'));
+      $baseDateOnly = substr($waktu_pelaksana_awal, 0, 10);
+      $baseTs = strtotime($baseDateOnly) ?: time();
+
+      if ($modeBatas === '3_months') {
+        $batasUlangiBulanan = date('Y-m-t', strtotime('+3 months', $baseTs));
+      } elseif ($modeBatas === '6_months') {
+        $batasUlangiBulanan = date('Y-m-t', strtotime('+6 months', $baseTs));
+      } elseif ($modeBatas === '12_months') {
+        $batasUlangiBulanan = date('Y-m-t', strtotime('+12 months', $baseTs));
+      } elseif ($modeBatas === 'end_of_year') {
+        $batasUlangiBulanan = date('Y', $baseTs) . '-12-31';
+      } elseif ($rawBatas !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $rawBatas)) {
+        $batasUlangiBulanan = $rawBatas;
+      }
+    }
+
+    $warnaAgenda = trim((string) $this->request->getVar('warna_agenda'));
+    if ($warnaAgenda === '') {
+      $warnaAgenda = '#0d9488';
+    }
+
+    $idAgendaEdit = (int) $this->request->getVar('id_agenda_user');
     $data = [];
-    if ($this->request->getVar("id_agenda_user")) {
-      $data += [
-        'id_agenda_user' => $this->request->getVar("id_agenda_user")
-      ];
+    if ($idAgendaEdit > 0) {
+      $data['id_agenda_user'] = $idAgendaEdit;
     }
 
-    $notif = $this->request->getVar("notif");
-    if ($notif == null) {
-      $tgl_notif_awal = null;
-      $tgl_notif_akhir = null;
-    }
-    $data += [
-      'topik' => $topik,
-      'deskripsi' => $deskripsi,
-      'peruntukan' => $peruntukan,
-      'waktu_pelaksana_awal' => $waktu_pelaksana_awal,
-      'waktu_pelaksana_akhir' => $waktu_pelaksana_akhir,
-      'tgl_notif_awal' => $tgl_notif_awal,
-      'tgl_notif_akhir' => $tgl_notif_akhir,
-      'warna_agenda' => $this->request->getVar("warna_agenda"),
-    ];
+    $data['topik'] = $topik;
+    $data['deskripsi'] = $deskripsi;
+    $data['peruntukan'] = $peruntukan;
+    $data['waktu_pelaksana_awal'] = $waktu_pelaksana_awal;
+    $data['waktu_pelaksana_akhir'] = $waktu_pelaksana_akhir;
+    $data['tgl_notif_awal'] = $tgl_notif_awal;
+    $data['tgl_notif_akhir'] = $tgl_notif_akhir;
+    $data['warna_agenda'] = $warnaAgenda;
+    $data['ulangi_bulanan'] = $ulangiBulanan;
+    $data['batas_ulangi_bulanan'] = $batasUlangiBulanan;
+
     $cek = null;
+    if ($idAgendaEdit <= 0) {
+      $cek = $this->agendaUserModel
+        ->where('topik', $topik)
+        ->where('waktu_pelaksana_awal', $waktu_pelaksana_awal)
+        ->where('waktu_pelaksana_akhir', $waktu_pelaksana_akhir)
+        ->where('created_by', $idUser)
+        ->first();
+    }
 
-    if (!$this->request->getVar("id_agenda_user"))
-      $cek = $this->agendaUserModel->where($data)->first();
     $msg = [];
-
     if ($cek) {
       $msg = [
-        'pesanAgenda' => $cek
+        'pesanAgenda' => $cek,
       ];
     } else {
-      $data += [
-        'created_by' => $created_by,
-        'updated_by' => $updated_by,
-      ];
+      if ($idAgendaEdit <= 0) {
+        $data['created_by'] = $idUser;
+      }
+      $data['updated_by'] = $idUser;
+
       if ($this->agendaUserModel->save($data)) {
         try {
           \Config\Services::cache()->delete('home_agenda_active_' . date('Y-m-d'));
         } catch (\Throwable $e) {
         }
         $msg = [
-          'dataAgenda' => $data
+          'dataAgenda' => $data,
         ];
       }
     }
 
-    echo json_encode($msg);
+    return $this->response->setJSON($msg);
   }
   public function agenda_saya()
   {
-    $by = $this->userModel->where('username', session()->get('username'))->first();
-    $data['getData'] = $this->agendaUserModel->where('created_by', $by['id_user'])->findAll();
-    $msg = [
-      'data' => view('/home/agenda_saya', $data)
-    ];
-    echo json_encode($msg);
+    $this->agendaUserModel->ensureMonthlySchema();
+
+    $idUser = (int) session()->get('id_user');
+    $username = (string) session()->get('username');
+    if (session_status() === PHP_SESSION_ACTIVE) {
+      session_write_close();
+    }
+
+    if ($idUser <= 0 && $username !== '') {
+      $by = $this->userModel->select('id_user')->where('username', $username)->first();
+      $idUser = $by ? (int) $by['id_user'] : 0;
+    }
+
+    $data['getData'] = $idUser > 0
+      ? $this->agendaUserModel
+          ->where('created_by', $idUser)
+          ->orderBy('ulangi_bulanan', 'DESC')
+          ->orderBy('waktu_pelaksana_awal', 'DESC')
+          ->findAll()
+      : [];
+
+    return $this->response->setJSON([
+      'data' => view('/home/agenda_saya', $data),
+    ]);
   }
   public function get_agenda_saya($id)
   {
-    $data['user'] = $this->userModel->findAll();
+    $this->agendaUserModel->ensureMonthlySchema();
 
-    $data['getData'] = $this->agendaUserModel->where('id_agenda_user', $id)->first();
-    $msg = [
-      'data' => view('/home/form_agenda_saya', $data)
-    ];
-    echo json_encode($msg);
+    if (session_status() === PHP_SESSION_ACTIVE) {
+      session_write_close();
+    }
+
+    $data['user'] = $this->userModel
+      ->select('id_user, nama, username')
+      ->orderBy('nama', 'ASC')
+      ->findAll();
+
+    $data['getData'] = $this->agendaUserModel->where('id_agenda_user', (int) $id)->first();
+    return $this->response->setJSON([
+      'data' => view('/home/form_agenda_saya', $data),
+    ]);
   }
   public function delete_agenda($id)
   {
-    $this->agendaUserModel->delete($id);
+    if (session_status() === PHP_SESSION_ACTIVE) {
+      session_write_close();
+    }
+
+    $this->agendaUserModel->delete((int) $id);
     try {
       \Config\Services::cache()->delete('home_agenda_active_' . date('Y-m-d'));
     } catch (\Throwable $e) {
     }
+
+    return $this->response->setJSON(['status' => 'success']);
   }
   public function getCallendarAgenda()
   {
+    $this->agendaUserModel->ensureMonthlySchema();
+
     $idUser = (int) session()->get('id_user');
     $username = (string) session()->get('username');
     if (session_status() === PHP_SESSION_ACTIVE) {
@@ -399,11 +511,14 @@ class Ajax extends BaseController
 
     // Ambil hanya kolom yang dibutuhkan agar hemat memori & I/O
     $allAgenda = $this->agendaUserModel
-      ->select('id_agenda_user, topik, deskripsi, peruntukan, waktu_pelaksana_awal, waktu_pelaksana_akhir, warna_agenda')
+      ->select('id_agenda_user, topik, deskripsi, peruntukan, waktu_pelaksana_awal, waktu_pelaksana_akhir, warna_agenda, ulangi_bulanan, batas_ulangi_bulanan')
       ->orderBy('waktu_pelaksana_awal', 'ASC')
       ->findAll();
 
     $calendarEvents = [];
+    $uniqueAgendaCount = 0;
+    $monthlyRecurringCount = 0;
+
     foreach ($allAgenda as $agenda) {
       $rawPeruntukan = $agenda['peruntukan'] ?? '';
       if ($rawPeruntukan === '') {
@@ -414,48 +529,64 @@ class Ajax extends BaseController
         continue;
       }
 
-      $startRaw = (string) ($agenda['waktu_pelaksana_awal'] ?? '');
-      $endRaw = (string) ($agenda['waktu_pelaksana_akhir'] ?? '');
-      if ($startRaw === '') {
+      $occurrences = \App\Models\AgendaUserModel::buildMonthlyOccurrences($agenda, 6, 18);
+      if (empty($occurrences)) {
         continue;
       }
 
-      $startTs = strtotime($startRaw);
-      if ($startTs === false) {
-        continue;
-      }
-      $endTs = $endRaw !== '' ? strtotime($endRaw) : $startTs;
-      if ($endTs === false || $endTs < $startTs) {
-        $endTs = $startTs;
+      $uniqueAgendaCount++;
+      $isMonthly = !empty($agenda['ulangi_bulanan']) && (int) $agenda['ulangi_bulanan'] === 1;
+      if ($isMonthly) {
+        $monthlyRecurringCount++;
       }
 
       $color = !empty($agenda['warna_agenda']) ? trim((string) $agenda['warna_agenda']) : '#0d9488';
-      $calendarEvents[] = [
-        'id'              => 'agenda-' . (int) ($agenda['id_agenda_user'] ?? 0),
-        'title'           => (string) ($agenda['topik'] ?? ''),
-        'start'           => date('Y-m-d\TH:i:s', $startTs),
-        'end'             => date('Y-m-d\TH:i:s', $endTs),
-        'allDay'          => false,
-        'backgroundColor' => $color,
-        'borderColor'     => $color,
-        'extendedProps'   => [
-          'description' => trim((string) preg_replace('/\s+/', ' ', (string) ($agenda['deskripsi'] ?? ''))),
-          'startLabel'  => date('d M Y, H:i', $startTs),
-          'endLabel'    => date('d M Y, H:i', $endTs),
-          'isHoliday'   => false,
-        ],
-      ];
+      $cleanDesc = trim((string) preg_replace('/\s+/', ' ', (string) ($agenda['deskripsi'] ?? '')));
+      $batasRaw = trim((string) ($agenda['batas_ulangi_bulanan'] ?? ''));
+      $batasLabel = ($batasRaw !== '' && $batasRaw !== '0000-00-00')
+        ? date('d M Y', strtotime($batasRaw))
+        : 'Setiap Bulan';
+
+      foreach ($occurrences as $occ) {
+        $startTs = $occ['startTs'];
+        $endTs = $occ['endTs'];
+        $dayNum = $occ['dayOfMonth'];
+
+        $calendarEvents[] = [
+          'id'              => 'agenda-' . (int) ($agenda['id_agenda_user'] ?? 0) . '-' . $occ['ym'],
+          'title'           => ($isMonthly ? '↻ ' : '') . (string) ($agenda['topik'] ?? ''),
+          'start'           => date('Y-m-d\TH:i:s', $startTs),
+          'end'             => date('Y-m-d\TH:i:s', $endTs),
+          'allDay'          => false,
+          'backgroundColor' => $color,
+          'borderColor'     => $color,
+          'extendedProps'   => [
+            'agendaId'           => (int) ($agenda['id_agenda_user'] ?? 0),
+            'rawTitle'           => (string) ($agenda['topik'] ?? ''),
+            'description'        => $cleanDesc,
+            'startLabel'         => date('d M Y, H:i', $startTs),
+            'endLabel'           => date('d M Y, H:i', $endTs),
+            'isHoliday'          => false,
+            'isRecurringMonthly' => $isMonthly,
+            'recurringDay'       => $dayNum,
+            'recurringUntil'     => $batasLabel,
+          ],
+        ];
+      }
     }
 
     return $this->response->setJSON([
       'data' => view('home/agendaCalendar', [
-        'calendarEvents' => $calendarEvents,
-        'eventCount'     => count($calendarEvents),
+        'calendarEvents'        => $calendarEvents,
+        'eventCount'            => $uniqueAgendaCount,
+        'monthlyRecurringCount' => $monthlyRecurringCount,
       ]),
     ]);
   }
   public function getAgenda()
   {
+    $this->agendaUserModel->ensureMonthlySchema();
+
     $idUser = (int) session()->get('id_user');
     $username = (string) session()->get('username');
     if (session_status() === PHP_SESSION_ACTIVE) {
@@ -487,9 +618,17 @@ class Ajax extends BaseController
 
     if ($getData === null) {
       $getData = $this->agendaUserModel
-        ->select('id_agenda_user, topik, deskripsi, peruntukan, waktu_pelaksana_awal, waktu_pelaksana_akhir, tgl_notif_awal, tgl_notif_akhir, warna_agenda')
-        ->where('tgl_notif_awal <=', $today)
-        ->where('tgl_notif_akhir >=', $today)
+        ->select('id_agenda_user, topik, deskripsi, peruntukan, waktu_pelaksana_awal, waktu_pelaksana_akhir, tgl_notif_awal, tgl_notif_akhir, warna_agenda, ulangi_bulanan, batas_ulangi_bulanan')
+        ->groupStart()
+          ->groupStart()
+            ->where('tgl_notif_awal <=', $today)
+            ->where('tgl_notif_akhir >=', $today)
+          ->groupEnd()
+          ->orGroupStart()
+            ->where('ulangi_bulanan', 1)
+            ->where('tgl_notif_awal IS NOT NULL', null, false)
+          ->groupEnd()
+        ->groupEnd()
         ->findAll();
 
       try {
@@ -502,8 +641,28 @@ class Ajax extends BaseController
     $setData = [];
     foreach ($getData as $data) {
       $peruntukan = @unserialize((string) ($data['peruntukan'] ?? ''), ['allowed_classes' => false]);
-      if (is_array($peruntukan) && in_array($idUser, $peruntukan)) {
-        $setData[] = $data;
+      if (!is_array($peruntukan) || !in_array($idUser, $peruntukan)) {
+        continue;
+      }
+
+      $isMonthly = !empty($data['ulangi_bulanan']) && (int) $data['ulangi_bulanan'] === 1;
+      if ($isMonthly) {
+        $occs = \App\Models\AgendaUserModel::buildMonthlyOccurrences($data, 1, 1);
+        foreach ($occs as $occ) {
+          if (!empty($occ['notifStart']) && !empty($occ['notifEnd']) && $today >= $occ['notifStart'] && $today <= $occ['notifEnd']) {
+            $item = $data;
+            $item['waktu_pelaksana_awal'] = date('Y-m-d H:i:s', $occ['startTs']);
+            $item['waktu_pelaksana_akhir'] = date('Y-m-d H:i:s', $occ['endTs']);
+            $item['tgl_notif_awal'] = $occ['notifStart'];
+            $item['tgl_notif_akhir'] = $occ['notifEnd'];
+            $setData[] = $item;
+            break;
+          }
+        }
+      } else {
+        if (!empty($data['tgl_notif_awal']) && !empty($data['tgl_notif_akhir']) && $today >= $data['tgl_notif_awal'] && $today <= $data['tgl_notif_akhir']) {
+          $setData[] = $data;
+        }
       }
     }
 

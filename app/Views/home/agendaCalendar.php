@@ -4,6 +4,7 @@ if ($eventsJson === false) {
   $eventsJson = '[]';
 }
 $totalAgendaCount = isset($eventCount) ? (int) $eventCount : count($calendarEvents ?? []);
+$monthlyCount = isset($monthlyRecurringCount) ? (int) $monthlyRecurringCount : 0;
 ?>
 
 <div class="sh-cal-card">
@@ -14,7 +15,9 @@ $totalAgendaCount = isset($eventCount) ? (int) $eventCount : count($calendarEven
       </div>
       <div>
         <h6 class="mb-0 font-weight-bold" style="color: #0f172a; font-size: 0.96rem;">Jadwal Agendaku</h6>
-        <small class="text-muted" style="font-size: 0.76rem;"><?= $totalAgendaCount; ?> agenda terjadwal untuk Anda</small>
+        <small class="text-muted" style="font-size: 0.76rem;">
+          <?= $totalAgendaCount; ?> agenda terjadwal<?= $monthlyCount > 0 ? ' • <strong style="color:#4f46e5;">' . $monthlyCount . ' rutin bulanan</strong>' : ''; ?>
+        </small>
       </div>
     </div>
     <a href="/home/agenda" class="btn btn-sm btn-outline-teal sh-cal-manage-btn">
@@ -30,6 +33,9 @@ $totalAgendaCount = isset($eventCount) ? (int) $eventCount : count($calendarEven
         <div class="d-flex flex-wrap align-items-center" style="gap: 14px; font-size: 0.78rem; color: #475569;">
           <span class="d-inline-flex align-items-center">
             <span class="sh-legend-dot" style="background: #0d9488;"></span> Agenda Saya
+          </span>
+          <span class="d-inline-flex align-items-center">
+            <span class="badge px-1 py-0 mr-1" style="background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;font-size:0.68rem;">↻</span> Agenda Rutin Bulanan
           </span>
           <span class="d-inline-flex align-items-center">
             <span class="sh-legend-dot" style="background: #dc2626;"></span> Hari Libur Nasional
@@ -178,9 +184,12 @@ $totalAgendaCount = isset($eventCount) ? (int) $eventCount : count($calendarEven
           var timeInfo = props.isHoliday
             ? '<span class="badge badge-danger">Hari Libur Nasional</span>'
             : (props.startLabel ? '<small class="text-muted"><i class="far fa-clock mr-1"></i>' + escapeHtml(props.startLabel) + ' — ' + escapeHtml(props.endLabel || '') + '</small>' : '');
+          var recurBadge = props.isRecurringMonthly
+            ? '<span class="badge ml-1 px-2 py-1" style="background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;font-size:0.7rem;"><i class="fas fa-redo-alt mr-1"></i>Rutin Tiap Bulan (Tgl ' + escapeHtml(props.recurringDay || '') + ')</span>'
+            : '';
 
           html += '<div class="sh-modal-event-item" style="border-left-color: ' + escapeHtml(accent) + ';">'
-            + '<div class="font-weight-bold mb-1" style="color: #0f172a;">' + escapeHtml(ev.title) + '</div>'
+            + '<div class="font-weight-bold mb-1" style="color: #0f172a;">' + escapeHtml(props.rawTitle || ev.title) + recurBadge + '</div>'
             + (timeInfo ? '<div class="mb-1">' + timeInfo + '</div>' : '')
             + '<div style="font-size: 0.84rem; color: #475569; line-height: 1.5;">' + convertUrlsToLinks(props.description) + '</div>'
             + '</div>';
@@ -200,13 +209,16 @@ $totalAgendaCount = isset($eventCount) ? (int) $eventCount : count($calendarEven
           : '<span class="badge badge-light border text-dark px-2 py-1"><i class="far fa-clock text-info mr-1"></i>'
               + escapeHtml(props.startLabel || '') + (props.endLabel ? ' — ' + escapeHtml(props.endLabel) : '')
             + '</span>';
+        var recurHtml = props.isRecurringMonthly
+          ? ' <span class="badge px-2 py-1 ml-1" style="background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;"><i class="fas fa-redo-alt mr-1"></i>Berulang Tiap Bulan • Tgl ' + escapeHtml(props.recurringDay || '') + (props.recurringUntil ? ' (' + escapeHtml(props.recurringUntil) + ')' : '') + '</span>'
+          : '';
 
         var bodyHtml = '<div class="sh-modal-event-item mb-0" style="border-left-color: ' + escapeHtml(accent) + ';">'
-          + '<div class="mb-2">' + timeHtml + '</div>'
+          + '<div class="mb-2">' + timeHtml + recurHtml + '</div>'
           + '<div style="line-height: 1.6; color: #334155;">' + convertUrlsToLinks(props.description) + '</div>'
           + '</div>';
 
-        openAgendaModal(ev.title || 'Detail Agenda', bodyHtml);
+        openAgendaModal(props.rawTitle || ev.title || 'Detail Agenda', bodyHtml);
       }
     });
 

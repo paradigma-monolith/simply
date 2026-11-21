@@ -143,21 +143,41 @@ class Home extends BaseController
         }
         $data['absenHariIni'] = $absenHariIni;
 
-        // Ringkasan agenda aktif hari ini untuk pengguna
+        // Ringkasan agenda aktif hari ini untuk pengguna (termasuk agenda berulang bulanan)
         $agendaHariIniCount = 0;
         $idUser = (int) ($data['by']['id_user'] ?? 0);
         if ($idUser > 0) {
-            $todayStart = date('Y-m-d') . ' 00:00:00';
-            $todayEnd = date('Y-m-d') . ' 23:59:59';
+            $this->agendaUserModel->ensureMonthlySchema();
+            $todayDate = date('Y-m-d');
+            $todayStart = $todayDate . ' 00:00:00';
+            $todayEnd = $todayDate . ' 23:59:59';
             $agendaTodayRows = $db->table('agenda_user')
-                ->select('peruntukan')
-                ->where('waktu_pelaksana_awal <=', $todayEnd)
-                ->where('waktu_pelaksana_akhir >=', $todayStart)
+                ->select('peruntukan, waktu_pelaksana_awal, waktu_pelaksana_akhir, ulangi_bulanan, batas_ulangi_bulanan')
+                ->groupStart()
+                    ->groupStart()
+                        ->where('waktu_pelaksana_awal <=', $todayEnd)
+                        ->where('waktu_pelaksana_akhir >=', $todayStart)
+                    ->groupEnd()
+                    ->orWhere('ulangi_bulanan', 1)
+                ->groupEnd()
                 ->get()
                 ->getResultArray();
             foreach ($agendaTodayRows as $ag) {
                 $peruntukan = @unserialize((string) ($ag['peruntukan'] ?? ''), ['allowed_classes' => false]);
-                if (is_array($peruntukan) && in_array($idUser, $peruntukan)) {
+                if (!is_array($peruntukan) || !in_array($idUser, $peruntukan)) {
+                    continue;
+                }
+                if (!empty($ag['ulangi_bulanan']) && (int) $ag['ulangi_bulanan'] === 1) {
+                    $occs = \App\Models\AgendaUserModel::buildMonthlyOccurrences($ag, 1, 1);
+                    foreach ($occs as $occ) {
+                        $occStartD = date('Y-m-d', $occ['startTs']);
+                        $occEndD = date('Y-m-d', $occ['endTs']);
+                        if ($todayDate >= $occStartD && $todayDate <= $occEndD) {
+                            $agendaHariIniCount++;
+                            break;
+                        }
+                    }
+                } else {
                     $agendaHariIniCount++;
                 }
             }
@@ -1328,10 +1348,31 @@ class Home extends BaseController
     }
     public function agenda()
     {
+        $this->agendaUserModel->ensureMonthlySchema();
+
         $data['title'] = "Agenda";
         $data['activeMenu'] = "agenda";
 
-        $data['user'] = $this->userModel->findAll();
+        $idUser = (int) session()->get('id_user');
+        $username = (string) session()->get('username');
+        if ($idUser <= 0 && $username !== '') {
+            $by = $this->userModel->select('id_user')->where('username', $username)->first();
+            $idUser = $by ? (int) $by['id_user'] : 0;
+        }
+
+        $data['currentUserId'] = $idUser;
+        $data['user'] = $this->userModel
+            ->select('id_user, nama, username')
+            ->orderBy('nama', 'ASC')
+            ->findAll();
+
+        $data['myAgenda'] = $idUser > 0
+            ? $this->agendaUserModel
+                ->where('created_by', $idUser)
+                ->orderBy('ulangi_bulanan', 'DESC')
+                ->orderBy('waktu_pelaksana_awal', 'DESC')
+                ->findAll()
+            : [];
 
         return view('home/agenda', $data);
     }
