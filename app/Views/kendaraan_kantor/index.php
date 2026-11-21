@@ -36,95 +36,99 @@
         }
 
         body {
-            height: 100vh;
+            min-height: 100vh;
+            padding-bottom: 76px;
             background-color: rgba(96, 192, 208, .7);
-            /* Warna dasar dengan transparansi */
             background-image: url('/dist/img/Texturelabs_Grunge_145S.jpg');
-            /* Gambar latar belakang */
             background-size: cover;
-            /* Menyesuaikan gambar latar belakang agar menutupi seluruh elemen */
             background-position: center;
-            /* Memusatkan gambar latar belakang */
+            background-attachment: fixed;
             background-blend-mode: overlay;
-            /* Menggabungkan gambar latar belakang dengan warna dasar */
         }
 
         nav {
             position: fixed;
             bottom: 0;
+            left: 0;
             width: 100%;
-            z-index: 10;
-            /*box-shadow: 0px -20px 20px 0px rgb(215 222 35 / 33%);*/
-            box-shadow: 0px -20px 20px 0px rgb(7 184 163 / 33%);
+            z-index: 100;
+            box-shadow: 0 -6px 20px rgba(8, 76, 87, 0.22);
         }
 
         .navigation {
             margin: auto;
             position: relative;
             width: 100%;
-            height: 60px;
-            /*background: linear-gradient(to bottom, rgba(215, 222, 35, 0.8), rgb(215, 222, 35));*/
-            background: linear-gradient(to bottom, rgba(7, 184, 163, 0.8), rgb(7, 184, 163));
+            height: 62px;
+            background: linear-gradient(135deg, #0b7285, #0d9488);
             display: flex;
             justify-content: center;
             align-items: center;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            padding-bottom: env(safe-area-inset-bottom, 0px);
         }
 
         .navigation ul {
             display: flex;
             padding: 0;
+            margin: 0;
             list-style: none;
+            width: 100%;
+            max-width: 420px;
+            justify-content: space-around;
         }
 
         .navigation ul li {
             position: relative;
-            width: 70px;
-            height: 60px;
+            flex: 1;
+            height: 58px;
             z-index: 1;
         }
 
         .navigation ul li a {
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             width: 100%;
             height: 100%;
             text-decoration: none;
-            color: #555;
+            color: rgba(255, 255, 255, 0.78);
+            gap: 2px;
+            transition: color 0.2s ease;
         }
 
         .navigation ul li a .icon {
-            position: relative;
-            display: block;
-            width: 55px;
-            height: 55px;
-            text-align: center;
-            line-height: 55px;
-            font-size: 1.5em;
-            transition: 0.5s;
-            border-radius: 50%;
-            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 30px;
+            font-size: 1.25rem;
+            transition: all 0.2s ease;
+            border-radius: 10px;
+            background: transparent;
+            color: inherit;
+        }
+
+        .navigation ul li a .nav-label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            line-height: 1;
+        }
+
+        .navigation ul li.active a {
+            color: #ffffff;
         }
 
         .navigation ul li.active a .icon {
-            /*background: #07b8a3;*/
             background: #d7de23;
-            color: white;
+            color: #0f172a;
+            box-shadow: 0 3px 10px rgba(215, 222, 35, 0.35);
         }
 
         .indicator {
-            position: absolute;
-            width: 70px;
-            height: 5px;
-            /*background: #07b8a3;*/
-            background: #d7de23;
-            bottom: 0;
-            /*left: 62px;*/
-            margin-left: -69px;
-            border-radius: 5px;
-            transition: 0.5s;
+            display: none;
         }
 
         .no-style {
@@ -139,10 +143,9 @@
         hr {
             border: none;
             height: 3px;
-            width: 150px;
+            width: 110px;
             background-color: #07b8a3;
-            margin: auto;
-            margin-bottom: 15px;
+            margin: 6px auto 12px;
             opacity: 0.8;
         }
 
@@ -150,31 +153,30 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 75vh;
-            border: 1px solid #ccc;
+            min-height: calc(100vh - 150px);
+            padding: 10px 0 20px;
             background-color: transparent;
         }
 
         .top-header {
-            position: relative;
-            height: 80px;
-        }
-
-        .logo-left {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-        }
-
-        .logo-right {
-            position: absolute;
-            top: 10px;
-            right: 10px;
             display: flex;
-            gap: 10px;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            height: 60px;
         }
 
-        .logo-right img {
+        .logo-left,
+        .logo-right {
+            position: static;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .top-header img {
+            height: 36px;
+            width: auto;
             display: block;
         }
 
@@ -182,11 +184,10 @@
             opacity: 0;
             visibility: hidden;
             overflow: hidden;
-            transform: scale(0.9);
             position: absolute;
             width: 0;
             height: 0;
-            transition: opacity 0.5s ease, visibility 0.5s ease, height 0.5s ease;
+            pointer-events: none;
         }
 
         .visible {
@@ -195,11 +196,12 @@
             position: relative;
             width: auto;
             height: auto;
-            transition: opacity 0.5s ease, visibility 0.5s ease, height 0.5s ease;
         }
 
-        .menuUtamaPemilihan {
-            margin-top: -40px;
+        .menuUtamaPemilihan,
+        .menuUtamaRiwayat {
+            margin-top: 0;
+            padding-bottom: 24px;
         }
 
         .block-cursor a,
@@ -207,20 +209,52 @@
             cursor: not-allowed;
         }
 
-        @media (max-width: 768px) {
+        .kk-form-shell {
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            border-radius: 16px;
+            padding: 22px 24px;
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.13);
+            backdrop-filter: blur(10px);
+        }
 
-            /* Atur lebar maksimal untuk perangkat seluler */
-            .daterangepicker:after {
-                top: 0;
+        @media (max-width: 767.98px) {
+            .top-header {
+                height: 48px;
+                padding: 6px 12px;
             }
-
+            .top-header img {
+                height: 26px;
+            }
+            .pemilihanTanggal {
+                align-items: flex-start;
+                min-height: auto;
+                padding: 6px 0 16px;
+            }
+            .kk-form-shell {
+                padding: 14px 14px 16px;
+                border-radius: 13px;
+            }
+            .kk-form-shell h4 {
+                font-size: 1.02rem;
+            }
+            .kk-form-shell .form-control,
+            .kk-form-shell .input-group-text {
+                font-size: 0.84rem;
+            }
+            .menuUtamaPemilihan h3,
+            .menuUtamaRiwayat h3 {
+                font-size: 1.05rem;
+                margin-bottom: 2px;
+            }
             .daterangepicker {
-                transform: translateY(-45%) !important;
+                max-width: calc(100vw - 16px) !important;
+                left: 8px !important;
+                right: 8px !important;
+                margin: 0 auto;
             }
-
-            .daterangepicker:before {
-                top: 0;
-                border: no-border;
+            .daterangepicker .drp-calendar {
+                max-width: 100% !important;
             }
         }
     </style>
@@ -246,6 +280,7 @@
                             <span class="icon">
                                 <ion-icon name="home-outline"></ion-icon>
                             </span>
+                            <span class="nav-label">Menu</span>
                         </a>
                     </li>
                     <li class="list btn-page-2 active" style="--clr:#4CAF50">
@@ -253,6 +288,7 @@
                             <span class="icon">
                                 <ion-icon name="calendar-outline"></ion-icon>
                             </span>
+                            <span class="nav-label">Form</span>
                         </a>
                     </li>
                     <li class="list btn-page-3" style="--clr:#2196F3">
@@ -260,6 +296,7 @@
                             <span class="icon">
                                 <ion-icon name="document-outline"></ion-icon>
                             </span>
+                            <span class="nav-label">Pengajuan</span>
                         </a>
                     </li>
                     <li class="list btn-page-4" style="--clr:#FFC107">
@@ -267,6 +304,7 @@
                             <span class="icon">
                                 <ion-icon name="folder-open-outline"></ion-icon>
                             </span>
+                            <span class="nav-label">Jadwal</span>
                         </a>
                     </li>
                 </ul>
@@ -274,22 +312,19 @@
             </div>
         </nav>
 
-        <div class="pemilihanTanggal visible d-flex justify-content-center align-items-center" style="min-height: 72vh; border: none;">
-            <div class="container" style="max-width: 720px;">
-                <div style="background: rgba(255, 255, 255, 0.95); border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 18px; padding: 26px 28px; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14); backdrop-filter: blur(10px);">
-                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div class="pemilihanTanggal visible d-flex justify-content-center">
+            <div class="container px-2 px-sm-3" style="max-width: 680px;">
+                <div class="kk-form-shell">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
                         <div>
-                            <h4 class="fw-bold mb-1" style="color: #0f172a;"><i class="fas fa-car-side me-2" style="color: #0d9488;"></i>Formulir Peminjaman Kendaraan</h4>
-                            <small class="text-muted">Pilih tanggal keberangkatan, penumpang, tujuan, dan kegiatan.</small>
+                            <h4 class="fw-bold mb-0" style="color: #0f172a;"><i class="fas fa-car-side me-2" style="color: #0d9488;"></i>Formulir Peminjaman Kendaraan</h4>
+                            <small class="text-muted" style="font-size: 0.76rem;">Pilih tanggal keberangkatan, penumpang, tujuan, dan kegiatan.</small>
                         </div>
-                        <button type="button" class="btn btn-success fw-bold px-3 hidden btn-lanjutkan-page-2 getTheCar" style="border-radius: 10px;" data-id="0">
-                            Ajukan Peminjaman <i class="fas fa-angle-double-right ms-1"></i>
-                        </button>
                     </div>
-                    <div class="row">
+                    <div class="row mt-2">
                         <div class="col-12">
-                            <label class="form-label fw-bold small text-uppercase text-muted mb-1">Tanggal Kebutuhan</label>
-                            <div class="input-group">
+                            <label class="form-label fw-bold small text-uppercase text-muted mb-1" style="font-size: 0.72rem;">Tanggal Kebutuhan</label>
+                            <div class="input-group input-group-sm">
                                 <input type="text" class="form-control" id="dateRangePicker" placeholder="Klik untuk memilih rentang tanggal..." value="" autocomplete="off">
                                 <span class="input-group-text bg-light">
                                     <i class="fas fa-calendar-alt text-secondary"></i>
@@ -298,9 +333,9 @@
                         </div>
                     </div>
                     <div class="form-tambahan-keberangkatan hidden">
-                        <div class="row mt-3">
+                        <div class="row mt-2">
                             <div class="col-12">
-                                <label class="form-label fw-bold small text-uppercase text-muted mb-1">Penumpang (PNS, PPPK, atau PPNPN)</label>
+                                <label class="form-label fw-bold small text-uppercase text-muted mb-1" style="font-size: 0.72rem;">Penumpang (PNS, PPPK, atau PPNPN)</label>
                                 <select multiple="multiple" name="penumpang[]" class="form-control select2" placeholder="Pilih beberapa penumpang di sini" style="width: 100%;" autocomplete="off">
                                     <?php foreach ($getPegawai as $data): ?>
                                         <option value="<?= $data['id_data_pegawai']; ?>" <?= $nip == $data['nip'] ? 'selected' : ''; ?> <?= $nip == $data['nip'] ? 'disabled data-id="true"' : ''; ?>><?= name_capitalize($data['nama']); ?> <?= $nip == $data['nip'] ? '- Harus diikutsertakan' : ''; ?></option>
@@ -308,21 +343,26 @@
                                 </select>
                             </div>
                         </div>
-                        <div class="row mt-3">
+                        <div class="row mt-2">
                             <div class="col-12">
                                 <div class="form-group">
-                                    <label class="form-label fw-bold small text-uppercase text-muted mb-1">Tujuan Perjalanan</label>
-                                    <input type="text" name="tujuan" class="form-control" placeholder="Masukkan tujuan perjalanan Anda..." required autocomplete="off" />
+                                    <label class="form-label fw-bold small text-uppercase text-muted mb-1" style="font-size: 0.72rem;">Tujuan Perjalanan</label>
+                                    <input type="text" name="tujuan" class="form-control form-control-sm" placeholder="Masukkan tujuan perjalanan Anda..." required autocomplete="off" />
                                 </div>
                             </div>
                         </div>
-                        <div class="row mt-3">
+                        <div class="row mt-2">
                             <div class="col-12">
                                 <div class="form-group">
-                                    <label class="form-label fw-bold small text-uppercase text-muted mb-1">Rincian Kegiatan</label>
-                                    <textarea name="keterangan" class="form-control" placeholder="Deskripsikan kegiatan secara singkat..." rows="3" required autocomplete="off"></textarea>
+                                    <label class="form-label fw-bold small text-uppercase text-muted mb-1" style="font-size: 0.72rem;">Rincian Kegiatan</label>
+                                    <textarea name="keterangan" class="form-control form-control-sm" placeholder="Deskripsikan kegiatan secara singkat..." rows="2" required autocomplete="off"></textarea>
                                 </div>
                             </div>
+                        </div>
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-success fw-bold w-100 py-2 hidden btn-lanjutkan-page-2 getTheCar" style="border-radius: 10px; font-size: 0.88rem;" data-id="0">
+                                <i class="fas fa-paper-plane me-1"></i> Ajukan Peminjaman Kendaraan
+                            </button>
                         </div>
                     </div>
                 </div>

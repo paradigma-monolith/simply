@@ -84,6 +84,25 @@ $isAdminRole = session()->get('role') === 'Admin';
   .kk-modern .table tbody td {
     vertical-align: middle !important;
   }
+  @media (max-width: 575.98px) {
+    .kk-modern .kk-header-banner {
+      padding: 14px 16px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+    .kk-modern .kk-header-banner h4 {
+      font-size: 1.05rem;
+    }
+    .kk-modern .kk-thumb-wrap,
+    .kk-modern .kk-thumb-img {
+      width: 78px !important;
+      height: 52px !important;
+    }
+    .kk-modern .kk-plate-badge {
+      font-size: 0.72rem;
+      padding: 3px 8px;
+    }
+  }
 </style>
 
 <section class="content kk-modern pb-4">

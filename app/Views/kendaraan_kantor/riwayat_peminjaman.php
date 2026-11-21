@@ -157,14 +157,41 @@ foreach ($rows as $r) {
   .kk-history .table tbody td {
     vertical-align: middle !important;
   }
+  @media (max-width: 575.98px) {
+    .kk-history .kk-kpi-card {
+      padding: 10px 12px;
+      gap: 10px;
+      border-radius: 11px;
+    }
+    .kk-history .kk-kpi-icon {
+      width: 34px;
+      height: 34px;
+      font-size: 0.95rem;
+      border-radius: 9px;
+    }
+    .kk-history .kk-kpi-num {
+      font-size: 1.05rem;
+    }
+    .kk-history .kk-kpi-label {
+      font-size: 0.68rem;
+    }
+    .kk-history .kk-vehicle-thumb {
+      width: 64px !important;
+      height: 44px !important;
+    }
+    .kk-history .kk-passenger-pill {
+      font-size: 0.68rem;
+      padding: 2px 7px;
+    }
+  }
 </style>
 
 <section class="content kk-history pb-4">
   <div class="container-fluid">
 
-    <!-- Ringkasan Status & Filter Cepat -->
+    <!-- Ringkasan Status & Filter Cepat (Grid 2x2 compact di Handphone) -->
     <div class="row mb-3" id="kkStatusFilterCards">
-      <div class="col-lg-3 col-sm-6 mb-2 mb-lg-0">
+      <div class="col-lg-3 col-6 mb-2 mb-lg-0">
         <div class="kk-kpi-card is-active" data-filter="">
           <div class="kk-kpi-icon" style="background: #f0fdfa; color: #0d9488;">
             <i class="fas fa-clipboard-list"></i>
@@ -175,36 +202,36 @@ foreach ($rows as $r) {
           </div>
         </div>
       </div>
-      <div class="col-lg-3 col-sm-6 mb-2 mb-lg-0">
+      <div class="col-lg-3 col-6 mb-2 mb-lg-0">
         <div class="kk-kpi-card" data-filter="Disetujui">
           <div class="kk-kpi-icon" style="background: #ecfdf5; color: #059669;">
             <i class="fas fa-car-side"></i>
           </div>
           <div>
             <div class="kk-kpi-num"><?= $disetujuiCount; ?></div>
-            <div class="kk-kpi-label">Kendaraan Disetujui</div>
+            <div class="kk-kpi-label">Disetujui</div>
           </div>
         </div>
       </div>
-      <div class="col-lg-3 col-sm-6 mb-2 mb-sm-0">
+      <div class="col-lg-3 col-6">
         <div class="kk-kpi-card" data-filter="Menunggu Verifikasi">
           <div class="kk-kpi-icon" style="background: #fffbeb; color: #d97706;">
             <i class="fas fa-clock"></i>
           </div>
           <div>
             <div class="kk-kpi-num"><?= $menungguCount; ?></div>
-            <div class="kk-kpi-label">Menunggu Verifikasi</div>
+            <div class="kk-kpi-label">Menunggu</div>
           </div>
         </div>
       </div>
-      <div class="col-lg-3 col-sm-6">
+      <div class="col-lg-3 col-6">
         <div class="kk-kpi-card" data-filter="Kendaraan Umum">
           <div class="kk-kpi-icon" style="background: #fef2f2; color: #dc2626;">
             <i class="fas fa-bus"></i>
           </div>
           <div>
             <div class="kk-kpi-num"><?= $umumCount; ?></div>
-            <div class="kk-kpi-label">Kendaraan Umum</div>
+            <div class="kk-kpi-label">Kend. Umum</div>
           </div>
         </div>
       </div>

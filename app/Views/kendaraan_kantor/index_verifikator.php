@@ -36,95 +36,99 @@
         }
 
         body {
-            height: 100vh;
+            min-height: 100vh;
+            padding-bottom: 76px;
             background-color: rgba(96, 192, 208, .7);
-            /* Warna dasar dengan transparansi */
             background-image: url('/dist/img/Texturelabs_Grunge_145S.jpg');
-            /* Gambar latar belakang */
             background-size: cover;
-            /* Menyesuaikan gambar latar belakang agar menutupi seluruh elemen */
             background-position: center;
-            /* Memusatkan gambar latar belakang */
+            background-attachment: fixed;
             background-blend-mode: overlay;
-            /* Menggabungkan gambar latar belakang dengan warna dasar */
         }
 
         nav {
             position: fixed;
             bottom: 0;
+            left: 0;
             width: 100%;
-            z-index: 10;
-            /*box-shadow: 0px -20px 20px 0px rgb(215 222 35 / 33%);*/
-            box-shadow: 0px -20px 20px 0px rgb(7 184 163 / 33%);
+            z-index: 100;
+            box-shadow: 0 -6px 20px rgba(8, 76, 87, 0.22);
         }
 
         .navigation {
             margin: auto;
             position: relative;
             width: 100%;
-            height: 60px;
-            /*background: linear-gradient(to bottom, rgba(215, 222, 35, 0.8), rgb(215, 222, 35));*/
-            background: linear-gradient(to bottom, rgba(7, 184, 163, 0.8), rgb(7, 184, 163));
+            height: 62px;
+            background: linear-gradient(135deg, #0b7285, #0d9488);
             display: flex;
             justify-content: center;
             align-items: center;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            padding-bottom: env(safe-area-inset-bottom, 0px);
         }
 
         .navigation ul {
             display: flex;
             padding: 0;
+            margin: 0;
             list-style: none;
+            width: 100%;
+            max-width: 420px;
+            justify-content: space-around;
         }
 
         .navigation ul li {
             position: relative;
-            width: 70px;
-            height: 60px;
+            flex: 1;
+            height: 58px;
             z-index: 1;
         }
 
         .navigation ul li a {
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             width: 100%;
             height: 100%;
             text-decoration: none;
-            color: #555;
+            color: rgba(255, 255, 255, 0.78);
+            gap: 2px;
+            transition: color 0.2s ease;
         }
 
         .navigation ul li a .icon {
-            position: relative;
-            display: block;
-            width: 55px;
-            height: 55px;
-            text-align: center;
-            line-height: 55px;
-            font-size: 1.5em;
-            transition: 0.5s;
-            border-radius: 50%;
-            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 30px;
+            font-size: 1.25rem;
+            transition: all 0.2s ease;
+            border-radius: 10px;
+            background: transparent;
+            color: inherit;
+        }
+
+        .navigation ul li a .nav-label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            line-height: 1;
+        }
+
+        .navigation ul li.active a {
+            color: #ffffff;
         }
 
         .navigation ul li.active a .icon {
-            /*background: #07b8a3;*/
             background: #d7de23;
-            color: white;
+            color: #0f172a;
+            box-shadow: 0 3px 10px rgba(215, 222, 35, 0.35);
         }
 
         .indicator {
-            position: absolute;
-            width: 70px;
-            height: 5px;
-            /*background: #07b8a3;*/
-            background: #d7de23;
-            bottom: 0;
-            /*left: 62px;*/
-            margin-left: -69px;
-            border-radius: 5px;
-            transition: 0.5s;
+            display: none;
         }
 
         .no-style {
@@ -139,42 +143,40 @@
         hr {
             border: none;
             height: 3px;
-            width: 150px;
+            width: 110px;
             background-color: #07b8a3;
-            margin: auto;
-            margin-bottom: 15px;
+            margin: 6px auto 12px;
             opacity: 0.8;
         }
 
         .pemilihanTanggal {
             display: flex;
             justify-content: center;
-            align-items: center;
-            height: 75vh;
-            border: 1px solid #ccc;
+            align-items: flex-start;
+            min-height: auto;
+            padding: 4px 0 20px;
             background-color: transparent;
         }
 
         .top-header {
-            position: relative;
-            height: 80px;
-        }
-
-        .logo-left {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-        }
-
-        .logo-right {
-            position: absolute;
-            top: 10px;
-            right: 10px;
             display: flex;
-            gap: 10px;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            height: 60px;
         }
 
-        .logo-right img {
+        .logo-left,
+        .logo-right {
+            position: static;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .top-header img {
+            height: 36px;
+            width: auto;
             display: block;
         }
 
@@ -182,11 +184,10 @@
             opacity: 0;
             visibility: hidden;
             overflow: hidden;
-            transform: scale(0.9);
             position: absolute;
             width: 0;
             height: 0;
-            transition: opacity 0.5s ease, visibility 0.5s ease, height 0.5s ease;
+            pointer-events: none;
         }
 
         .visible {
@@ -195,11 +196,12 @@
             position: relative;
             width: auto;
             height: auto;
-            transition: opacity 0.5s ease, visibility 0.5s ease, height 0.5s ease;
         }
 
-        .menuUtamaPemilihan {
-            margin-top: -40px;
+        .menuUtamaPemilihan,
+        .menuUtamaRiwayat {
+            margin-top: 0;
+            padding-bottom: 24px;
         }
 
         .block-cursor a,
@@ -207,20 +209,38 @@
             cursor: not-allowed;
         }
 
-        @media (max-width: 768px) {
+        .kk-selected-summary {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(13, 148, 136, 0.28);
+            border-left: 4px solid #0d9488;
+            border-radius: 12px;
+            padding: 10px 14px;
+            margin: 0 auto 14px;
+            max-width: 720px;
+            text-align: left;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+            font-size: 0.78rem;
+            color: #334155;
+        }
 
-            /* Atur lebar maksimal untuk perangkat seluler */
-            .daterangepicker:after {
-                top: 0;
+        @media (max-width: 767.98px) {
+            .top-header {
+                height: 48px;
+                padding: 6px 12px;
             }
-
-            .daterangepicker {
-                transform: translateY(-45%) !important;
+            .top-header img {
+                height: 26px;
             }
-
-            .daterangepicker:before {
-                top: 0;
-                border: no-border;
+            .sticky {
+                display: none !important;
+            }
+            .menuUtamaPemilihan h3,
+            .menuUtamaRiwayat h3 {
+                font-size: 1.05rem;
+                margin-bottom: 2px;
+            }
+            .menuUtamaPemilihan h5.tgl-peminjaman {
+                font-size: 0.85rem;
             }
         }
     </style>
@@ -276,6 +296,7 @@
                             <span class="icon">
                                 <ion-icon name="home-outline"></ion-icon>
                             </span>
+                            <span class="nav-label">Menu</span>
                         </a>
                     </li>
                     <li class="list btn-page-2 active" style="--clr:#4CAF50">
@@ -283,6 +304,7 @@
                             <span class="icon">
                                 <ion-icon name="document-outline"></ion-icon>
                             </span>
+                            <span class="nav-label">Antrean</span>
                         </a>
                     </li>
                     <li class="list btn-page-3" style="--clr:#2196F3">
@@ -290,6 +312,7 @@
                             <span class="icon">
                                 <ion-icon name="car-outline"></ion-icon>
                             </span>
+                            <span class="nav-label">Pilih Mobil</span>
                         </a>
                     </li>
                     <li class="list btn-page-4" style="--clr:#FFC107">
@@ -297,6 +320,7 @@
                             <span class="icon">
                                 <ion-icon name="folder-open-outline"></ion-icon>
                             </span>
+                            <span class="nav-label">Jadwal</span>
                         </a>
                     </li>
                 </ul>
@@ -304,18 +328,25 @@
             </div>
         </nav>
 
-        <div class="pemilihanTanggal visible d-flex justify-content-center align-items-center" style="min-height: 70vh;">
+        <div class="pemilihanTanggal visible d-flex justify-content-center">
             <?= $this->include('kendaraan_kantor/get_riwayat_pengajuan_verifikator'); ?>
         </div>
 
-        <div class="menuUtamaPemilihan container hidden">
-            <div class="container text-center py-3">
-                <h3>Kendaraan Tersedia</h3>
-                <h5 class="tgl-peminjaman">06 September 2024</h5>
+        <div class="menuUtamaPemilihan container px-2 px-sm-3 hidden">
+            <div class="container text-center py-2">
+                <h3 class="fw-bold">Kendaraan Tersedia</h3>
+                <h5 class="tgl-peminjaman text-dark">06 September 2024</h5>
                 <hr>
+                <div class="kk-selected-summary">
+                    <div class="d-flex flex-wrap justify-content-between gap-1">
+                        <span><strong>Peminjam:</strong> <span class="p-peminjam text-success fw-bold">-</span></span>
+                        <span><strong>Penumpang:</strong> <span class="p-totalpenumpang">0</span> orang</span>
+                    </div>
+                    <div class="text-truncate"><strong>Tujuan:</strong> <span class="p-tujuan">-</span> • <strong>Kegiatan:</strong> <span class="p-keterangan">-</span></div>
+                </div>
             </div>
             <!--Produk Grid -->
-            <div class="container daftarPilihanKendaraan">
+            <div class="container px-1 px-sm-2 daftarPilihanKendaraan">
 
             </div>
 

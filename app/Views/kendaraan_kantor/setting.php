@@ -39,6 +39,17 @@ $activeVerifikators = array_filter($usersList, static fn ($u) => !empty($u['id_k
     text-align: center;
     border-radius: 8px !important;
   }
+  @media (max-width: 575.98px) {
+    .kk-setting .kk-verif-row {
+      padding: 8px 10px;
+      gap: 8px;
+    }
+    .kk-setting .kk-pin-input {
+      width: 104px !important;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+    }
+  }
 </style>
 
 <section class="content kk-setting pb-4">

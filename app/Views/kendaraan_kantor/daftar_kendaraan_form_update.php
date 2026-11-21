@@ -36,6 +36,26 @@ $currentImgUrl = $imgFile !== '' ? '/dist/img/' . esc($imgFile, 'attr') : '/dist
     object-fit: contain;
     border-radius: 10px;
   }
+  @media (max-width: 575.98px) {
+    .kk-form-card .card-header {
+      padding: 12px 14px !important;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .kk-form-card .card-header h5 {
+      font-size: 0.95rem;
+    }
+    .kk-form-card .card-body {
+      padding: 14px !important;
+    }
+    .kk-preview-frame {
+      min-height: 150px;
+      padding: 12px;
+    }
+    .kk-preview-frame img.product-image {
+      max-height: 130px;
+    }
+  }
 </style>
 
 <section class="content pb-4">
