@@ -394,7 +394,7 @@ $approvedCount = $statusCounts['Disetujui'];
           </td>
 
           <!-- Status Surat -->
-          <td>
+          <td data-search="<?= esc($statusSurat, 'attr'); ?>">
             <?php if ($statusSurat === 'Draft') : ?>
               <span class="sn-badge-status badge-secondary"><i class="fas fa-pencil-alt"></i> Draft</span>
             <?php elseif ($statusSurat === 'Diajukan') : ?>
@@ -464,15 +464,19 @@ $approvedCount = $statusCounts['Disetujui'];
 </div>
 
 <script>
-  (function() {
+  $(function() {
+    if (typeof $.fn.DataTable === 'undefined') {
+      return;
+    }
+
     if ($.fn.DataTable.isDataTable('#example11')) {
       $('#example11').DataTable().destroy();
     }
 
     var table = $('#example11').DataTable({
       paging: true,
-      pageLength: 25,
-      lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+      pageLength: 20,
+      lengthChange: false,
       info: true,
       autoWidth: false,
       deferRender: true,
@@ -494,10 +498,10 @@ $approvedCount = $statusCounts['Disetujui'];
       ],
       language: {
         search: 'Cari:',
-        lengthMenu: 'Tampilkan _MENU_',
         info: 'Menampilkan _START_–_END_ dari _TOTAL_ dokumen',
         infoEmpty: 'Tidak ada dokumen perjalanan dinas',
-        zeroRecords: 'Tidak ada dokumen perjalanan dinas pada kriteria ini',
+        infoFiltered: '(disaring dari _MAX_ total dokumen)',
+        zeroRecords: 'Tidak ada dokumen perjalanan dinas pada status ini',
         paginate: {
           previous: '&laquo;',
           next: '&raquo;'
@@ -506,14 +510,17 @@ $approvedCount = $statusCounts['Disetujui'];
     });
 
     // Filter cepat berdasarkan pill status surat
-    $('#snStatusFilterBar').off('click', '.sn-status-pill').on('click', '.sn-status-pill', function() {
+    $('#snStatusFilterBar').off('click', '.sn-status-pill').on('click', '.sn-status-pill', function(e) {
+      e.preventDefault();
       $('#snStatusFilterBar .sn-status-pill').removeClass('active');
       $(this).addClass('active');
-      var status = $(this).data('status') || '';
+
+      var status = String($(this).attr('data-status') || '').trim();
       if (status === '') {
         table.column(3).search('').draw();
       } else {
-        table.column(3).search(status, false, false).draw();
+        var escaped = $.fn.dataTable.util.escapeRegex(status);
+        table.column(3).search('^\\s*' + escaped + '\\s*$', true, false).draw();
       }
     });
 
@@ -548,5 +555,5 @@ $approvedCount = $statusCounts['Disetujui'];
           });
       }
     });
-  })();
+  });
 </script>
