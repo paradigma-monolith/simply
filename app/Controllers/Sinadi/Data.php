@@ -731,6 +731,92 @@ class Data extends BaseController
     return view('sinadi/nota_dinas', $data);
   }
 
+  public function sbm()
+  {
+    $data['title'] = "Sinadi | Standar Biaya Masukan (SBM)";
+    $data['activeMenu'] = "sinadiSbm";
+    $data['sbmSourceUrl'] = "https://jdih.kemenkeu.go.id/api/download/ccce2e9f-11fe-41ee-9da3-c7d42609b484/2025pmkeuangan032.pdf";
+    $data['sbmPreviewUrl'] = "/sinadi/sbm/pdf";
+
+    return view('sinadi/sinadi_sbm', $data);
+  }
+
+  public function sbmPdf()
+  {
+    $remoteUrl = 'https://jdih.kemenkeu.go.id/api/download/ccce2e9f-11fe-41ee-9da3-c7d42609b484/2025pmkeuangan032.pdf';
+    $cacheFilename = 'sbm_2025pmkeuangan032.pdf';
+    $cacheDir = WRITEPATH . 'file-sinadi/';
+    $cachePath = $cacheDir . $cacheFilename;
+
+    if (session_status() === PHP_SESSION_ACTIVE) {
+      session_write_close();
+    }
+
+    if (!is_file($cachePath) || filesize($cachePath) < 10240) {
+      if (!is_dir($cacheDir)) {
+        @mkdir($cacheDir, 0775, true);
+      }
+
+      $pdfBytes = false;
+      if (function_exists('curl_init')) {
+        $ch = curl_init($remoteUrl);
+        curl_setopt_array($ch, [
+          CURLOPT_RETURNTRANSFER => true,
+          CURLOPT_FOLLOWLOCATION => true,
+          CURLOPT_MAXREDIRS      => 5,
+          CURLOPT_CONNECTTIMEOUT => 4,
+          CURLOPT_TIMEOUT        => 12,
+          CURLOPT_SSL_VERIFYPEER => false,
+          CURLOPT_SSL_VERIFYHOST => 0,
+          CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          CURLOPT_HTTPHEADER     => [
+            'Accept: application/pdf,application/octet-stream;q=0.9,*/*;q=0.8',
+            'Accept-Language: id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Referer: https://jdih.kemenkeu.go.id/',
+          ],
+        ]);
+        $resp = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($httpCode === 200 && is_string($resp) && strlen($resp) > 10240 && strncmp($resp, '%PDF', 4) === 0) {
+          $pdfBytes = $resp;
+        }
+      }
+
+      if ($pdfBytes === false) {
+        $ctx = stream_context_create([
+          'http' => [
+            'timeout' => 8,
+            'header'  => "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36\r\nAccept: application/pdf,*/*\r\nReferer: https://jdih.kemenkeu.go.id/\r\n",
+          ],
+          'ssl' => [
+            'verify_peer'      => false,
+            'verify_peer_name' => false,
+          ],
+        ]);
+        $resp = @file_get_contents($remoteUrl, false, $ctx);
+        if (is_string($resp) && strlen($resp) > 10240 && strncmp($resp, '%PDF', 4) === 0) {
+          $pdfBytes = $resp;
+        }
+      }
+
+      if ($pdfBytes !== false) {
+        @file_put_contents($cachePath, $pdfBytes, LOCK_EX);
+      }
+    }
+
+    if (is_file($cachePath) && filesize($cachePath) >= 10240) {
+      if ($this->request->getGet('download') === '1') {
+        return $this->response
+          ->download($cachePath, null)
+          ->setFileName('PMK_32_Tahun_2025_SBM.pdf');
+      }
+      return $this->previewBuktiBerkas($cacheFilename);
+    }
+
+    return redirect()->to($remoteUrl);
+  }
+
   public function download_nota_dinas_zip($id_perjalanan)
   {
     $peserta = $this->sinadiPerjalananDinasPesertaModel->where('id_perjalanan', $id_perjalanan)->where('file IS NOT NULL')->findAll();

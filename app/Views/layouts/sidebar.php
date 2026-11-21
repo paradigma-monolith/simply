@@ -397,8 +397,8 @@
 
     
     <!-- APLIKASI SINADI -->
-    <li id="sinadi" class="nav-item <?= in_array($activeMenu, ['sinadiVerifikator', 'notaDinas', 'sinadiPengaturan', 'sinadiSaya', 'formulirPerjalananDinas', 'dinasDalamKota', 'dinasLuarKota', 'sinadiTracingTb', 'sinadiTracingTbVerifikator']) ? "menu-open" : ""; ?>">
-      <a href="#" class="nav-link <?= in_array($activeMenu, ['sinadiVerifikator', 'notaDinas', 'sinadiPengaturan', 'sinadiSaya', 'formulirPerjalananDinas', 'dinasDalamKota', 'dinasLuarKota', 'sinadiTracingTb', 'sinadiTracingTbVerifikator']) ? "active" : ""; ?>">
+    <li id="sinadi" class="nav-item <?= in_array($activeMenu, ['sinadiVerifikator', 'notaDinas', 'sinadiSbm', 'sinadiPengaturan', 'sinadiSaya', 'formulirPerjalananDinas', 'dinasDalamKota', 'dinasLuarKota', 'sinadiTracingTb', 'sinadiTracingTbVerifikator']) ? "menu-open" : ""; ?>">
+      <a href="#" class="nav-link <?= in_array($activeMenu, ['sinadiVerifikator', 'notaDinas', 'sinadiSbm', 'sinadiPengaturan', 'sinadiSaya', 'formulirPerjalananDinas', 'dinasDalamKota', 'dinasLuarKota', 'sinadiTracingTb', 'sinadiTracingTbVerifikator']) ? "active" : ""; ?>">
         <i class="nav-icon fas fa-shuttle-van"></i>
         <p>
           SINADI (Perjalanan Dinas)
@@ -439,7 +439,7 @@
           </a>
         </li>
         <li class="nav-item">
-          <a href="https://jdih.kemenkeu.go.id/api/download/ccce2e9f-11fe-41ee-9da3-c7d42609b484/2025pmkeuangan032.pdf" target="_blank" class="nav-link">
+          <a href="/sinadi/sbm" class="nav-link <?= in_array($activeMenu, ['sinadiSbm']) ? "active" : ""; ?>">
             <i class="far fa-circle nav-icon"></i>
             <p>SBM</p>
           </a>
