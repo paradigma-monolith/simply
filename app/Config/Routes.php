@@ -80,10 +80,10 @@ $routes->get('/absen/motivasi/get', 'Absen\Crud::getMotivasi');
 $routes->post('/absen/motivasi/save', 'Absen\Crud::saveMotivasi');
 $routes->post('/absen/motivasi/delete', 'Absen\Crud::deleteMotivasi');
 $routes->get('/maintenance', 'Home::maintenance/May-04, 2025-14:10:00');
-if(session()->get('role') != "Admin") {
-    // $routes->get('/sinadi/notaDinas', 'Home::maintenance/May-27, 2025-10:10:00');
-    // $routes->get('/sinadi/verifikasiSurat', 'Home::maintenance/May-09, 2025-15:10:00');
-}
+// if(session()->get('role') != "Admin") {
+//     $routes->get('/sinadi/notaDinas', 'Home::maintenance/May-27, 2025-10:10:00');
+//     $routes->get('/sinadi/verifikasiSurat', 'Home::maintenance/May-09, 2025-15:10:00');
+// }
 $routes->post('/sinadi/hapusNotaDinas', 'Sinadi\Crud::hapusNotaDinas');
 $routes->get('tes', function() {
     return view('tes');
@@ -770,7 +770,8 @@ $routes->post('/absen/validasiMasuk/(:num)/(:num)', 'Absen\Crud::validasiMasuk/$
 $routes->post('/absen/validasiPulang/(:num)/(:num)', 'Absen\Crud::validasiPulang/$1/$2');
 $routes->get('/absen/getSecondImage/(:num)', 'Absen\Ajax::getSecondImage/$1');
 $routes->post('/absen/getImage', 'Absen\Ajax::getImage');
-$routes->get('/absen/foto/(:num)/(:alphanum)', 'Absen\Ajax::serveFoto/$1/$2');
+$routes->get('/absen/foto/(:num)/(:alphanum)', 'Absen\Foto::show/$1/$2');
+$routes->get('/absen/foto-check/(:num)/(:alpha)', 'Absen\Foto::checkSecond/$1/$2');
 
 $routes->post('/absen/addKeterangan', 'Absen\Crud::addKeterangan');
 $routes->get('/absen/getPegawai', 'Absen\Ajax::getPegawai');

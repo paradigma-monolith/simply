@@ -29,12 +29,25 @@ class AbsenZonaEvaluator
             return self::$rawTargets;
         }
 
-        $cache = Services::cache();
-        $targets = $cache->get(self::CACHE_KEY);
+        $targets = null;
+        try {
+            $cache = Services::cache();
+            $cached = $cache->get(self::CACHE_KEY);
+            if (is_array($cached)) {
+                $targets = $cached;
+            }
+        } catch (\Throwable $e) {
+            $targets = null;
+        }
+
         if (!is_array($targets)) {
             $model = new AbsenTargetModel();
-            $targets = $model->findAll();
-            $cache->save(self::CACHE_KEY, $targets, self::CACHE_TTL);
+            $targets = $model->select('id_absen_target, id_unit_kerja, ket_tempat, polygon, tolerance_meters')->findAll();
+            try {
+                Services::cache()->save(self::CACHE_KEY, $targets, self::CACHE_TTL);
+            } catch (\Throwable $e) {
+                // Abaikan jika direktori cache tidak writable di server
+            }
         }
 
         self::$rawTargets = $targets;

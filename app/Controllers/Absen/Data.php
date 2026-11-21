@@ -145,60 +145,99 @@ class Data extends BaseController
     $username = (string) session()->get('username');
     $data['isAdmin'] = (session()->get('role') === 'Admin');
 
-    // Query langsung ke data_pegawai tanpa subquery UNION & tanpa memuat kolom mediumtext/blob gambar
-    $builder = $this->dataPegawaiModel->builder();
-    $builder->select("
-        CASE
-            WHEN absen.rekam_absen IS NULL OR absen.rekam_absen = '' THEN 0
-            ELSE JSON_LENGTH(absen.rekam_absen)
-        END AS jumlah_array,
-        CASE WHEN absen.image_masuk_1 IS NOT NULL AND absen.image_masuk_1 != '' THEN 1 ELSE 0 END AS has_foto_masuk,
-        CASE WHEN absen.image_masuk_2 IS NOT NULL AND absen.image_masuk_2 != '' THEN 1 ELSE 0 END AS has_foto_masuk_2,
-        CASE WHEN absen.image_pulang_1 IS NOT NULL AND absen.image_pulang_1 != '' THEN 1 ELSE 0 END AS has_foto_pulang,
-        CASE WHEN absen.image_pulang_2 IS NOT NULL AND absen.image_pulang_2 != '' THEN 1 ELSE 0 END AS has_foto_pulang_2,
-        data_pegawai.id_data_pegawai AS dp_id_data_pegawai,
-        data_pegawai.nama,
-        absen.id_absen,
-        absen.status_masuk,
-        absen.status_pulang,
-        absen.longitude_masuk,
-        absen.latitude_masuk,
-        absen.longitude_pulang,
-        absen.latitude_pulang,
-        absen.alamat_masuk,
-        absen.alamat_pulang,
-        absen.jam_masuk,
-        absen.jam_pulang,
-        absen.validation_masuk,
-        absen.validation_pulang,
-        absen.keterangan,
-        absen.aturan_jam_masuk,
-        absen.aturan_jam_pulang,
-        absen.toleransi_keterlambatan,
-        absen.updated_at,
-        golongan.id_golongan,
-        golongan.golongan,
-        golongan.urutan
-    ");
-    $builder->join('user', 'user.id_user = data_pegawai.id_user');
-    $builder->join('golongan', 'data_pegawai.id_golongan = golongan.id_golongan');
-    $builder->join('absen', 'data_pegawai.id_data_pegawai = absen.id_data_pegawai', 'left');
-    $builder->where('user.username', $username);
+    // Step 1: Ambil 1 profil pegawai untuk user login (< 1 ms)
+    $pegawai = $this->dataPegawaiModel->builder()
+      ->select('data_pegawai.id_data_pegawai AS dp_id_data_pegawai, data_pegawai.nama, golongan.id_golongan, golongan.golongan, golongan.urutan')
+      ->join('user', 'user.id_user = data_pegawai.id_user')
+      ->join('golongan', 'data_pegawai.id_golongan = golongan.id_golongan')
+      ->where('user.username', $username)
+      ->limit(1)
+      ->get()
+      ->getRowArray();
 
-    $builder->groupStart();
-    $builder->where('absen.status_masuk !=', 'DL');
-    $builder->orWhere('absen.status_masuk IS NULL');
-    $builder->groupEnd();
+    $rows = [];
+    if ($pegawai) {
+      $idPegawai = (int) $pegawai['dp_id_data_pegawai'];
+      $db = \Config\Database::connect();
 
-    $builder->groupStart();
-    $builder->where('absen.status_pulang !=', 'DL');
-    $builder->orWhere('absen.status_pulang IS NULL');
-    $builder->groupEnd();
+      // Step 2a (Deferred PK lookup): Hanya baca kolom inline kecil, TANPA menyentuh kolom BLOB/mediumtext/longtext!
+      // ORDER BY id_absen DESC memanfaatkan backward PRIMARY KEY scan sehingga langsung berhenti setelah 40 baris
+      // bahkan di server produksi yang belum memiliki index tambahan pada tabel absen.
+      $idRows = $db->query(
+        "SELECT id_absen
+         FROM absen
+         WHERE id_data_pegawai = ?
+           AND (status_masuk != 'DL' OR status_masuk IS NULL)
+           AND (status_pulang != 'DL' OR status_pulang IS NULL)
+         ORDER BY id_absen DESC
+         LIMIT 40",
+        [$idPegawai]
+      )->getResultArray();
 
-    $builder->orderBy('absen.jam_masuk', 'desc');
-    $builder->limit(40);
+      if (!empty($idRows)) {
+        $ids = array_map(static fn ($r) => (int) $r['id_absen'], $idRows);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
 
-    $rows = $builder->get()->getResultArray();
+        // Step 2b: Ambil detail HANYA untuk <= 40 baris via PRIMARY KEY, TANPA membaca kolom image_masuk_*/image_pulang_*!
+        $absenRows = $db->query(
+          "SELECT
+              id_absen,
+              status_masuk,
+              status_pulang,
+              longitude_masuk,
+              latitude_masuk,
+              longitude_pulang,
+              latitude_pulang,
+              alamat_masuk,
+              alamat_pulang,
+              jam_masuk,
+              jam_pulang,
+              validation_masuk,
+              validation_pulang,
+              keterangan,
+              aturan_jam_masuk,
+              aturan_jam_pulang,
+              toleransi_keterlambatan,
+              updated_at,
+              CASE
+                  WHEN rekam_absen IS NULL OR rekam_absen = '' OR NOT JSON_VALID(rekam_absen) THEN 0
+                  ELSE JSON_LENGTH(rekam_absen)
+              END AS jumlah_array
+           FROM absen
+           WHERE id_absen IN ({$placeholders})
+           ORDER BY jam_masuk DESC, id_absen DESC",
+          $ids
+        )->getResultArray();
+
+        foreach ($absenRows as $aRow) {
+          $rows[] = array_merge($pegawai, $aRow);
+        }
+      } else {
+        // Pertahankan 1 baris kosong (sama seperti perilaku LEFT JOIN sebelumnya jika pegawai belum pernah absen)
+        $rows[] = array_merge($pegawai, [
+          'id_absen'                => null,
+          'status_masuk'            => null,
+          'status_pulang'           => null,
+          'longitude_masuk'         => null,
+          'latitude_masuk'          => null,
+          'longitude_pulang'        => null,
+          'latitude_pulang'         => null,
+          'alamat_masuk'            => null,
+          'alamat_pulang'           => null,
+          'jam_masuk'               => null,
+          'jam_pulang'              => null,
+          'validation_masuk'        => null,
+          'validation_pulang'       => null,
+          'keterangan'              => '',
+          'aturan_jam_masuk'        => null,
+          'aturan_jam_pulang'       => null,
+          'toleransi_keterlambatan' => null,
+          'updated_at'              => null,
+          'jumlah_array'            => 0,
+        ]);
+      }
+    }
+
     \App\Libraries\AbsenZonaEvaluator::enrichRows($rows);
     $data['absen'] = $rows;
 

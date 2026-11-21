@@ -282,94 +282,144 @@ class Ajax extends BaseController
       $endDt   = $day2 . ' 23:59:59';
       $isMultiMonth = (substr($day1, 0, 7) !== substr($day2, 0, 7));
 
-      $fotoSelect = $isMultiMonth ? '' : "
-          CASE WHEN absen.image_masuk_1 IS NOT NULL AND absen.image_masuk_1 != '' THEN 1 ELSE 0 END AS has_foto_masuk,
-          CASE WHEN absen.image_masuk_2 IS NOT NULL AND absen.image_masuk_2 != '' THEN 1 ELSE 0 END AS has_foto_masuk_2,
-          CASE WHEN absen.image_pulang_1 IS NOT NULL AND absen.image_pulang_1 != '' THEN 1 ELSE 0 END AS has_foto_pulang,
-          CASE WHEN absen.image_pulang_2 IS NOT NULL AND absen.image_pulang_2 != '' THEN 1 ELSE 0 END AS has_foto_pulang_2,
-          absen.updated_at,
-      ";
+      // Ambil daftar pegawai aktif (ter-cache 5 menit) agar tidak melakukan LEFT JOIN 138x ke tabel absen
+      $activeEmployees = null;
+      try {
+        $cachedEmp = Services::cache()->get('absen_pegawai_aktif_detail_v1');
+        if (is_array($cachedEmp)) {
+          $activeEmployees = $cachedEmp;
+        }
+      } catch (\Throwable $e) {
+        $activeEmployees = null;
+      }
 
-      $commonSelect = "
-          CASE
-              WHEN absen.rekam_absen IS NULL OR absen.rekam_absen = '' THEN 0
-              ELSE JSON_LENGTH(absen.rekam_absen)
-          END AS jumlah_array,
-          {$fotoSelect}
-          data_pegawai.id_data_pegawai AS dp_id_data_pegawai,
-          data_pegawai.nama,
-          absen.id_absen,
-          absen.status_masuk,
-          absen.status_pulang,
-          absen.longitude_masuk,
-          absen.latitude_masuk,
-          absen.longitude_pulang,
-          absen.latitude_pulang,
-          absen.alamat_masuk,
-          absen.alamat_pulang,
-          absen.jam_masuk,
-          absen.jam_pulang,
-          absen.validation_masuk,
-          absen.validation_pulang,
-          absen.keterangan,
-          absen.aturan_jam_masuk,
-          absen.aturan_jam_pulang,
-          absen.toleransi_keterlambatan,
-          golongan.id_golongan,
-          golongan.golongan,
-          golongan.urutan
-      ";
+      if (!is_array($activeEmployees)) {
+        $activeEmployees = $this->dataPegawaiModel->builder()
+          ->select('data_pegawai.id_data_pegawai AS dp_id_data_pegawai, data_pegawai.nama, golongan.id_golongan, golongan.golongan, golongan.urutan')
+          ->join('golongan', 'data_pegawai.id_golongan = golongan.id_golongan', 'left')
+          ->where('data_pegawai.status_bekerja', 'Aktif')
+          ->orderBy('golongan.urutan', 'desc')
+          ->orderBy('data_pegawai.nama', 'asc')
+          ->get()
+          ->getResultArray();
+        try {
+          Services::cache()->save('absen_pegawai_aktif_detail_v1', $activeEmployees, 300);
+        } catch (\Throwable $e) {
+          // Abaikan bila cache tidak writable
+        }
+      }
 
+      // Deferred PK lookup: Step A hanya menyaring kolom inline kecil (jam_masuk, status) TANPA menyentuh BLOB/mediumtext/longtext!
+      $idRows = $db->query(
+        "SELECT id_absen
+         FROM absen
+         WHERE jam_masuk >= ? AND jam_masuk <= ?
+           AND (status_masuk != 'DL' OR status_masuk IS NULL)
+           AND (status_pulang != 'DL' OR status_pulang IS NULL)",
+        [$startDt, $endDt]
+      )->getResultArray();
+
+      // Step B: Ambil kolom non-gambar + jumlah_array HANYA berdasarkan PRIMARY KEY yang cocok (chunked agar aman di rentang besar)
+      $absenRows = [];
+      if (!empty($idRows)) {
+        $allIds = array_map(static fn ($r) => (int) $r['id_absen'], $idRows);
+        foreach (array_chunk($allIds, 500) as $idChunk) {
+          $placeholders = implode(',', array_fill(0, count($idChunk), '?'));
+          $chunkRows = $db->query(
+            "SELECT
+                id_absen,
+                id_data_pegawai,
+                status_masuk,
+                status_pulang,
+                longitude_masuk,
+                latitude_masuk,
+                longitude_pulang,
+                latitude_pulang,
+                alamat_masuk,
+                alamat_pulang,
+                jam_masuk,
+                jam_pulang,
+                validation_masuk,
+                validation_pulang,
+                keterangan,
+                aturan_jam_masuk,
+                aturan_jam_pulang,
+                toleransi_keterlambatan,
+                updated_at,
+                CASE
+                    WHEN rekam_absen IS NULL OR rekam_absen = '' OR NOT JSON_VALID(rekam_absen) THEN 0
+                    ELSE JSON_LENGTH(rekam_absen)
+                END AS jumlah_array
+             FROM absen
+             WHERE id_absen IN ({$placeholders})",
+            $idChunk
+          )->getResultArray();
+          foreach ($chunkRows as $cr) {
+            $absenRows[] = $cr;
+          }
+        }
+      }
+
+      $rows = [];
       if ($day1 === $day2) {
-        // Satu hari: tampilkan seluruh pegawai aktif beserta status absennya pada tanggal tersebut (SARGable range)
-        $builder = $this->dataPegawaiModel->builder();
-        $builder->select($commonSelect, false);
-        $builder->join(
-          'absen',
-          'data_pegawai.id_data_pegawai = absen.id_data_pegawai AND absen.jam_masuk >= ' . $db->escape($startDt) . ' AND absen.jam_masuk <= ' . $db->escape($endDt),
-          'left'
-        );
-        $builder->join('golongan', 'data_pegawai.id_golongan = golongan.id_golongan');
-        $builder->where('data_pegawai.status_bekerja', 'Aktif');
+        // Satu hari: tampilkan semua pegawai aktif; gabungkan absen di PHP (O(N), tanpa nested-loop LEFT JOIN SQL)
+        $absenByPegawai = [];
+        foreach ($absenRows as $aRow) {
+          $pid = (int) $aRow['id_data_pegawai'];
+          $absenByPegawai[$pid][] = $aRow;
+        }
 
-        $builder->groupStart();
-        $builder->where('absen.status_masuk !=', 'DL');
-        $builder->orWhere('absen.status_masuk IS NULL');
-        $builder->groupEnd();
+        $emptyAbsen = [
+          'id_absen'                => null,
+          'status_masuk'            => null,
+          'status_pulang'           => null,
+          'longitude_masuk'         => null,
+          'latitude_masuk'          => null,
+          'longitude_pulang'        => null,
+          'latitude_pulang'         => null,
+          'alamat_masuk'            => null,
+          'alamat_pulang'           => null,
+          'jam_masuk'               => null,
+          'jam_pulang'              => null,
+          'validation_masuk'        => null,
+          'validation_pulang'       => null,
+          'keterangan'              => '',
+          'aturan_jam_masuk'        => null,
+          'aturan_jam_pulang'       => null,
+          'toleransi_keterlambatan' => null,
+          'updated_at'              => null,
+          'jumlah_array'            => 0,
+        ];
 
-        $builder->groupStart();
-        $builder->where('absen.status_pulang !=', 'DL');
-        $builder->orWhere('absen.status_pulang IS NULL');
-        $builder->groupEnd();
-
-        $builder->orderBy('golongan.urutan', 'desc');
-        $builder->orderBy('data_pegawai.nama', 'asc');
-
-        $rows = $builder->get()->getResultArray();
+        foreach ($activeEmployees as $emp) {
+          $pid = (int) $emp['dp_id_data_pegawai'];
+          if (!empty($absenByPegawai[$pid])) {
+            foreach ($absenByPegawai[$pid] as $aRow) {
+              $rows[] = array_merge($emp, $aRow);
+            }
+          } else {
+            $rows[] = array_merge($emp, $emptyAbsen);
+          }
+        }
       } else {
-        // Rentang beberapa hari: filter rentang waktu langsung di WHERE agar memakai index absen.jam_masuk
-        $builder = $this->absenModel->builder();
-        $builder->select($commonSelect, false);
-        $builder->join('data_pegawai', 'data_pegawai.id_data_pegawai = absen.id_data_pegawai', 'inner');
-        $builder->join('golongan', 'data_pegawai.id_golongan = golongan.id_golongan', 'left');
-        $builder->where('absen.jam_masuk >=', $startDt);
-        $builder->where('absen.jam_masuk <=', $endDt);
-        $builder->where('data_pegawai.status_bekerja', 'Aktif');
-
-        $builder->groupStart();
-        $builder->where('absen.status_masuk !=', 'DL');
-        $builder->orWhere('absen.status_masuk IS NULL');
-        $builder->groupEnd();
-
-        $builder->groupStart();
-        $builder->where('absen.status_pulang !=', 'DL');
-        $builder->orWhere('absen.status_pulang IS NULL');
-        $builder->groupEnd();
-
-        $builder->orderBy('golongan.urutan', 'desc');
-        $builder->orderBy('absen.jam_masuk', 'desc');
-
-        $rows = $builder->get()->getResultArray();
+        // Rentang multi-hari: gabungkan baris absen dengan pegawai aktif lalu urutkan berdasarkan urutan golongan & jam_masuk
+        $empMap = [];
+        foreach ($activeEmployees as $emp) {
+          $empMap[(int) $emp['dp_id_data_pegawai']] = $emp;
+        }
+        foreach ($absenRows as $aRow) {
+          $pid = (int) $aRow['id_data_pegawai'];
+          if (isset($empMap[$pid])) {
+            $rows[] = array_merge($empMap[$pid], $aRow);
+          }
+        }
+        usort($rows, static function (array $a, array $b): int {
+          $cmpUrutan = ((int) ($b['urutan'] ?? 0)) <=> ((int) ($a['urutan'] ?? 0));
+          if ($cmpUrutan !== 0) {
+            return $cmpUrutan;
+          }
+          return strcmp((string) ($b['jam_masuk'] ?? ''), (string) ($a['jam_masuk'] ?? ''));
+        });
       }
 
       \App\Libraries\AbsenZonaEvaluator::enrichRows($rows);
@@ -467,8 +517,16 @@ class Ajax extends BaseController
         session_write_close();
       }
 
-      $cache = Services::cache();
-      $pegawai = $cache->get('absen_pegawai_aktif_v1');
+      $pegawai = null;
+      try {
+        $cached = Services::cache()->get('absen_pegawai_aktif_v1');
+        if (is_array($cached)) {
+          $pegawai = $cached;
+        }
+      } catch (\Throwable $e) {
+        $pegawai = null;
+      }
+
       if (!is_array($pegawai)) {
         $pegawai = $this->dataPegawaiModel
           ->select('data_pegawai.id_data_pegawai, data_pegawai.nama')
@@ -477,7 +535,11 @@ class Ajax extends BaseController
           ->orderBy('golongan.urutan', 'desc')
           ->orderBy('data_pegawai.nama', 'asc')
           ->findAll();
-        $cache->save('absen_pegawai_aktif_v1', $pegawai, 300);
+        try {
+          Services::cache()->save('absen_pegawai_aktif_v1', $pegawai, 300);
+        } catch (\Throwable $e) {
+          // Abaikan jika direktori cache tidak writable
+        }
       }
 
       return $this->response->setJSON([

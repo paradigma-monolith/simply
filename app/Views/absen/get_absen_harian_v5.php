@@ -76,14 +76,13 @@
         <td <?= $statusAbsen; ?> class="text-center">
           <?php if (!empty($jamMasuk)) : ?>
             <?php if (empty($data['keterangan'])) : ?>
-              <?php if ($idAbsen > 0 && !empty($data['has_foto_masuk'])) : ?>
-                <img src="/absen/foto/<?= $idAbsen; ?>/masuk<?= $verQ; ?>"
+              <?php if ($idAbsen > 0) : ?>
+                <img src="/dist/img/boxed-bg.jpg"
+                     data-foto-url="/absen/foto/<?= $idAbsen; ?>/masuk<?= $verQ; ?>"
                      data-idabsen="<?= $idAbsen; ?>"
                      data-ket="masuk"
-                     <?= !empty($data['has_foto_masuk_2']) ? 'data-second-src="/absen/foto/' . $idAbsen . '/masuk2' . $verQ . '"' : ''; ?>
-                     loading="lazy"
                      decoding="async"
-                     class="galleryAction absen-thumb"
+                     class="galleryAction absen-thumb absen-foto-deferred"
                      alt="Foto Masuk"
                      onerror="this.onerror=null;this.src='/dist/img/boxed-bg.jpg';" />
               <?php endif; ?>
@@ -106,14 +105,13 @@
         <td <?= $statusAbsen; ?> class="text-center">
           <?php if (!empty($jamPulang)) : ?>
             <?php if (empty($data['keterangan'])) : ?>
-              <?php if ($idAbsen > 0 && !empty($data['has_foto_pulang'])) : ?>
-                <img src="/absen/foto/<?= $idAbsen; ?>/pulang<?= $verQ; ?>"
+              <?php if ($idAbsen > 0) : ?>
+                <img src="/dist/img/boxed-bg.jpg"
+                     data-foto-url="/absen/foto/<?= $idAbsen; ?>/pulang<?= $verQ; ?>"
                      data-idabsen="<?= $idAbsen; ?>"
                      data-ket="pulang"
-                     <?= !empty($data['has_foto_pulang_2']) ? 'data-second-src="/absen/foto/' . $idAbsen . '/pulang2' . $verQ . '"' : ''; ?>
-                     loading="lazy"
                      decoding="async"
-                     class="galleryAction absen-thumb"
+                     class="galleryAction absen-thumb absen-foto-deferred"
                      alt="Foto Pulang"
                      onerror="this.onerror=null;this.src='/dist/img/boxed-bg.jpg';" />
               <?php endif; ?>

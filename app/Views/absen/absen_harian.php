@@ -131,14 +131,13 @@
                 <td <?= $statusAbsen; ?> class="text-center">
                   <?php if (!empty($jamMasuk)) : ?>
                     <?php if (empty($data['keterangan'])) : ?>
-                      <?php if ($idAbsen > 0 && !empty($data['has_foto_masuk'])) : ?>
-                        <img src="/absen/foto/<?= $idAbsen; ?>/masuk<?= $verQ; ?>"
+                      <?php if ($idAbsen > 0) : ?>
+                        <img src="/dist/img/boxed-bg.jpg"
+                             data-foto-url="/absen/foto/<?= $idAbsen; ?>/masuk<?= $verQ; ?>"
                              data-idabsen="<?= $idAbsen; ?>"
                              data-ket="masuk"
-                             <?= !empty($data['has_foto_masuk_2']) ? 'data-second-src="/absen/foto/' . $idAbsen . '/masuk2' . $verQ . '"' : ''; ?>
-                             loading="lazy"
                              decoding="async"
-                             class="galleryAction absen-thumb"
+                             class="galleryAction absen-thumb absen-foto-deferred"
                              alt="Foto Masuk"
                              onerror="this.onerror=null;this.src='/dist/img/boxed-bg.jpg';" />
                       <?php endif; ?>
@@ -161,14 +160,13 @@
                 <td <?= $statusAbsen; ?> class="text-center">
                   <?php if (!empty($jamPulang)) : ?>
                     <?php if (empty($data['keterangan'])) : ?>
-                      <?php if ($idAbsen > 0 && !empty($data['has_foto_pulang'])) : ?>
-                        <img src="/absen/foto/<?= $idAbsen; ?>/pulang<?= $verQ; ?>"
+                      <?php if ($idAbsen > 0) : ?>
+                        <img src="/dist/img/boxed-bg.jpg"
+                             data-foto-url="/absen/foto/<?= $idAbsen; ?>/pulang<?= $verQ; ?>"
                              data-idabsen="<?= $idAbsen; ?>"
                              data-ket="pulang"
-                             <?= !empty($data['has_foto_pulang_2']) ? 'data-second-src="/absen/foto/' . $idAbsen . '/pulang2' . $verQ . '"' : ''; ?>
-                             loading="lazy"
                              decoding="async"
-                             class="galleryAction absen-thumb"
+                             class="galleryAction absen-thumb absen-foto-deferred"
                              alt="Foto Pulang"
                              onerror="this.onerror=null;this.src='/dist/img/boxed-bg.jpg';" />
                       <?php endif; ?>
@@ -221,6 +219,11 @@
 (function() {
   var cachedPegawaiOptions = null;
   var currentAbsenXhr = null;
+  var fotoQueue = [];
+  var fotoInFlight = 0;
+  var fotoQueueEpoch = 0;
+  var FOTO_MAX_CONCURRENT = 2;
+  var secondFotoCache = {};
 
   function escapeHtml(str) {
     return String(str == null ? '' : str)
@@ -229,6 +232,72 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  // Muat thumbnail HANYA untuk baris yang tampil di halaman DataTable aktif (maks 2 request paralel agar tidak membebani worker hosting)
+  function pumpFotoQueue() {
+    while (fotoInFlight < FOTO_MAX_CONCURRENT && fotoQueue.length > 0) {
+      var task = fotoQueue.shift();
+      if (!task || task.epoch !== fotoQueueEpoch) continue;
+      if (!document.body.contains(task.img)) continue;
+      if (task.img.getAttribute('data-foto-loaded') === '1') continue;
+
+      fotoInFlight++;
+      (function(t) {
+        var done = false;
+        var finish = function() {
+          if (done) return;
+          done = true;
+          fotoInFlight = Math.max(0, fotoInFlight - 1);
+          pumpFotoQueue();
+        };
+        var loader = new Image();
+        loader.onload = function() {
+          if (t.epoch === fotoQueueEpoch && document.body.contains(t.img)) {
+            t.img.src = t.url;
+            t.img.setAttribute('data-foto-loaded', '1');
+            t.img.classList.remove('absen-foto-deferred');
+          }
+          finish();
+        };
+        loader.onerror = function() {
+          if (t.epoch === fotoQueueEpoch && document.body.contains(t.img)) {
+            t.img.setAttribute('data-foto-loaded', '1');
+            t.img.classList.remove('absen-foto-deferred');
+          }
+          finish();
+        };
+        loader.src = t.url;
+      })(task);
+    }
+  }
+
+  function loadVisibleAbsenPhotos() {
+    fotoQueueEpoch++;
+    fotoQueue = [];
+    var epoch = fotoQueueEpoch;
+    $('#tableWithoutExporting tbody img.absen-foto-deferred').each(function() {
+      var url = this.getAttribute('data-foto-url');
+      if (url && this.getAttribute('data-foto-loaded') !== '1') {
+        fotoQueue.push({ img: this, url: url, epoch: epoch });
+      }
+    });
+    pumpFotoQueue();
+  }
+
+  function bindVisiblePhotoTriggers(attempt) {
+    attempt = attempt || 0;
+    var $tbl = $('#tableWithoutExporting');
+    if (!$tbl.length) return;
+    if ($.fn.DataTable && !$.fn.DataTable.isDataTable($tbl) && attempt < 20) {
+      setTimeout(function() { bindVisiblePhotoTriggers(attempt + 1); }, 50);
+      return;
+    }
+    $tbl.off('draw.dt.absenFoto responsive-display.dt.absenFoto')
+        .on('draw.dt.absenFoto responsive-display.dt.absenFoto', function() {
+          loadVisibleAbsenPhotos();
+        });
+    loadVisibleAbsenPhotos();
   }
 
   function loadPegawaiOptions(onReady) {
@@ -282,6 +351,8 @@
       responsive: responsiveOpt,
       buttons: ["copy", "colvis"]
     }).buttons().container().appendTo('#tableWithoutExporting_wrapper .col-md-6:eq(0)');
+
+    bindVisiblePhotoTriggers();
   }
 
   function fetchAbsenHarian(tanggalVal) {
@@ -750,19 +821,8 @@
     });
   });
 
-  // Galeri foto instan menggunakan URL ter-cache (/absen/foto/{id}/...) tanpa AJAX tambahan
-  $(document).on('click', '.galleryAction', function(e) {
-    e.preventDefault();
-    var $img = $(this);
-    var firstSrc = $img.attr('src');
-    if (!firstSrc) return false;
-
-    var items = [{ src: firstSrc, type: 'image' }];
-    var secondSrc = $img.attr('data-second-src');
-    if (secondSrc) {
-      items.push({ src: secondSrc, type: 'image' });
-    }
-
+  // Galeri foto: gunakan URL ter-cache (/absen/foto/{id}/...) + cek foto ke-2 via endpoint ringan (/absen/foto-check) hanya saat diklik
+  function openGalleryItems(items) {
     if ($.magnificPopup) {
       $.magnificPopup.open({
         items: items,
@@ -770,7 +830,6 @@
         closeBtnInside: true
       });
     } else {
-      // Fallback ke modal Bootstrap jika CDN Magnific Popup tidak termuat
       var imgsHtml = items.map(function(item, idx) {
         return '<div class="' + (items.length > 1 ? 'col-md-6' : 'col-12') + ' text-center mb-2">'
           + '<img src="' + escapeHtml(item.src) + '" class="img-fluid rounded border" style="max-height:70vh;" alt="Foto ' + (idx + 1) + '">'
@@ -779,6 +838,45 @@
       $("#modal-lg").find(".modal-body").html('<div class="row">' + imgsHtml + '</div>');
       $("#modal-lg").modal('show');
     }
+  }
+
+  $(document).on('click', '.galleryAction', function(e) {
+    e.preventDefault();
+    var $img = $(this);
+    var idAbsen = $img.data('idabsen');
+    var ket = $img.data('ket') || 'masuk';
+    var firstSrc = $img.attr('data-foto-url') || $img.attr('src');
+    if (!firstSrc) return false;
+
+    var cacheKey = idAbsen + '|' + ket;
+    if (Object.prototype.hasOwnProperty.call(secondFotoCache, cacheKey)) {
+      var items = [{ src: firstSrc, type: 'image' }];
+      if (secondFotoCache[cacheKey]) {
+        items.push({ src: secondFotoCache[cacheKey], type: 'image' });
+      }
+      openGalleryItems(items);
+      return false;
+    }
+
+    $.ajax({
+      url: '/absen/foto-check/' + idAbsen + '/' + ket,
+      method: 'GET',
+      dataType: 'json',
+      timeout: 6000,
+      success: function(res) {
+        var secondUrl = (res && res.has_second && res.url) ? res.url : null;
+        secondFotoCache[cacheKey] = secondUrl;
+        var items = [{ src: firstSrc, type: 'image' }];
+        if (secondUrl) {
+          items.push({ src: secondUrl, type: 'image' });
+        }
+        openGalleryItems(items);
+      },
+      error: function() {
+        openGalleryItems([{ src: firstSrc, type: 'image' }]);
+      }
+    });
+
     return false;
   });
 
@@ -869,6 +967,11 @@
       var url = $(this).data('url');
       $('#myForm').attr('action', url).submit();
     });
+
+    // Jalankan pemuatan foto halaman aktif SETELAH DataTables di layout selesai memaginasi ke 10 baris
+    setTimeout(function() {
+      bindVisiblePhotoTriggers();
+    }, 0);
   });
 })();
 </script>
