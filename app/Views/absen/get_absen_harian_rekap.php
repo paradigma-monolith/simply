@@ -90,10 +90,12 @@
           <?php endif; ?>
         </td>
         <td>
-          <?php if ($idAbsen > 0 && $canEditDel) : ?>
+          <?php if ($canEditDel) : ?>
             <div class="btn-group mb-2" role="group">
-              <button type="button" data-id="<?= $idAbsen; ?>" data-idpegawai="<?= (int) $data['dp_id_data_pegawai']; ?>" class="btn btn-sm btn-warning btn-edit-absen"><i class="fas fa-edit"></i> Edit</button>
-              <button type="button" data-id="<?= $idAbsen; ?>" class="btn btn-sm btn-danger btn-delete-absen"><i class="fas fa-trash"></i> Delete</button>
+              <button type="button" data-id="<?= $idAbsen; ?>" data-idpegawai="<?= (int) $data['dp_id_data_pegawai']; ?>" data-nama="<?= esc($data['nama'], 'attr'); ?>" class="btn btn-sm btn-warning btn-edit-absen"><i class="fas fa-edit"></i> Edit</button>
+              <?php if ($idAbsen > 0) : ?>
+                <button type="button" data-id="<?= $idAbsen; ?>" class="btn btn-sm btn-danger btn-delete-absen"><i class="fas fa-trash"></i> Delete</button>
+              <?php endif; ?>
             </div>
           <?php endif; ?>
           <?php if ($idAbsen > 0 && !empty($evalMasuk['show_verifikasi'])) : ?>

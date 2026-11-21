@@ -1133,35 +1133,149 @@ class Crud extends BaseController
 
   public function updateDataAbsenAll()
   {
-    $id_absen = $this->request->getVar("id_absen");
+    $isAjax = $this->request->isAJAX();
+    $id_absen = (int) ($this->request->getVar("id_absen") ?? 0);
+    $id_data_pegawai = (int) ($this->request->getVar("id_data_pegawai") ?? 0);
+    $tanggal_target = trim((string) ($this->request->getVar("tanggal_target") ?? ''));
+
+    $normalizeDateTime = static function ($val): ?string {
+      $str = trim((string) ($val ?? ''));
+      if ($str === '') {
+        return null;
+      }
+      if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $str)) {
+        return $str . ':00';
+      }
+      return $str;
+    };
+
+    $allowedStatuses = ['WFO', 'WFA', 'DL', 'TL', 'Cuti', 'Sakit', 'Izin', 'Alpa'];
+    $normalizeStatus = static function ($val) use ($allowedStatuses): ?string {
+      $str = trim((string) ($val ?? ''));
+      if ($str === '') {
+        return null;
+      }
+      if ($str === 'WFH') {
+        $str = 'WFA';
+      }
+      return in_array($str, $allowedStatuses, true) ? $str : null;
+    };
+
+    $jamMasuk = $normalizeDateTime($this->request->getVar("jam_masuk"));
+    $jamPulang = $normalizeDateTime($this->request->getVar("jam_pulang"));
+    $keterangan = trim((string) ($this->request->getVar("keterangan") ?? ''));
+
     $data = [
-      'status_masuk' => $this->request->getVar("status_masuk"),
-      'jam_masuk' => $this->request->getVar("jam_masuk") ?: null,
-      'alamat_masuk' => $this->request->getVar("alamat_masuk"),
-      'longitude_masuk' => $this->request->getVar("longitude_masuk"),
-      'latitude_masuk' => $this->request->getVar("latitude_masuk"),
-      'status_pulang' => $this->request->getVar("status_pulang"),
-      'jam_pulang' => $this->request->getVar("jam_pulang") ?: null,
-      'alamat_pulang' => $this->request->getVar("alamat_pulang"),
-      'longitude_pulang' => $this->request->getVar("longitude_pulang"),
-      'latitude_pulang' => $this->request->getVar("latitude_pulang"),
-      'keterangan' => $this->request->getVar("keterangan"),
+      'status_masuk'     => $normalizeStatus($this->request->getVar("status_masuk")),
+      'jam_masuk'        => $jamMasuk,
+      'alamat_masuk'     => trim((string) ($this->request->getVar("alamat_masuk") ?? '')),
+      'longitude_masuk'  => trim((string) ($this->request->getVar("longitude_masuk") ?? '')),
+      'latitude_masuk'   => trim((string) ($this->request->getVar("latitude_masuk") ?? '')),
+      'status_pulang'    => $normalizeStatus($this->request->getVar("status_pulang")),
+      'jam_pulang'       => $jamPulang,
+      'alamat_pulang'    => trim((string) ($this->request->getVar("alamat_pulang") ?? '')),
+      'longitude_pulang' => trim((string) ($this->request->getVar("longitude_pulang") ?? '')),
+      'latitude_pulang'  => trim((string) ($this->request->getVar("latitude_pulang") ?? '')),
+      'keterangan'       => $keterangan,
     ];
 
     $foto_masuk = $this->request->getFile("foto_masuk");
-    if ($foto_masuk && $foto_masuk->isValid() && !$foto_masuk->hasMoved() && in_array($foto_masuk->getExtension(), ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico'])) {
+    if ($foto_masuk && $foto_masuk->isValid() && !$foto_masuk->hasMoved() && in_array(strtolower($foto_masuk->getExtension()), ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico'], true)) {
       $data['image_masuk_1'] = generate_base64($foto_masuk->getTempName());
     }
 
     $foto_pulang = $this->request->getFile("foto_pulang");
-    if ($foto_pulang && $foto_pulang->isValid() && !$foto_pulang->hasMoved() && in_array($foto_pulang->getExtension(), ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico'])) {
+    if ($foto_pulang && $foto_pulang->isValid() && !$foto_pulang->hasMoved() && in_array(strtolower($foto_pulang->getExtension()), ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico'], true)) {
       $data['image_pulang_1'] = generate_base64($foto_pulang->getTempName());
     }
 
-    if ($this->absenModel->update($id_absen, $data)) {
-      session()->setFlashdata('pesan', 'Data berhasil diupdate!');
+    $ok = false;
+    $errorMsg = 'Data gagal disimpan!';
+
+    if ($id_absen > 0) {
+      $ok = (bool) $this->absenModel->update($id_absen, $data);
     } else {
-      session()->setFlashdata('error', 'Data gagal diupdate!');
+      if ($id_data_pegawai <= 0) {
+        $errorMsg = 'Data pegawai tidak valid!';
+      } else {
+        $refDate = '';
+        if ($jamMasuk !== null && preg_match('/^(\d{4}-\d{2}-\d{2})/', $jamMasuk, $m)) {
+          $refDate = $m[1];
+        } elseif ($jamPulang !== null && preg_match('/^(\d{4}-\d{2}-\d{2})/', $jamPulang, $m)) {
+          $refDate = $m[1];
+        } elseif (preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggal_target)) {
+          $refDate = $tanggal_target;
+        } else {
+          $refDate = date('Y-m-d');
+        }
+
+        if ($data['jam_masuk'] === null && $keterangan !== '') {
+          $data['jam_masuk'] = $refDate . ' 07:00:00';
+        }
+
+        if ($data['jam_masuk'] === null) {
+          $errorMsg = 'Silakan isi Jam Masuk (atau Keterangan) terlebih dahulu.';
+        } else {
+          // Cegah duplikasi jika pegawai sudah memiliki baris absen di tanggal yang sama
+          $existing = $this->absenModel
+            ->select('id_absen')
+            ->where('id_data_pegawai', $id_data_pegawai)
+            ->where('jam_masuk >=', $refDate . ' 00:00:00')
+            ->where('jam_masuk <=', $refDate . ' 23:59:59')
+            ->first();
+
+          if ($existing && !empty($existing['id_absen'])) {
+            $ok = (bool) $this->absenModel->update((int) $existing['id_absen'], $data);
+          } else {
+            $dayNum = (int) date('N', strtotime($refDate));
+            $getJam = $this->getJamRuleForDay($dayNum);
+            $insertData = array_merge([
+              'id_data_pegawai'            => $id_data_pegawai,
+              'alamat_masuk'               => '',
+              'posisi_alamat_masuk'        => '',
+              'latitude_masuk'             => '',
+              'longitude_masuk'            => '',
+              'image_masuk_1'              => '',
+              'image_masuk_2'              => '',
+              'alamat_pulang'              => '',
+              'posisi_alamat_pulang'       => '',
+              'latitude_pulang'            => '',
+              'longitude_pulang'           => '',
+              'image_pulang_1'             => '',
+              'image_pulang_2'             => '',
+              'keterangan'                 => '',
+              'validation_masuk'           => 'Default',
+              'validation_pulang'          => 'Default',
+              'keterangan_validasi_masuk'  => '',
+              'keterangan_validasi_pulang' => '',
+              'rekam_absen'                => '',
+              'aturan_jam_masuk'           => $getJam['aturan_jam_masuk'] ?? null,
+              'aturan_jam_pulang'          => $getJam['aturan_jam_pulang'] ?? null,
+              'toleransi_keterlambatan'    => $getJam['toleransi_keterlambatan'] ?? null,
+            ], $data);
+            $ok = (bool) $this->absenModel->insert($insertData);
+          }
+        }
+      }
+    }
+
+    if ($isAjax) {
+      if ($ok) {
+        return $this->response->setJSON([
+          'status' => 'sukses',
+          'pesan'  => $id_absen > 0 ? 'Data berhasil diupdate!' : 'Data absensi berhasil disimpan!',
+        ]);
+      }
+      return $this->response->setStatusCode(400)->setJSON([
+        'status' => 'error',
+        'pesan'  => $errorMsg,
+      ]);
+    }
+
+    if ($ok) {
+      session()->setFlashdata('pesan', $id_absen > 0 ? 'Data berhasil diupdate!' : 'Data absensi berhasil disimpan!');
+    } else {
+      session()->setFlashdata('error', $errorMsg);
     }
     return redirect()->back();
   }
