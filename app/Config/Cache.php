@@ -171,7 +171,8 @@ class Cache extends BaseConfig
     {
         parent::__construct();
 
-        if (ENVIRONMENT === 'production' && extension_loaded('redis') && $this->handler === 'file') {
+        $env = defined('ENVIRONMENT') ? ENVIRONMENT : ($_ENV['CI_ENVIRONMENT'] ?? $_SERVER['CI_ENVIRONMENT'] ?? getenv('CI_ENVIRONMENT'));
+        if ($env === 'production' && extension_loaded('redis') && $this->handler === 'file') {
             $this->handler       = 'redis';
             $this->backupHandler = 'file';
         }

@@ -13,7 +13,8 @@ class Session extends BaseConfig
     {
         parent::__construct();
 
-        if (ENVIRONMENT === 'production' && extension_loaded('redis') && $this->driver === FileHandler::class) {
+        $env = defined('ENVIRONMENT') ? ENVIRONMENT : ($_ENV['CI_ENVIRONMENT'] ?? $_SERVER['CI_ENVIRONMENT'] ?? getenv('CI_ENVIRONMENT'));
+        if ($env === 'production' && extension_loaded('redis') && $this->driver === FileHandler::class) {
             $this->driver   = RedisHandler::class;
             $this->savePath = 'tcp://127.0.0.1:6379';
         }
