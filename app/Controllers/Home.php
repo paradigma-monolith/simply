@@ -80,46 +80,96 @@ class Home extends BaseController
         $data['title'] = "Sistem Informasi Balai Karkes Bandung";
         $data['activeMenu'] = "";
 
-        $by = session()->get('username');
-        $data['by'] = $this->userModel->where('username', $by)->first();
-        $data['unit_kerja'] = $this->dataPegawaiModel->joinFirst(
-            $select = '*',
-            $with = 'unit_kerja',
-            $value = 'unit_kerja.id_unit_kerja=data_pegawai.id_unit_kerja',
-            $where = ['id_user' => $data['by']['id_user']],
-            $orderBy = '',
-            $order = '',
-            $group = '',
-            $limit = ''
-        )->first();
-        if ($data['unit_kerja']) {
-            $tanggal_sekarang = date("Y-m-d");
-            $tanggal_masuk = $data['unit_kerja']['tgl_awal_masa'];
-            $selisih_hari = (strtotime($tanggal_sekarang) - strtotime($tanggal_masuk)) / (60 * 60 * 24);
-            if ($selisih_hari != $data['unit_kerja']['masa_kerja']) {
-                $update = [
-                    'id_data_pegawai' => $data['unit_kerja']['id_data_pegawai'],
-                    'masa_kerja' => $selisih_hari,
-                ];
-                $data['unit_kerja']['masa_kerja'] = $selisih_hari;
-                $this->dataPegawaiModel->save($update);
+        $username = (string) session()->get('username');
+        $db = \Config\Database::connect();
+
+        // Konsolidasi 4 query profil/pegawai/unit_kerja/sidebar menjadi 1 query ringan
+        $profileRow = $db->table('user')
+            ->select(
+                'user.id_user, user.nama, user.username, user.email, user.image, user.catatan_pribadi, '
+                . 'data_pegawai.id_data_pegawai, data_pegawai.id_unit_kerja, data_pegawai.tgl_awal_masa, data_pegawai.masa_kerja, '
+                . 'unit_kerja.unit_kerja, jabatan.jabatan, golongan.golongan, tim_kerja.nama_tim_kerja, substansi.nama_substansi'
+            )
+            ->join('data_pegawai', 'data_pegawai.id_user = user.id_user', 'left')
+            ->join('unit_kerja', 'unit_kerja.id_unit_kerja = data_pegawai.id_unit_kerja', 'left')
+            ->join('golongan', 'golongan.id_golongan = data_pegawai.id_golongan', 'left')
+            ->join('tim_kerja', 'tim_kerja.id_tim_kerja = data_pegawai.id_tim_kerja', 'left')
+            ->join('jabatan', 'jabatan.id_jabatan = data_pegawai.id_jabatan', 'left')
+            ->join('substansi', 'substansi.id_substansi = data_pegawai.id_substansi', 'left')
+            ->where('user.username', $username)
+            ->get()
+            ->getRowArray();
+
+        $data['by'] = $profileRow ?: ['id_user' => (int) session()->get('id_user'), 'catatan_pribadi' => ''];
+        $data['user'] = $profileRow ?: [];
+        $data['unit_kerja'] = ($profileRow && !empty($profileRow['id_data_pegawai'])) ? $profileRow : null;
+
+        // Bagikan info pegawai ke layout sidebar agar tidak menjalankan query duplikat
+        $data['pegawaiInfo'] = ($profileRow && !empty($profileRow['id_data_pegawai'])) ? [
+            'jabatan'        => $profileRow['jabatan'] ?? '',
+            'golongan'       => $profileRow['golongan'] ?? '',
+            'nama_tim_kerja' => $profileRow['nama_tim_kerja'] ?? '',
+        ] : null;
+
+        // Perbarui masa_kerja hanya jika benar-benar berubah (integer hari, hindari write DB berulang)
+        if ($profileRow && !empty($profileRow['id_data_pegawai']) && !empty($profileRow['tgl_awal_masa'])) {
+            $masukTs = strtotime((string) $profileRow['tgl_awal_masa']);
+            if ($masukTs !== false) {
+                $selisihHari = (int) floor((strtotime(date('Y-m-d')) - $masukTs) / 86400);
+                if ($selisihHari !== (int) ($profileRow['masa_kerja'] ?? 0)) {
+                    $this->dataPegawaiModel->update($profileRow['id_data_pegawai'], [
+                        'masa_kerja' => $selisihHari,
+                    ]);
+                    $data['unit_kerja']['masa_kerja'] = $selisihHari;
+                    $data['user']['masa_kerja'] = $selisihHari;
+                }
             }
         }
-        $data['user'] = $this->dataPegawaiModel->select('*', 'user.name')
-            ->where('user.username', session()->get('username'))
-            ->join('user', 'user.id_user=data_pegawai.id_user', "right")
-            ->join('golongan', 'golongan.id_golongan=data_pegawai.id_golongan', 'left')
-            ->join('tim_kerja', 'id_tim_kerja', 'left')
-            ->join('jabatan', 'jabatan.id_jabatan=data_pegawai.id_jabatan', 'left')
-            ->join('substansi', 'substansi.id_substansi=data_pegawai.id_substansi', 'left')
-            ->first();
+
+        // Status absensi hari ini (query sangat ringan tanpa kolom BLOB/foto)
+        $absenHariIni = null;
+        if ($profileRow && !empty($profileRow['id_data_pegawai'])) {
+            $todayStart = date('Y-m-d') . ' 00:00:00';
+            $tomorrowStart = date('Y-m-d', strtotime('+1 day')) . ' 00:00:00';
+            $absenHariIni = $db->table('absen')
+                ->select('id_absen, status_masuk, jam_masuk, status_pulang, jam_pulang, keterangan')
+                ->where('id_data_pegawai', (int) $profileRow['id_data_pegawai'])
+                ->where('created_at >=', $todayStart)
+                ->where('created_at <', $tomorrowStart)
+                ->orderBy('id_absen', 'DESC')
+                ->limit(1)
+                ->get()
+                ->getRowArray();
+        }
+        $data['absenHariIni'] = $absenHariIni;
+
+        // Ringkasan agenda aktif hari ini untuk pengguna
+        $agendaHariIniCount = 0;
+        $idUser = (int) ($data['by']['id_user'] ?? 0);
+        if ($idUser > 0) {
+            $todayStart = date('Y-m-d') . ' 00:00:00';
+            $todayEnd = date('Y-m-d') . ' 23:59:59';
+            $agendaTodayRows = $db->table('agenda_user')
+                ->select('peruntukan')
+                ->where('waktu_pelaksana_awal <=', $todayEnd)
+                ->where('waktu_pelaksana_akhir >=', $todayStart)
+                ->get()
+                ->getResultArray();
+            foreach ($agendaTodayRows as $ag) {
+                $peruntukan = @unserialize((string) ($ag['peruntukan'] ?? ''), ['allowed_classes' => false]);
+                if (is_array($peruntukan) && in_array($idUser, $peruntukan)) {
+                    $agendaHariIniCount++;
+                }
+            }
+        }
+        $data['ringkasanHome'] = [
+            'agenda_hari_ini' => $agendaHariIniCount,
+            'tanggal_indo'    => $this->tgl_indo2(date('Y-m-d')),
+        ];
 
         $environment = getenv('CI_ENVIRONMENT');
+        $data['environment'] = ($environment === 'development' && session()->get('role') == "Admin");
 
-        $data['environment'] = false;
-        if ($environment === 'development' && session()->get('role') == "Admin") {
-            $data['environment'] = true;
-        }
         return view('users/admin', $data);
     }
     public function about()
@@ -147,11 +197,7 @@ class Home extends BaseController
     {
         $data['title'] = 'Dashboard';
         $data['activeMenu'] = 'Dashboard';
-        // ====================================
-
-        $data['sipeditKategori'] = $this->sipeditArsipKategoriModel->findAll();
-
-        $data['unitKerja'] = $this->unitKerjaModel->findAll();
+        $data['unitKerja'] = $this->unitKerjaModel->select('unit_kerja')->findAll();
         return view('dashboard/index', $data);
     }
     function getSumInfografisPesawat($date_awal, $date_akhir, $wilker)
@@ -419,6 +465,9 @@ class Home extends BaseController
     public function getInfografis($wilker, $jenis, $periode)
     {
         if ($this->request->isAJAX()) {
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
 
             $date = $periode;
 
@@ -832,97 +881,65 @@ class Home extends BaseController
     public function getSipepes()
     {
         if ($this->request->isAJAX()) {
-
-            $data['substansi'] = [];
-            $data['substansi'] += $this->sipepesModel
-                ->select("count(unit_kerja) PKSE")->where('unit_kerja', 'PKSE')->first();
-            $data['substansi'] += $this->sipepesModel
-                ->select("count(unit_kerja) PRL")->where('unit_kerja', 'PRL')->first();
-            $data['substansi'] += $this->sipepesModel
-                ->select("count(unit_kerja) UKLW")->where('unit_kerja', 'UKLW')->first();
-            $data['substansi'] += $this->sipepesModel
-                ->select("count(unit_kerja) Adum")->where('unit_kerja', 'Adum')->first();
-            $data['substansi'] += $this->sipepesModel
-                ->select("count(unit_kerja) Lainnya")->where('unit_kerja', 'Lainnya')->first();
-
-            $total = array_sum($data['substansi']);
-            $persentaseArray = array();
-            foreach ($data['substansi'] as $key => $value) {
-                $persentase = ($value / $total) * 100;
-                $persentaseArray[$key] = number_format($persentase, 2);
-            }
-            $data += array(
-                'persentase' => $persentaseArray
-            );
-
-
-            $maxValue = max($data['persentase']);
-            $selisih = 90 - $maxValue;
-
-            $persentaseArray = array();
-            foreach ($data['persentase'] as $key => $value) {
-                $newValue = $value + $selisih;
-                $persentaseArray[$key] = $newValue;
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
             }
 
-            $data += array(
-                'persentaseBar' => $persentaseArray
-            );
-
-            $data['substansi']['totalSopUtama'] = $data['substansi']['PKSE'] + $data['substansi']['PRL'] + $data['substansi']['UKLW'];
-            $data['substansi']['totalSop'] = $data['substansi']['totalSopUtama'] + $data['substansi']['Adum'] + $data['substansi']['Lainnya'];
-
-            $viewPage_1 = view('dashboard/sipepes/index', $data);
-
-            $data = null;
-            $data['substansi'] = [];
-            $data['substansi']['Timker 1'] = $this->sipepesModel
-                ->select("COUNT(unit_kerja) AS count")->where('unit_kerja', 'Timker 1')->first()['count'];
-            $data['substansi']['Timker 2'] = $this->sipepesModel
-                ->select("COUNT(unit_kerja) AS count")->where('unit_kerja', 'Timker 2')->first()['count'];
-            $data['substansi']['Timker 3'] = $this->sipepesModel
-                ->select("COUNT(unit_kerja) AS count")->where('unit_kerja', 'Timker 3')->first()['count'];
-            $data['substansi']['Timker 4'] = $this->sipepesModel
-                ->select("COUNT(unit_kerja) AS count")->where('unit_kerja', 'Timker 4')->first()['count'];
-            $data['substansi']['Timker 5'] = $this->sipepesModel
-                ->select("COUNT(unit_kerja) AS count")->where('unit_kerja', 'Timker 5')->first()['count'];
-            $data['substansi']['Adum'] = $this->sipepesModel
-                ->select("COUNT(unit_kerja) AS count")->where('unit_kerja', 'Adum')->first()['count'];
-            $data['substansi']['Lainnya'] = $this->sipepesModel
-                ->select("COUNT(unit_kerja) AS count")->where('unit_kerja', 'Lainnya')->first()['count'];
-
-            $total = array_sum($data['substansi']);
-            $persentaseArray = array();
-            foreach ($data['substansi'] as $key => $value) {
-                $persentase = ($value / $total) * 100;
-                $persentaseArray[$key] = number_format($persentase, 2);
-            }
-            $data += array(
-                'persentase' => $persentaseArray
-            );
-
-
-            $maxValue = max($data['persentase']);
-            $selisih = 90 - $maxValue;
-
-            $persentaseArray = array();
-            foreach ($data['persentase'] as $key => $value) {
-                $newValue = $value + $selisih;
-                $persentaseArray[$key] = $newValue;
+            // Konsolidasi 12 query COUNT terpisah menjadi 1 query GROUP BY
+            $rows = $this->sipepesModel
+                ->select('unit_kerja, COUNT(unit_kerja) AS total')
+                ->groupBy('unit_kerja')
+                ->findAll();
+            $countsByUnit = [];
+            foreach ($rows as $row) {
+                $countsByUnit[(string) ($row['unit_kerja'] ?? '')] = (int) ($row['total'] ?? 0);
             }
 
-            $data += array(
-                'persentaseBar' => $persentaseArray
+            $buildSipepesStats = static function (array $keys, array $utamaKeys) use ($countsByUnit): array {
+                $substansi = [];
+                foreach ($keys as $k) {
+                    $substansi[$k] = $countsByUnit[$k] ?? 0;
+                }
+                $total = array_sum($substansi);
+                $persentase = [];
+                foreach ($substansi as $k => $v) {
+                    $persentase[$k] = $total > 0 ? number_format(($v / $total) * 100, 2) : '0.00';
+                }
+                $maxValue = !empty($persentase) ? max($persentase) : 0;
+                $selisih = $total > 0 ? (90 - $maxValue) : 0;
+                $persentaseBar = [];
+                foreach ($persentase as $k => $v) {
+                    $persentaseBar[$k] = $total > 0 ? ($v + $selisih) : 0;
+                }
+                $totalUtama = 0;
+                foreach ($utamaKeys as $uk) {
+                    $totalUtama += $substansi[$uk] ?? 0;
+                }
+                $substansi['totalSopUtama'] = $totalUtama;
+                $substansi['totalSop'] = $total;
+
+                return [
+                    'substansi'     => $substansi,
+                    'persentase'    => $persentase,
+                    'persentaseBar' => $persentaseBar,
+                ];
+            };
+
+            $dataV1 = $buildSipepesStats(
+                ['PKSE', 'PRL', 'UKLW', 'Adum', 'Lainnya'],
+                ['PKSE', 'PRL', 'UKLW']
             );
+            $viewPage_1 = view('dashboard/sipepes/index', $dataV1);
 
-            $data['substansi']['totalSopUtama'] = $data['substansi']['Timker 1'] + $data['substansi']['Timker 2'] + $data['substansi']['Timker 3'] + $data['substansi']['Timker 4'] + $data['substansi']['Timker 5'];
-            $data['substansi']['totalSop'] = $data['substansi']['totalSopUtama'] + $data['substansi']['Adum'] + $data['substansi']['Lainnya'];
+            $dataV2 = $buildSipepesStats(
+                ['Timker 1', 'Timker 2', 'Timker 3', 'Timker 4', 'Timker 5', 'Adum', 'Lainnya'],
+                ['Timker 1', 'Timker 2', 'Timker 3', 'Timker 4', 'Timker 5']
+            );
+            $viewPage_2 = view('dashboard/sipepes/index_v2', $dataV2);
 
-            $viewPage_2 = view('dashboard/sipepes/index_v2', $data);
-            $msg = [
+            return $this->response->setJSON([
                 'data' => $viewPage_2 . $viewPage_1
-            ];
-            echo json_encode($msg);
+            ]);
         } else {
             return redirect()->to('home/dashboard');
         }
@@ -931,13 +948,15 @@ class Home extends BaseController
     public function getSicute()
     {
         if ($this->request->isAJAX()) {
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
             $data['getCuti'] = $this->cutiDataCutiModel
                 ->join('data_pegawai', 'data_pegawai.id_data_pegawai=cuti_data_cuti.id_data_pegawai')
                 ->findAll();
-            $msg = [
+            return $this->response->setJSON([
                 'data' => view('dashboard/sicute/index', $data)
-            ];
-            echo json_encode($msg);
+            ]);
         } else {
             return redirect()->to('home/dashboard');
         }
@@ -1157,6 +1176,9 @@ class Home extends BaseController
     public function getRelaxtime()
     {
         if ($this->request->isAJAX()) {
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
             $year = date("Y");
             $data['getSetting'] = $this->relaxtimeSettingModel->first();
             $data['getCuti'] = $this->cutiDataCutiModel
@@ -1427,18 +1449,24 @@ class Home extends BaseController
     public function simpanCatatanPribadi()
     {
         if ($this->request->isAJAX()) {
-            $catatan = $this->request->getVar('catatan');
-            $username = session()->get('username');
-            
-            $user = $this->userModel->where('username', $username)->first();
+            $catatan = (string) $this->request->getVar('catatan');
+            $username = (string) session()->get('username');
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
+
+            $user = $this->userModel->select('id_user')->where('username', $username)->first();
             if ($user) {
                 $this->userModel->update($user['id_user'], [
                     'catatan_pribadi' => $catatan
                 ]);
-                echo json_encode(['status' => 'success']);
-            } else {
-                echo json_encode(['status' => 'error', 'message' => 'User not found']);
+                return $this->response->setJSON([
+                    'status'   => 'success',
+                    'saved_at' => date('H:i'),
+                ]);
             }
+
+            return $this->response->setJSON(['status' => 'error', 'message' => 'User not found']);
         }
     }
 }

@@ -113,105 +113,87 @@ function viewProfile($user) {
 $(document).ready(function() { 
   // Menyembunyikan elemen overlay
   $("#overlay").hide();
-  // Initialize Smooth Scroll plugin
-//   $('a[href^="#"]').on('click', function(event) {
-//     var target = $(this.getAttribute('href'));
-//     if (target.length) {
-//       event.preventDefault();
-//       $('html, body').stop().animate({
-//         scrollTop: target.offset().top
-//       }, {
-//         duration: 500, // waktu total animasi (ms)
-//         easing: 'easeInOutQuad', // jenis easing animasi
-//         step: function(now, fx) {
-//           // Efek motion blur
-//           var blur = Math.min(20, Math.abs(fx.end - fx.start) / 40);
-//           $('.content-wrapper').css('filter', 'blur(' + blur + 'px)');
-//         },
-//         complete: function() {
-//           // Hapus efek motion blur setelah animasi selesai
-//           $('.content-wrapper').css('filter', '');
-//         }
-//       });
-//     }
-//   });
   formHapusData();
-  callAllUser();
+
+  // Lazy-load daftar pegawai sidebar kanan hanya saat tombol control-sidebar dibuka
+  $(document).on('click', '[data-widget="control-sidebar"]', function() {
+    if (!window.__simplyRightUsersLoaded) {
+      window.__simplyRightUsersLoaded = true;
+      callAllUser();
+    }
+  });
 });
 
 $(function() {
-  // Date range picker
-  $('.date-dashboard').daterangepicker({
-    startDate: moment().subtract(1, 'months').startOf('month'),
-    endDate: moment(),
-    locale: {
-      format: 'YYYY-MM-DD'
-    }
-  });
-  $('.datetime').daterangepicker({
-    locale: {
-      format: 'YYYY-MM-DD HH:mm:ss'
-    }
-  });
-  $('.range-date').daterangepicker({
-    startDate: moment(),
-    endDate: moment(),
-    locale: {
-      format: 'YYYY-MM-DD'
-    }
-  });
+  // Date range picker (inisialisasi hanya jika elemen tersedia di halaman)
+  if ($('.date-dashboard').length) {
+    $('.date-dashboard').daterangepicker({
+      startDate: moment().subtract(1, 'months').startOf('month'),
+      endDate: moment(),
+      locale: {
+        format: 'YYYY-MM-DD'
+      }
+    });
+  }
+  if ($('.datetime').length) {
+    $('.datetime').daterangepicker({
+      locale: {
+        format: 'YYYY-MM-DD HH:mm:ss'
+      }
+    });
+  }
+  if ($('.range-date').length) {
+    $('.range-date').daterangepicker({
+      startDate: moment(),
+      endDate: moment(),
+      locale: {
+        format: 'YYYY-MM-DD'
+      }
+    });
+  }
 
   // Auto-update notification date when execution time is selected
   $('.datetime').on('apply.daterangepicker', function(ev, picker) {
-    // Get the selected execution date range
     var executionStartDate = picker.startDate;
     var executionEndDate = picker.endDate;
-    
-    // Find notification checkbox and range date elements
-    var notifCheckbox = $('#myCheckbox');
     var rangeDate = $('.range-date');
-    
-    // Update notification date if elements exist
+
     if (rangeDate.length > 0 && rangeDate.data('daterangepicker')) {
-      // Set notification date to match execution date (extract date only, ignore time)
       var notificationStartDate = executionStartDate.clone().startOf('day');
       var notificationEndDate = executionEndDate.clone().startOf('day');
-      
-      // Update the notification date picker
+
       rangeDate.data('daterangepicker').setStartDate(notificationStartDate);
       rangeDate.data('daterangepicker').setEndDate(notificationEndDate);
-      
-      // Update the input value to reflect the new dates
+
       var dateFormat = 'YYYY-MM-DD';
       if (notificationStartDate.isSame(notificationEndDate, 'day')) {
         rangeDate.val(notificationStartDate.format(dateFormat));
       } else {
         rangeDate.val(notificationStartDate.format(dateFormat) + ' - ' + notificationEndDate.format(dateFormat));
       }
-      
-      // If notification checkbox exists and is not checked, optionally enable it
-      // (This is optional - you can uncomment the lines below if you want to auto-enable notifications)
-      // if (notifCheckbox.length > 0 && !notifCheckbox.is(':checked')) {
-      //   notifCheckbox.prop('checked', true).trigger('change');
-      // }
     }
   });
-  $('.range-date-data').daterangepicker({
-    startDate: $(this).attr("data-start-date"),
-    endDate: $(this).attr("data-end-date"),
-    locale: {
-      format: 'YYYY-MM-DD'
-    }
-  });
-  $('.date').datetimepicker({
-    defaultDate: moment(),
-    format: 'YYYY/MM/DD'
-  });
-  $('.date-today').datetimepicker({
-    defaultDate: moment(),
-    format: 'YYYY/MM/DD'
-  });
-  
+  if ($('.range-date-data').length) {
+    $('.range-date-data').daterangepicker({
+      startDate: $(this).attr("data-start-date"),
+      endDate: $(this).attr("data-end-date"),
+      locale: {
+        format: 'YYYY-MM-DD'
+      }
+    });
+  }
+  if ($('.date').length) {
+    $('.date').datetimepicker({
+      defaultDate: moment(),
+      format: 'YYYY/MM/DD'
+    });
+  }
+  if ($('.date-today').length) {
+    $('.date-today').datetimepicker({
+      defaultDate: moment(),
+      format: 'YYYY/MM/DD'
+    });
+  }
 });
 function updateDatePicker(value) {
   // Memisahkan nilai menjadi startDate dan endDate
@@ -225,15 +207,32 @@ function updateDatePicker(value) {
 }
 
 function menuOpen(idMenu) {
-  $(".nav-item").removeClass('menu-open')
-  $(idMenu).addClass('menu-open').css({
-    backgroundColor: 'blue',
-    transition: 'all 0.5s ease-in-out'
-  }).delay(500).queue(function() {
+  var $target = $(idMenu);
+  if (!$target.length) return;
+
+  // Pastikan sidebar terbuka saat pengguna mengklik kartu menu dari halaman utama
+  if ($('body').hasClass('sidebar-collapse') || $('body').hasClass('sidebar-closed')) {
+    $('body').removeClass('sidebar-collapse sidebar-closed').addClass('sidebar-open');
+  }
+
+  $(".nav-sidebar .nav-item").removeClass('menu-open');
+  $target.addClass('menu-open');
+  $target.children('.nav-treeview').stop(true, true).slideDown(200);
+
+  // Sorot item di sidebar agar langsung terlihat
+  $target.css({
+    backgroundColor: 'rgba(3, 119, 140, 0.75)',
+    borderRadius: '8px',
+    transition: 'background-color 0.4s ease'
+  }).delay(900).queue(function() {
     $(this).css({
-      backgroundColor: 'rgba(255, 255, 255, 0.0)'
+      backgroundColor: 'transparent'
     }).dequeue();
   });
+
+  if ($target[0] && typeof $target[0].scrollIntoView === 'function') {
+    $target[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 }
 
 function logoutSweetAlert(element) {
@@ -401,24 +400,38 @@ function callAllUser() {
   });
 }
 
+var __notifInFlight = false;
+
 $(document).ready(function () {
   getNotifikasi();
-  setInterval(() => {
-    getNotifikasi();
-  }, 10000);
+  setInterval(function () {
+    if (!document.hidden) {
+      getNotifikasi();
+    }
+  }, 30000);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) {
+      getNotifikasi();
+    }
+  });
 });
 
 function getNotifikasi() {
+  if (__notifInFlight) return;
+  __notifInFlight = true;
   $.ajax({
     url: "/ajax/notifikasi",
     method: 'get',
     dataType: 'json',
     success: function(response) {
-      if (response.data) {
-        $('.notifikasi-pesan-sistem-number').text(response.number)
-        $('.notifikasi-pesan-sistem').html(response.data)
+      if (response && response.data !== undefined) {
+        $('.notifikasi-pesan-sistem-number').text(response.number || '');
+        $('.notifikasi-pesan-sistem').html(response.data);
       }
     },
+    complete: function() {
+      __notifInFlight = false;
+    }
   });
 }
 

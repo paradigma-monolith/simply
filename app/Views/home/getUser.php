@@ -4,9 +4,9 @@
       <li class="list-group-item d-flex justify-content-between align-content-center">
         <div class="d-flex flex-row" onclick="viewProfile(<?= $data['id_user']; ?>)">
           <?php if ($data['image'] != "" && is_file(FCPATH . 'dist/img/avatar/' . $data['image'])) : ?>
-          <img src="/dist/img/avatar/<?= esc($data['image'], 'attr'); ?>" width="40" />
+          <img src="/dist/img/avatar/<?= esc($data['image'], 'attr'); ?>" width="40" loading="lazy" decoding="async" />
           <?php else : ?>
-          <img src="/dist/img/boxed-bg.jpg" width="40" />
+          <img src="/dist/img/boxed-bg.jpg" width="40" loading="lazy" decoding="async" />
           <?php endif; ?>
           <div class="ml-2" style="width: 100px;
 height: 40px;

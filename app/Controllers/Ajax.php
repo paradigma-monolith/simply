@@ -7,21 +7,22 @@ class Ajax extends BaseController
   public function getUser()
   {
     if ($this->request->isAJAX()) {
-        $data['dataSideRightUser'] = $this->userModel
-          ->select("data_pegawai.*, user.nama, user.image, golongan.*, user.email, user.id_user")
-          ->join("data_pegawai", "user.id_user=data_pegawai.id_user", "LEFT")
-          ->join("golongan", 'data_pegawai.id_golongan=golongan.id_golongan', "LEFT")
-          ->where('data_pegawai.status_bekerja', 'Aktif')
-          ->orWhere('data_pegawai.id_user IS NULL', null, false)
-          ->orderBy("golongan.golongan", "desc")
-          ->findAll();
+      if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+      }
 
-      $view = view('home/getUser', $data);
+      $data['dataSideRightUser'] = $this->userModel
+        ->select("user.id_user, user.nama, user.image, user.email")
+        ->join("data_pegawai", "user.id_user=data_pegawai.id_user", "LEFT")
+        ->join("golongan", 'data_pegawai.id_golongan=golongan.id_golongan', "LEFT")
+        ->where('data_pegawai.status_bekerja', 'Aktif')
+        ->orWhere('data_pegawai.id_user IS NULL', null, false)
+        ->orderBy("golongan.golongan", "desc")
+        ->findAll();
 
-      $msg = [
-        'data' => $view
-      ];
-      echo json_encode($msg);
+      return $this->response->setJSON([
+        'data' => view('home/getUser', $data)
+      ]);
     }
   }
   public function openBoxEmail()
@@ -340,6 +341,10 @@ class Ajax extends BaseController
         'updated_by' => $updated_by,
       ];
       if ($this->agendaUserModel->save($data)) {
+        try {
+          \Config\Services::cache()->delete('home_agenda_active_' . date('Y-m-d'));
+        } catch (\Throwable $e) {
+        }
         $msg = [
           'dataAgenda' => $data
         ];
@@ -370,74 +375,152 @@ class Ajax extends BaseController
   public function delete_agenda($id)
   {
     $this->agendaUserModel->delete($id);
+    try {
+      \Config\Services::cache()->delete('home_agenda_active_' . date('Y-m-d'));
+    } catch (\Throwable $e) {
+    }
   }
   public function getCallendarAgenda()
   {
-    $user = $this->userModel->where('username', session()->get('username'))->first();
-    if (!$user) {
+    $idUser = (int) session()->get('id_user');
+    $username = (string) session()->get('username');
+    if (session_status() === PHP_SESSION_ACTIVE) {
+      session_write_close();
+    }
+
+    if ($idUser <= 0 && $username !== '') {
+      $user = $this->userModel->select('id_user')->where('username', $username)->first();
+      $idUser = $user ? (int) $user['id_user'] : 0;
+    }
+
+    if ($idUser <= 0) {
       return $this->response->setJSON(['data' => '<div class="alert alert-danger">User tidak ditemukan</div>']);
     }
-    
-    $data['id_user'] = $user['id_user'];
-    // Ambil hanya agenda yang relevan untuk user ini
-    $allAgenda = $this->agendaUserModel->findAll();
-    $filteredAgenda = [];
-    
+
+    // Ambil hanya kolom yang dibutuhkan agar hemat memori & I/O
+    $allAgenda = $this->agendaUserModel
+      ->select('id_agenda_user, topik, deskripsi, peruntukan, waktu_pelaksana_awal, waktu_pelaksana_akhir, warna_agenda')
+      ->orderBy('waktu_pelaksana_awal', 'ASC')
+      ->findAll();
+
+    $calendarEvents = [];
     foreach ($allAgenda as $agenda) {
-      try {
-        $peruntukan = @unserialize($agenda['peruntukan']);
-        if ($peruntukan === false && $agenda['peruntukan'] !== 'b:0;') {
-          continue;
-        }
-        if (!is_array($peruntukan)) {
-          continue;
-        }
-        if (in_array($user['id_user'], $peruntukan)) {
-          $filteredAgenda[] = $agenda;
-        }
-      } catch (Exception $e) {
+      $rawPeruntukan = $agenda['peruntukan'] ?? '';
+      if ($rawPeruntukan === '') {
         continue;
       }
+      $peruntukan = @unserialize($rawPeruntukan, ['allowed_classes' => false]);
+      if (!is_array($peruntukan) || !in_array($idUser, $peruntukan)) {
+        continue;
+      }
+
+      $startRaw = (string) ($agenda['waktu_pelaksana_awal'] ?? '');
+      $endRaw = (string) ($agenda['waktu_pelaksana_akhir'] ?? '');
+      if ($startRaw === '') {
+        continue;
+      }
+
+      $startTs = strtotime($startRaw);
+      if ($startTs === false) {
+        continue;
+      }
+      $endTs = $endRaw !== '' ? strtotime($endRaw) : $startTs;
+      if ($endTs === false || $endTs < $startTs) {
+        $endTs = $startTs;
+      }
+
+      $color = !empty($agenda['warna_agenda']) ? trim((string) $agenda['warna_agenda']) : '#0d9488';
+      $calendarEvents[] = [
+        'id'              => 'agenda-' . (int) ($agenda['id_agenda_user'] ?? 0),
+        'title'           => (string) ($agenda['topik'] ?? ''),
+        'start'           => date('Y-m-d\TH:i:s', $startTs),
+        'end'             => date('Y-m-d\TH:i:s', $endTs),
+        'allDay'          => false,
+        'backgroundColor' => $color,
+        'borderColor'     => $color,
+        'extendedProps'   => [
+          'description' => trim((string) preg_replace('/\s+/', ' ', (string) ($agenda['deskripsi'] ?? ''))),
+          'startLabel'  => date('d M Y, H:i', $startTs),
+          'endLabel'    => date('d M Y, H:i', $endTs),
+          'isHoliday'   => false,
+        ],
+      ];
     }
-    
-    $data['getData'] = $filteredAgenda;
 
-    $msg = ['data' => view('home/agendaCalendar', $data)];
-
-    echo json_encode($msg);
+    return $this->response->setJSON([
+      'data' => view('home/agendaCalendar', [
+        'calendarEvents' => $calendarEvents,
+        'eventCount'     => count($calendarEvents),
+      ]),
+    ]);
   }
   public function getAgenda()
   {
-    $getData = $this->agendaUserModel
-    ->where('tgl_notif_awal <=', date('Y-m-d'))
-    ->where('tgl_notif_akhir >=', date('Y-m-d'))
-    ->findAll();
-    $setData = array(); // Inisialisasi array kosong
+    $idUser = (int) session()->get('id_user');
+    $username = (string) session()->get('username');
+    if (session_status() === PHP_SESSION_ACTIVE) {
+      session_write_close();
+    }
 
-    $by = $this->userModel->where('username', session()->get('username'))->first();
+    if ($idUser <= 0 && $username !== '') {
+      $by = $this->userModel->select('id_user')->where('username', $username)->first();
+      $idUser = $by ? (int) $by['id_user'] : 0;
+    }
 
+    if ($idUser <= 0) {
+      return $this->response->setJSON(['data' => null]);
+    }
+
+    $today = date('Y-m-d');
+    $cacheKey = 'home_agenda_active_' . $today;
+    $getData = null;
+
+    try {
+      $cache = \Config\Services::cache();
+      $cached = $cache->get($cacheKey);
+      if (is_array($cached)) {
+        $getData = $cached;
+      }
+    } catch (\Throwable $e) {
+      $getData = null;
+    }
+
+    if ($getData === null) {
+      $getData = $this->agendaUserModel
+        ->select('id_agenda_user, topik, deskripsi, peruntukan, waktu_pelaksana_awal, waktu_pelaksana_akhir, tgl_notif_awal, tgl_notif_akhir, warna_agenda')
+        ->where('tgl_notif_awal <=', $today)
+        ->where('tgl_notif_akhir >=', $today)
+        ->findAll();
+
+      try {
+        \Config\Services::cache()->save($cacheKey, $getData, 120);
+      } catch (\Throwable $e) {
+        // Ignore cache write errors
+      }
+    }
+
+    $setData = [];
     foreach ($getData as $data) {
-      $peruntukan = unserialize($data['peruntukan']);
-      if (in_array($by['id_user'], $peruntukan)) {
-        // Tambahkan data ke dalam array $setData
+      $peruntukan = @unserialize((string) ($data['peruntukan'] ?? ''), ['allowed_classes' => false]);
+      if (is_array($peruntukan) && in_array($idUser, $peruntukan)) {
         $setData[] = $data;
       }
     }
-    if ($setData == array()) {
-      $setData = null;
-    }
-    $msg = ['data' =>  $setData];
 
-    echo json_encode($msg);
+    return $this->response->setJSON([
+      'data' => $setData !== [] ? $setData : null,
+    ]);
   }
   public function newFitur()
   {
     if ($this->request->isAJAX()) {
-      $msg = [
-        'data' => view('users/newFitur')
-      ];
+      if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+      }
 
-      echo json_encode($msg);
+      return $this->response->setJSON([
+        'data' => view('users/newFitur')
+      ]);
     }
   }
   

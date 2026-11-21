@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const pdfButton = form.querySelector('button[name="pdf"]');
     if (pdfButton) {
-        // Menangani klik tombol "pdf"
         pdfButton.addEventListener('click', function () {
             form.action = '/infografis/pdf';
         });
@@ -15,22 +14,88 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const excelButton = form.querySelector('button[name="excel"]');
     if (excelButton) {
-        // Menangani klik tombol "excel"
         excelButton.addEventListener('click', function () {
             form.action = '/infografis/excel';
         });
     }
 });
 
-const dataHTMLDashboard = $('.dashboard').html()
-let sipeditXhr = null;
+const dataHTMLDashboard = $('.dashboard').html();
+let activeDashboardXhr = null;
 let sipeditActiveTab = 'dashboard-pelatihan';
 
+function renderDashboardSkeleton() {
+  return (
+    '<div class="container-fluid"><div class="dm-skel-wrap">' +
+      '<div class="dm-skel mb-3" style="width: 240px; height: 22px;"></div>' +
+      '<div class="row mb-3">' +
+        '<div class="col-md-3 col-6 mb-2"><div class="dm-skel" style="height: 86px;"></div></div>' +
+        '<div class="col-md-3 col-6 mb-2"><div class="dm-skel" style="height: 86px;"></div></div>' +
+        '<div class="col-md-3 col-6 mb-2"><div class="dm-skel" style="height: 86px;"></div></div>' +
+        '<div class="col-md-3 col-6 mb-2"><div class="dm-skel" style="height: 86px;"></div></div>' +
+      '</div>' +
+      '<div class="dm-skel" style="height: 220px;"></div>' +
+    '</div></div>'
+  );
+}
+
+function abortActiveDashboardRequest() {
+  if (activeDashboardXhr && activeDashboardXhr.readyState !== 4) {
+    activeDashboardXhr.abort();
+  }
+  activeDashboardXhr = null;
+}
+
+function loadDashboardModule(url, onSuccess, customErrorText) {
+  abortActiveDashboardRequest();
+
+  activeDashboardXhr = $.ajax({
+    url: url,
+    dataType: "json",
+    beforeSend: function() {
+      $('.dashboard').html(renderDashboardSkeleton());
+    },
+    success: function(response) {
+      if (response && response.data) {
+        $(".dashboard").html(response.data);
+        if (typeof onSuccess === 'function') {
+          onSuccess(response);
+        }
+      }
+    },
+    error: function(xhr, status, thrownError) {
+      if (status === 'abort') {
+        return;
+      }
+      Swal.fire({
+        position: 'top-end',
+        icon: 'error',
+        title: 'Gagal Memuat Data',
+        text: customErrorText || (xhr.status + "\n" + thrownError)
+      });
+    },
+    complete: function() {
+      activeDashboardXhr = null;
+    }
+  });
+}
+
 $(function() {
-  cekInput()
+  $(".dashboard-filter").hide();
+  if ($("#data-dashboard").val() !== '') {
+    cekInput();
+  }
 });
 
-$(document).on('shown.bs.tab shown.bs.tab', 'a[data-toggle="tab"]', function(e) {
+// Klik kartu cepat di tampilan awal dashboard untuk langsung membuka modul
+$(document).on('click', '.dashboard-quick-card', function() {
+  var mod = $(this).data('module');
+  if (mod) {
+    $('#data-dashboard').val(mod).trigger('change');
+  }
+});
+
+$(document).on('shown.bs.tab', 'a[data-toggle="tab"]', function(e) {
   var target = $(e.target).attr('href') || '';
   if (target === '#dashboard-pelatihan' || target === '#dashboard-jafung') {
     sipeditActiveTab = target.replace('#', '');
@@ -81,269 +146,71 @@ function initSipeditSelect2() {
   });
 }
 
-function scaleAnimation(element) {
-  $(element).animate({
-    opacity: 0,
-    transform: 'scale(2.5)'
-  }, {
-    duration: 2000,
-    easing: 'cubic-bezier(0, 0, 0.49, 1.02)',
-    complete: function() {
-      $(element).css({
-        opacity: 0.7,
-        transform: 'scale(1)'
-      });
-      scaleAnimation(element);
-    }
-  });
-}
-
 function cekInput() {
-  if ($("#data-dashboard").val() !== '') {
-    if ($("#data-dashboard").val() == "infografis") {
-      $(".dashboard-filter").hide()
-      $("#infografis-filter").show()
-      var wilker = $("#wilkerInfografis-dashboard").val()
-      var jenis = $("#jenisInfografis-dashboard").val()
-      var periode = $("#periodeInfografis-dashboard").val()
-      infografis(wilker, jenis, periode)
-    }
-    if ($("#data-dashboard").val() == "sipepes") {
-      $(".dashboard-filter").hide()
-      sipepes()
-    }
-    if ($("#data-dashboard").val() == "sipedit") {
-      $(".dashboard-filter").hide()
-      $("#sipedit-filter").show()
-      
-      var periode = sipeditPeriodeValue()
-      var bulan = sipeditBulanValue()
-      sipedit(periode, bulan)
-    }
-    if ($("#data-dashboard").val() == "cuti") {
-      $(".dashboard-filter").hide()
-
-      sicute()
-    }
-    
-    if ($("#data-dashboard").val() == "sinadi") {
-      $(".dashboard-filter").hide()
-
-      sinadi()
-    }
-    if ($("#data-dashboard").val() == "relaxtime") {
-      $(".dashboard-filter").hide()
-
-      relaxtime()
+  var selected = $("#data-dashboard").val();
+  if (selected !== '') {
+    $(".dashboard-filter").hide();
+    if (selected === "infografis") {
+      $("#infografis-filter").show();
+      var wilker = $("#wilkerInfografis-dashboard").val();
+      var jenis = $("#jenisInfografis-dashboard").val();
+      var periode = $("#periodeInfografis-dashboard").val();
+      infografis(wilker, jenis, periode);
+    } else if (selected === "sipepes") {
+      sipepes();
+    } else if (selected === "sipedit") {
+      $("#sipedit-filter").show();
+      sipedit(sipeditPeriodeValue(), sipeditBulanValue());
+    } else if (selected === "cuti") {
+      sicute();
+    } else if (selected === "sinadi") {
+      sinadi();
+    } else if (selected === "relaxtime") {
+      relaxtime();
     }
   } else {
+    abortActiveDashboardRequest();
     $(".dashboard").html(dataHTMLDashboard);
-    $(".dashboard-filter").hide()
+    $(".dashboard-filter").hide();
   }
 }
 
-
-
 function infografis(wilker, jenis, periode) {
-  $.ajax({
-    url: `/home/infografis/${wilker}/${jenis}/${periode}`,
-    dataType: "json",
-    beforeSend: function() {
-      // Menampilkan animasi loading pada elemen dengan class 'loader'      
-      $('.dashboard').html(
-        '<img class="animation__shake" src="/dist/img/logo.png" alt="AdminLTELogo" height="140" width="200">'
-      );
-      $('.dashboard img').css({
-        display: 'block',
-        margin: '0 auto'
-      });
-    },
-    success: function(response) {
-      if (response.data) {
-        $(".dashboard").html(response.data);
-      }
-    },
-    error: function(xhr, ajaxOptions, thrownError) {
-      // alert(xhr.status + "\n" + xhr.responseText + "\n" + thrownError);
-      Swal.fire({
-        position: 'top-end',
-        icon: 'error',
-        title: 'Oops... ERROR SINTAKS',
-        text: 'Terjadi kesalahan pemrograman saat mengambil data silahkan hubungi pihak yang terkait',
-        // text: (xhr.status + "\n" + xhr.responseText + "\n" + thrownError),
-      })
-    }
-  });
+  loadDashboardModule(
+    `/home/infografis/${wilker}/${jenis}/${periode}`,
+    null,
+    'Terjadi kesalahan saat mengambil data infografis.'
+  );
 }
+
 function sipedit(periode, bulan) {
   var disabled = periode == "all";
   $("#bulanSipedit-dashboard").prop('disabled', disabled);
   $("#bulanSipedit-dashboard-inner").prop('disabled', disabled);
 
-  if (sipeditXhr && sipeditXhr.readyState !== 4) {
-    sipeditXhr.abort();
-  }
-
-  sipeditXhr = $.ajax({
-    url: `/home/sipedit/${periode}/${bulan}`,
-    dataType: "json",
-    beforeSend: function() {
-      // Menampilkan animasi loading pada elemen dengan class 'loader'      
-      $('.dashboard').html(
-        '<img class="animation__shake" src="/dist/img/logo.png" alt="AdminLTELogo" height="140" width="200">'
-      );
-      $('.dashboard img').css({
-        display: 'block',
-        margin: '0 auto'
-      });
-    },
-    success: function(response) {
-      if (response.data) {
-        // console.log(response.cek)
-        $(".dashboard").html(response.data);
-        initSipeditSelect2();
-
-        var targetAnchor = $(`a[href="#${sipeditActiveTab}"]`);
-        if (targetAnchor.length) {
-          targetAnchor.tab('show');
-        } else {
-          $('a[href="#dashboard-pelatihan"]').tab('show');
-        }
-      }
-    },
-    error: function(xhr, ajaxOptions, thrownError) {
-      // alert(xhr.status + "\n" + xhr.responseText + "\n" + thrownError);
-      Swal.fire({
-        position: 'top-end',
-        icon: 'error',
-        title: 'Oops... ERROR SINTAKS',
-        // text: 'Terjadi kesalahan pemrograman saat mengambil data silahkan hubungi pihak yang terkait',
-        text: (xhr.status + "\n" + xhr.responseText + "\n" + thrownError),
-      })
+  loadDashboardModule(`/home/sipedit/${periode}/${bulan}`, function() {
+    initSipeditSelect2();
+    var targetAnchor = $(`a[href="#${sipeditActiveTab}"]`);
+    if (targetAnchor.length) {
+      targetAnchor.tab('show');
+    } else {
+      $('a[href="#dashboard-pelatihan"]').tab('show');
     }
   });
 }
+
 function sipepes() {
-  $.ajax({
-    url: `/home/sipepes`,
-    dataType: "json",
-    beforeSend: function() {
-      // Menampilkan animasi loading pada elemen dengan class 'loader'      
-      $('.dashboard').html(
-        '<img class="animation__shake" src="/dist/img/logo.png" alt="AdminLTELogo" height="140" width="200">'
-      );
-      $('.dashboard img').css({
-        display: 'block',
-        margin: '0 auto'
-      });
-    },
-    success: function(response) {
-      if (response.data) {
-        $(".dashboard").html(response.data);
-      }
-    },
-    error: function(xhr, ajaxOptions, thrownError) {
-      // alert(xhr.status + "\n" + xhr.responseText + "\n" + thrownError);
-      Swal.fire({
-        position: 'top-end',
-        icon: 'error',
-        title: 'Oops... ERROR SINTAKS',
-        // text: 'Terjadi kesalahan pemrograman saat mengambil data silahkan hubungi pihak yang terkait',
-        text: (xhr.status + "\n" + xhr.responseText + "\n" + thrownError),
-      })
-    }
-  });
+  loadDashboardModule('/home/sipepes');
 }
+
 function sicute() {
-  $.ajax({
-    url: `/home/sicute`,
-    dataType: "json",
-    beforeSend: function() {
-      // Menampilkan animasi loading pada elemen dengan class 'loader'      
-      $('.dashboard').html(
-        '<img class="animation__shake" src="/dist/img/logo.png" alt="AdminLTELogo" height="140" width="200">'
-      );
-      $('.dashboard img').css({
-        display: 'block',
-        margin: '0 auto'
-      });
-    },
-    success: function(response) {
-      if (response.data) {
-        $(".dashboard").html(response.data);
-      }
-    },
-    error: function(xhr, ajaxOptions, thrownError) {
-      // alert(xhr.status + "\n" + xhr.responseText + "\n" + thrownError);
-      Swal.fire({
-        position: 'top-end',
-        icon: 'error',
-        title: 'Oops... ERROR SINTAKS',
-        // text: 'Terjadi kesalahan pemrograman saat mengambil data silahkan hubungi pihak yang terkait',
-        text: (xhr.status + "\n" + xhr.responseText + "\n" + thrownError),
-      })
-    }
-  });
+  loadDashboardModule('/home/sicute');
 }
+
 function sinadi() {
-  $.ajax({
-    url: `/home/sinadi`,
-    dataType: "json",
-    beforeSend: function() {
-      // Menampilkan animasi loading pada elemen dengan class 'loader'      
-      $('.dashboard').html(
-        '<img class="animation__shake" src="/dist/img/logo.png" alt="AdminLTELogo" height="140" width="200">'
-      );
-      $('.dashboard img').css({
-        display: 'block',
-        margin: '0 auto'
-      });
-    },
-    success: function(response) {
-      if (response.data) {
-        $(".dashboard").html(response.data);
-      }
-    },
-    error: function(xhr, ajaxOptions, thrownError) {
-      // alert(xhr.status + "\n" + xhr.responseText + "\n" + thrownError);
-      Swal.fire({
-        position: 'top-end',
-        icon: 'error',
-        title: 'Oops... ERROR SINTAKS',
-        // text: 'Terjadi kesalahan pemrograman saat mengambil data silahkan hubungi pihak yang terkait',
-        text: (xhr.status + "\n" + xhr.responseText + "\n" + thrownError),
-      })
-    }
-  });
+  loadDashboardModule('/home/sinadi');
 }
+
 function relaxtime() {
-  $.ajax({
-    url: `/home/relaxtime`,
-    dataType: "json",
-    beforeSend: function() {
-      // Menampilkan animasi loading pada elemen dengan class 'loader'      
-      $('.dashboard').html(
-        '<img class="animation__shake" src="/dist/img/logo.png" alt="AdminLTELogo" height="140" width="200">'
-      );
-      $('.dashboard img').css({
-        display: 'block',
-        margin: '0 auto'
-      });
-    },
-    success: function(response) {
-      if (response.data) {
-        $(".dashboard").html(response.data);
-      }
-    },
-    error: function(xhr, ajaxOptions, thrownError) {
-      // alert(xhr.status + "\n" + xhr.responseText + "\n" + thrownError);
-      Swal.fire({
-        position: 'top-end',
-        icon: 'error',
-        title: 'Oops... ERROR SINTAKS',
-        // text: 'Terjadi kesalahan pemrograman saat mengambil data silahkan hubungi pihak yang terkait',
-        text: (xhr.status + "\n" + xhr.responseText + "\n" + thrownError),
-      })
-    }
-  });
+  loadDashboardModule('/home/relaxtime');
 }

@@ -31,10 +31,13 @@ class Data extends BaseController
   public function menu()
   {
     if ($this->request->isAJAX()) {
+      if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+      }
 
-      $msg['data'] = $this->iframeModel->orderBy('sidebar', 'asc')->findAll();
-
-      echo json_encode($msg);
+      return $this->response->setJSON([
+        'data' => $this->iframeModel->select('segment, sidebar')->orderBy('sidebar', 'asc')->findAll()
+      ]);
     }
   }
 }

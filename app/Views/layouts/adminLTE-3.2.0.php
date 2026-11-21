@@ -400,6 +400,22 @@
     <div class="preloader flex-column justify-content-center align-items-center">
       <img class="animation__shake" src="/dist/img/logo.png" alt="AdminLTELogo" height="140" width="200">
     </div>
+    <script>
+      // Jangan biarkan preloader memblokir tampilan menunggu CDN eksternal yang lambat
+      document.addEventListener('DOMContentLoaded', function() {
+        var preloader = document.querySelector('.preloader');
+        if (!preloader) return;
+        setTimeout(function() {
+          preloader.style.transition = 'opacity 0.2s ease, height 0.2s ease';
+          preloader.style.opacity = '0';
+          preloader.style.height = '0';
+          preloader.style.pointerEvents = 'none';
+          setTimeout(function() {
+            preloader.style.display = 'none';
+          }, 220);
+        }, 120);
+      });
+    </script>
 
     <?= $this->include('layouts/modal'); ?>
 
@@ -629,15 +645,17 @@
           <div class="info">
             <a href="#" class="d-block font-weight-bold" style="white-space: normal; color: #ffffff; letter-spacing: 0.3px; margin-bottom: 3px;"><?= session()->get('nama'); ?></a>
             <?php
-            $db = \Config\Database::connect();
-            $pegawaiInfo = $db->table('data_pegawai')
-              ->select('jabatan.jabatan, golongan.golongan, tim_kerja.nama_tim_kerja')
-              ->join('jabatan', 'jabatan.id_jabatan = data_pegawai.id_jabatan', 'left')
-              ->join('golongan', 'golongan.id_golongan = data_pegawai.id_golongan', 'left')
-              ->join('tim_kerja', 'tim_kerja.id_tim_kerja = data_pegawai.id_tim_kerja', 'left')
-              ->where('data_pegawai.id_user', session()->get('id_user'))
-              ->get()->getRowArray();
-              
+            if (!array_key_exists('pegawaiInfo', get_defined_vars())) {
+              $db = \Config\Database::connect();
+              $pegawaiInfo = $db->table('data_pegawai')
+                ->select('jabatan.jabatan, golongan.golongan, tim_kerja.nama_tim_kerja')
+                ->join('jabatan', 'jabatan.id_jabatan = data_pegawai.id_jabatan', 'left')
+                ->join('golongan', 'golongan.id_golongan = data_pegawai.id_golongan', 'left')
+                ->join('tim_kerja', 'tim_kerja.id_tim_kerja = data_pegawai.id_tim_kerja', 'left')
+                ->where('data_pegawai.id_user', session()->get('id_user'))
+                ->get()->getRowArray();
+            }
+
             if ($pegawaiInfo):
             ?>
             <div style="color: #ffffff; line-height: 1.3;">
@@ -794,8 +812,6 @@
   <script src="/plugins/daterangepicker/daterangepicker.js"></script>
   <!-- Tempusdominus Bootstrap 4 -->
   <script src="/plugins/tempusdominus-bootstrap-4/js/tempusdominus-bootstrap-4.min.js"></script>
-  <!-- Select2 -->
-  <script src="/plugins/select2/js/select2.full.min.js"></script>
   <!-- Summernote -->
   <script src="/plugins/summernote/summernote-bs4.min.js"></script>
   <!-- overlayScrollbars -->
@@ -848,39 +864,41 @@
   
   <script>
     $(document).ready(function () {
-        // Inisialisasi DateRangePicker
-        $('.jam').daterangepicker({
-            singleDatePicker: true, // Hanya satu waktu (bukan rentang)
-            timePicker: true,       // Aktifkan picker waktu
-            timePicker24Hour: true, // Format 24 jam
-            timePickerIncrement: 1, // Increment detik (opsional)
-            timePickerSeconds: true, // Tampilkan detik
-            autoApply: true,        // Otomatis terapkan tanpa tombol "Apply"
-            locale: {
-                format: 'HH:mm:ss'     // Format waktu HH:mm:ss
-            }
-        }).on('show.daterangepicker', function (ev, picker) {
-            picker.container.find(".calendar-table").hide(); // Sembunyikan kalender
-        });
+        if ($('.jam').length) {
+            // Inisialisasi DateRangePicker
+            $('.jam').daterangepicker({
+                singleDatePicker: true, // Hanya satu waktu (bukan rentang)
+                timePicker: true,       // Aktifkan picker waktu
+                timePicker24Hour: true, // Format 24 jam
+                timePickerIncrement: 1, // Increment detik (opsional)
+                timePickerSeconds: true, // Tampilkan detik
+                autoApply: true,        // Otomatis terapkan tanpa tombol "Apply"
+                locale: {
+                    format: 'HH:mm:ss'     // Format waktu HH:mm:ss
+                }
+            }).on('show.daterangepicker', function (ev, picker) {
+                picker.container.find(".calendar-table").hide(); // Sembunyikan kalender
+            });
 
-        // Event listener untuk mengisi input dengan waktu saja
-        $('.jam').on('apply.daterangepicker', function (ev, picker) {
-            $(this).find('input').val(picker.startDate.format('HH:mm:ss')); // Isi input dengan waktu saja
-        });
+            // Event listener untuk mengisi input dengan waktu saja
+            $('.jam').on('apply.daterangepicker', function (ev, picker) {
+                $(this).find('input').val(picker.startDate.format('HH:mm:ss')); // Isi input dengan waktu saja
+            });
 
-        // Mencegah pengetikan manual pada input
-        $('.jam').find('input').on('keydown paste input', function (event) {
-            event.preventDefault();
-        });
+            // Mencegah pengetikan manual pada input
+            $('.jam').find('input').on('keydown paste input', function (event) {
+                event.preventDefault();
+            });
 
-        // Tombol Clear untuk mengosongkan input
-        $('.clear-button').on('click', function () {
-            $(this).closest('.jam').find('input').val(''); // Kosongkan nilai input
-        });
+            // Tombol Clear untuk mengosongkan input
+            $('.clear-button').on('click', function () {
+                $(this).closest('.jam').find('input').val(''); // Kosongkan nilai input
+            });
+        }
     });
   </script>
   
-  <script src="/js/sweetAlert3.js"></script>
+  <script src="/js/sweetAlert3.js?v=<?= @filemtime(FCPATH . 'js/sweetAlert3.js') ?: '1'; ?>"></script>
   <?= in_array($activeMenu, ['user']) ? '<script src="/js/user.js"></script>' : ''; ?>
   <?= in_array($activeMenu, ['pegawai']) ? '<script src="/js/pegawai.js"></script>' : ''; ?>
   <?= in_array($activeMenu, ['unit_kerja']) ? '<script src="/js/unit_kerja.js"></script>' : ''; ?>
@@ -928,7 +946,7 @@
   <!--<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD4jKUxHGYL-QZDTL6KH1f47tOZnOxrHdA&libraries=geometry"></script>-->
 
   <!--<script src="/js/wbk.js"></script>-->
-  <script src="/js/validation_data_cuti.js"></script>
+  <script src="/js/validation_data_cuti.js?v=<?= @filemtime(FCPATH . 'js/validation_data_cuti.js') ?: '1'; ?>"></script>
   <script src="/js/sweetEmail.js"></script>
   <?= in_array($activeMenu, ['tambah_dokumen', 'utama', 'pendukung', 'lainnya', 'daftar_sop']) ? '<script src="/js/viewSopUtama.js"></script>' : ""; ?>
   <!--<script src="/js/inspectElement.js"></script>-->
@@ -978,87 +996,107 @@
         }
     });
     $(function() {
-      $('.summernote').summernote({
-        height: 300, // set editor height
-        minHeight: null, // set minimum height of editor
-        maxHeight: null, // set maximum height of editor
-        focus: true // set focus to editable area after initializing summernote
-      });
-      $('.summernote_no_media').summernote({
-        height: 300, // set editor height
-        minHeight: null, // set minimum height of editor
-        maxHeight: null, // set maximum height of editor
-        focus: true, // set focus to editable area after initializing summernote
-        toolbar: [
-          ['style', ['bold', 'italic', 'underline', 'clear']],
-          ['fontsize', ['fontsize']],
-          ['color', ['color']],
-          ['para', ['ul', 'ol', 'paragraph']],
-          ['view', ['fullscreen']]
-        ],
-      });
-      $('[data-toggle="tooltip"]').tooltip()
+      if ($('.summernote').length) {
+        $('.summernote').summernote({
+          height: 300, // set editor height
+          minHeight: null, // set minimum height of editor
+          maxHeight: null, // set maximum height of editor
+          focus: true // set focus to editable area after initializing summernote
+        });
+      }
+      if ($('.summernote_no_media').length) {
+        $('.summernote_no_media').summernote({
+          height: 300, // set editor height
+          minHeight: null, // set minimum height of editor
+          maxHeight: null, // set maximum height of editor
+          focus: true, // set focus to editable area after initializing summernote
+          toolbar: [
+            ['style', ['bold', 'italic', 'underline', 'clear']],
+            ['fontsize', ['fontsize']],
+            ['color', ['color']],
+            ['para', ['ul', 'ol', 'paragraph']],
+            ['view', ['fullscreen']]
+          ],
+        });
+      }
+      if ($('[data-toggle="tooltip"]').length) {
+        $('[data-toggle="tooltip"]').tooltip();
+      }
       //Initialize Select2 Elements
-      $('.select2').select2()
+      if ($('.select2').length) {
+        $('.select2').select2();
+      }
 
       //Initialize Select2 Elements
-      $('.select2bs4').select2({
-        theme: 'bootstrap4'
-      })
+      if ($('.select2bs4').length) {
+        $('.select2bs4').select2({
+          theme: 'bootstrap4'
+        });
+      }
 
-      $("#tableWithoutExporting").DataTable({
-        "responsive": true,
-        "responsive": {
-            "details": {
-                "renderer": DataTable.Responsive.renderer.listHiddenNodes()
-            }
-        },
-        "lengthChange": false,
-        "autoWidth": false,
-        "buttons": ["copy", "colvis"]
-      }).buttons().container().appendTo('#tableWithoutExporting_wrapper .col-md-6:eq(0)');
-      $("#example1").DataTable({
-        "responsive": true,
-        "responsive": {
-            "details": {
-                "renderer": DataTable.Responsive.renderer.listHiddenNodes()
-            }
-        },
-        "lengthChange": false,
-        "autoWidth": false,
-        "buttons": ["copy", "excel", "pdf", "colvis"]
-      }).buttons().container().appendTo('#example1_wrapper .col-md-6:eq(0)');
-      $("#example2").DataTable({
-        "responsive": true,
-        "responsive": {
-            "details": {
-                "renderer": DataTable.Responsive.renderer.listHiddenNodes()
-            }
-        },
-        "lengthChange": false,
-        "autoWidth": false,
-        "buttons": ["copy", "excel", "colvis"]
-      }).buttons().container().appendTo('#example2_wrapper .col-md-6:eq(0)');
-      $('#example3').DataTable({
-        "paging": true,
-        "lengthChange": false,
-        "searching": false,
-        "ordering": true,
-        "info": true,
-        "autoWidth": false,
-        "responsive": true,
-        "responsive": {
-            "details": {
-                "renderer": DataTable.Responsive.renderer.listHiddenNodes()
-            }
-        },
-        columns: [{
-            data: "Nama",
-            className: "never"
-          } //does not show on load
-        ]
-      });
-      bsCustomFileInput.init();
+      if ($('#tableWithoutExporting').length) {
+        $("#tableWithoutExporting").DataTable({
+          "responsive": true,
+          "responsive": {
+              "details": {
+                  "renderer": DataTable.Responsive.renderer.listHiddenNodes()
+              }
+          },
+          "lengthChange": false,
+          "autoWidth": false,
+          "buttons": ["copy", "colvis"]
+        }).buttons().container().appendTo('#tableWithoutExporting_wrapper .col-md-6:eq(0)');
+      }
+      if ($('#example1').length) {
+        $("#example1").DataTable({
+          "responsive": true,
+          "responsive": {
+              "details": {
+                  "renderer": DataTable.Responsive.renderer.listHiddenNodes()
+              }
+          },
+          "lengthChange": false,
+          "autoWidth": false,
+          "buttons": ["copy", "excel", "pdf", "colvis"]
+        }).buttons().container().appendTo('#example1_wrapper .col-md-6:eq(0)');
+      }
+      if ($('#example2').length) {
+        $("#example2").DataTable({
+          "responsive": true,
+          "responsive": {
+              "details": {
+                  "renderer": DataTable.Responsive.renderer.listHiddenNodes()
+              }
+          },
+          "lengthChange": false,
+          "autoWidth": false,
+          "buttons": ["copy", "excel", "colvis"]
+        }).buttons().container().appendTo('#example2_wrapper .col-md-6:eq(0)');
+      }
+      if ($('#example3').length) {
+        $('#example3').DataTable({
+          "paging": true,
+          "lengthChange": false,
+          "searching": false,
+          "ordering": true,
+          "info": true,
+          "autoWidth": false,
+          "responsive": true,
+          "responsive": {
+              "details": {
+                  "renderer": DataTable.Responsive.renderer.listHiddenNodes()
+              }
+          },
+          columns: [{
+              data: "Nama",
+              className: "never"
+            } //does not show on load
+          ]
+        });
+      }
+      if ($('.custom-file-input').length && typeof bsCustomFileInput !== 'undefined') {
+        bsCustomFileInput.init();
+      }
     });
   </script>
   <script>

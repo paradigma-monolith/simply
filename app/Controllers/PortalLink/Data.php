@@ -21,10 +21,14 @@ class Data extends BaseController
   public function menu()
   {
     if ($this->request->isAJAX()) {
-      $portalLinkModel = new PortalLinkModel();
-      $msg['data'] = $portalLinkModel->orderBy('id_portal', 'desc')->findAll();
+      if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+      }
 
-      echo json_encode($msg);
+      $portalLinkModel = new PortalLinkModel();
+      return $this->response->setJSON([
+        'data' => $portalLinkModel->select('link, title')->orderBy('id_portal', 'desc')->findAll()
+      ]);
     }
   }
 }

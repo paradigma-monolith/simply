@@ -95,19 +95,22 @@ function cekValidasiCuti() {
   $('.setValidationCuti-Permohonan').html('<li class="nav-header">Validator</li>')
 }
 $(document).ready(function() {
-
-  // endTandaTangan
-  getData();
-  // dataCuti();
-  // dataPermohonan();
-  setInterval(function() {
+  // Hanya jalankan polling cuti jika elemen target SICUTE benar-benar ada di DOM
+  var hasCutiTargets = $('.view-data-cuti-baru, .view-data-permohonan-baru, .view-jumlah-data-baru, .setValidationCuti, .setValidationPermohonan').length > 0;
+  if (hasCutiTargets) {
     getData();
-    // dataCuti();
-    // dataPermohonan();
-  }, 10000);
+    setInterval(function() {
+      if (!document.hidden) {
+        getData();
+      }
+    }, 30000);
+  }
 
-  setInterval(function() {
-    $(".lds-ring").css('display', 'none');
-    $(".previewPDF").css('display', 'block');
-  }, 500);
+  if ($('.lds-ring').length > 0 || $('.previewPDF').length > 0) {
+    var pdfRevealTimer = setInterval(function() {
+      $(".lds-ring").css('display', 'none');
+      $(".previewPDF").css('display', 'block');
+      clearInterval(pdfRevealTimer);
+    }, 500);
+  }
 });

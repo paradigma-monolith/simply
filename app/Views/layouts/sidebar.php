@@ -160,31 +160,39 @@
     
     <!-- APLIKASI ABS -->
     <?php
-    // Logic to count pending Rawat Kendaraan verifications
+    // Cek role verifikator Rawat Kendaraan sekali saja (hindari 4 query duplikat di sidebar)
     $countRawatKendaraanPending = 0;
+    $isAdmin = session()->get('role') == 'Admin';
     $isVerifikator1 = false;
     $isVerifikator2 = false;
     try {
         $userId = session()->get('id_user');
         if ($userId) {
             $rawatVerifikatorModel = new \App\Models\Abs\RawatVerifikatorModel();
-            $isVerifikator1 = $rawatVerifikatorModel->where('id_user', $userId)->where('role', 'verifikator_1')->first();
-            $isVerifikator2 = $rawatVerifikatorModel->where('id_user', $userId)->where('role', 'verifikator_2')->first();
+            $verifRoles = $rawatVerifikatorModel
+                ->select('role')
+                ->where('id_user', $userId)
+                ->whereIn('role', ['verifikator_1', 'verifikator_2'])
+                ->findAll();
+
+            foreach ($verifRoles as $vr) {
+                if (($vr['role'] ?? '') === 'verifikator_1') {
+                    $isVerifikator1 = true;
+                } elseif (($vr['role'] ?? '') === 'verifikator_2') {
+                    $isVerifikator2 = true;
+                }
+            }
 
             if ($isVerifikator1 || $isVerifikator2) {
                 $rawatKendaraanModel = new \App\Models\Abs\RawatKendaraanModel();
-                
-                if ($isVerifikator1) {
-                    $countRawatKendaraanPending += $rawatKendaraanModel->where('status', 'pending')->countAllResults();
-                }
-                
-                if ($isVerifikator2) {
-                    $countRawatKendaraanPending += $rawatKendaraanModel->where('status', 'verifikasi_2')->countAllResults();
-                }
+                $statuses = [];
+                if ($isVerifikator1) $statuses[] = 'pending';
+                if ($isVerifikator2) $statuses[] = 'verifikasi_2';
+                $countRawatKendaraanPending = (int) $rawatKendaraanModel->whereIn('status', $statuses)->countAllResults();
             }
         }
     } catch (\Throwable $th) {
-        // Silent error
+        // Silent error jika tabel belum tersedia
     }
     ?>
     <li id="abs" class="nav-item <?= in_array($activeMenu, ['abs_pengajuan','abs_gambar', 'managemen_qr_code', 'abs_verifikasi', 'bangunan', 'lokasi', 'abs_rawat_dashboard', 'abs_rawat_pengajuan', 'abs_rawat_kendaraan', 'abs_rawat_pengaturan', 'abs_rawat_verifikasi']) ? "menu-open" : ""; ?>">
@@ -273,27 +281,7 @@
                 <p>Pengajuan</p>
               </a>
             </li>
-            <?php
-            // Check access for Rawat Kendaraan menus
-            $isAdmin = session()->get('role') == 'Admin';
-            $isVerifikator1 = false;
-            $isVerifikator2 = false;
-
-            try {
-                $rawatVerifikatorModel = new \App\Models\Abs\RawatVerifikatorModel();
-                $userId = session()->get('id_user');
-                
-                if ($userId) {
-                    // Cek apakah tabel ada untuk menghindari error jika belum migrasi di server
-                    // Menggunakan try-catch query sederhana untuk cek eksistensi
-                    $isVerifikator1 = $rawatVerifikatorModel->where('id_user', $userId)->where('role', 'verifikator_1')->first();
-                    $isVerifikator2 = $rawatVerifikatorModel->where('id_user', $userId)->where('role', 'verifikator_2')->first();
-                }
-            } catch (\Throwable $th) {
-                // Silent error jika tabel belum ada atau model bermasalah
-                // Agar halaman tidak stuck loading
-            }
-            ?>
+            <?php // Memakai ulang hasil cek $isAdmin, $isVerifikator1, $isVerifikator2 di atas ?>
 
             <?php if ($isAdmin || $isVerifikator1 || $isVerifikator2) : ?>
             <li class="nav-item">
@@ -453,7 +441,8 @@
         </li>
         <?php
         $userModel = new \App\Models\Master\UserModel();
-        $sinadiAkses = $userModel->join('sinadi_akses', 'sinadi_akses.id_user=user.id_user')
+        $sinadiAkses = $userModel->select('sinadi_akses.status')
+          ->join('sinadi_akses', 'sinadi_akses.id_user=user.id_user')
           ->where("user.username", session()->get('username'))
           ->first();
         ?>
