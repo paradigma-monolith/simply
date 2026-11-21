@@ -1,426 +1,552 @@
-<table id="example11" class="table table-bordered table-striped table-hover" style="width: 100%;">
-  <thead>
-    <tr>
-      <th>No</th>
-      <th>Id</th>
-      <th>Aksi</th>
-      <th>Status Surat</th>
-      <th>Tanggal Pelaksanaan</th>
-      <th>Mata Anggaran</th>
-      <th>Sumber Anggaran</th>
-      <th>Nama Kegiatan</th>
-      <th>Tempat Perjalanan</th>
-      <th>Jumlah Orang</th>
-      <th>Nominal</th>
-      <th>Akses Data</th>
-    </tr>
-  </thead>
-  <tbody>
-    <?php $no = 1;
-    foreach ($perjalanan as $data) : ?>
+<?php
+$rows = $perjalanan ?? [];
+$totalDocs = count($rows);
+$totalNominal = 0;
+$totalPesertaAll = 0;
+$statusCounts = [
+  'Draft'            => 0,
+  'Diajukan'         => 0,
+  'Dalam Verifikasi' => 0,
+  'Perlu Revisi'     => 0,
+  'Disetujui'        => 0,
+  'Ditolak'          => 0,
+];
+
+foreach ($rows as $r) {
+  $st = (string) ($r['status_surat'] ?? 'Draft');
+  if (isset($statusCounts[$st])) {
+    $statusCounts[$st]++;
+  }
+  $totalNominal += (float) ($r['total_perjalanan'] ?? 0);
+  $totalPesertaAll += (int) ($r['jumlah_peserta'] ?? 0);
+}
+
+$needActionCount = $statusCounts['Draft'] + $statusCounts['Perlu Revisi'];
+$inProcessCount = $statusCounts['Diajukan'] + $statusCounts['Dalam Verifikasi'];
+$approvedCount = $statusCounts['Disetujui'];
+?>
+
+<style>
+  .sn-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .sn-kpi-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 11px;
+    padding: 10px 13px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .sn-kpi-num {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+  }
+  .sn-kpi-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+  }
+  .sn-kpi-sub {
+    font-size: 0.69rem;
+    color: #0d9488;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+  .sn-kpi-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+  }
+
+  /* Status Filter Pills */
+  .sn-status-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .sn-status-pill {
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    color: #475569;
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 4px 11px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .sn-status-pill:hover {
+    border-color: #0d9488;
+    color: #0f766e;
+  }
+  .sn-status-pill.active {
+    background: #0d9488;
+    border-color: #0d9488;
+    color: #ffffff;
+  }
+  .sn-status-pill .sn-pill-cnt {
+    background: rgba(15, 23, 42, 0.08);
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 0.67rem;
+  }
+  .sn-status-pill.active .sn-pill-cnt {
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+  }
+
+  /* Modern Table Overrides */
+  #example11 thead th {
+    background: #f8fafc;
+    color: #475569;
+    font-size: 0.74rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border-bottom: 2px solid #e2e8f0;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+  #example11 tbody td {
+    font-size: 0.81rem;
+    vertical-align: middle;
+    color: #1e293b;
+  }
+  #example11 tbody tr.shown {
+    background-color: #f0fdfa !important;
+  }
+  #example11 tbody td.details-control {
+    cursor: pointer;
+  }
+  .sn-act-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+  }
+  .sn-act-btn {
+    width: 27px;
+    height: 27px;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+  }
+  .sn-badge-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 0.71rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .sn-sumber-pill {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
+  .sn-sumber-apbn {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+  }
+  .sn-sumber-rpl {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+  }
+
+  @media (max-width: 991.98px) {
+    .sn-kpi-row {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (max-width: 575.98px) {
+    .sn-kpi-box {
+      padding: 8px 10px;
+    }
+    .sn-kpi-num {
+      font-size: 1rem;
+    }
+  }
+</style>
+
+<!-- 4 Live KPI Summary Cards -->
+<div class="sn-kpi-row">
+  <div class="sn-kpi-box">
+    <div>
+      <div class="sn-kpi-num"><?= $totalDocs; ?> <small class="text-muted font-weight-normal" style="font-size:0.72rem;">dokumen</small></div>
+      <div class="sn-kpi-label">Total Perjalanan</div>
+      <div class="sn-kpi-sub">Rp <?= number_format($totalNominal, 0, ',', '.'); ?></div>
+    </div>
+    <div class="sn-kpi-icon" style="background:#f0fdfa;color:#0d9488;"><i class="fas fa-Suitcase-rolling fa-briefcase"></i></div>
+  </div>
+
+  <div class="sn-kpi-box">
+    <div>
+      <div class="sn-kpi-num"><?= $needActionCount; ?></div>
+      <div class="sn-kpi-label">Draft &amp; Perlu Revisi</div>
+      <div class="sn-kpi-sub" style="color:#d97706;"><?= $totalPesertaAll; ?> total peserta</div>
+    </div>
+    <div class="sn-kpi-icon" style="background:#fffbeb;color:#d97706;"><i class="fas fa-pen-nib"></i></div>
+  </div>
+
+  <div class="sn-kpi-box">
+    <div>
+      <div class="sn-kpi-num"><?= $inProcessCount; ?></div>
+      <div class="sn-kpi-label">Proses Verifikasi</div>
+      <div class="sn-kpi-sub" style="color:#2563eb;">Diajukan &amp; Verifikasi</div>
+    </div>
+    <div class="sn-kpi-icon" style="background:#eff6ff;color:#2563eb;"><i class="fas fa-hourglass-half"></i></div>
+  </div>
+
+  <div class="sn-kpi-box">
+    <div>
+      <div class="sn-kpi-num"><?= $approvedCount; ?></div>
+      <div class="sn-kpi-label">Disetujui / Selesai</div>
+      <div class="sn-kpi-sub" style="color:#16a34a;">Siap unduh berkas</div>
+    </div>
+    <div class="sn-kpi-icon" style="background:#f0fdf4;color:#16a34a;"><i class="fas fa-check-double"></i></div>
+  </div>
+</div>
+
+<!-- Quick Status Filter Pills -->
+<div class="sn-status-filters" id="snStatusFilterBar">
+  <button type="button" class="sn-status-pill active" data-status="">
+    Semua <span class="sn-pill-cnt"><?= $totalDocs; ?></span>
+  </button>
+  <button type="button" class="sn-status-pill" data-status="Draft">
+    Draft <span class="sn-pill-cnt"><?= $statusCounts['Draft']; ?></span>
+  </button>
+  <button type="button" class="sn-status-pill" data-status="Diajukan">
+    Diajukan <span class="sn-pill-cnt"><?= $statusCounts['Diajukan']; ?></span>
+  </button>
+  <button type="button" class="sn-status-pill" data-status="Dalam Verifikasi">
+    Dalam Verifikasi <span class="sn-pill-cnt"><?= $statusCounts['Dalam Verifikasi']; ?></span>
+  </button>
+  <button type="button" class="sn-status-pill" data-status="Perlu Revisi">
+    Perlu Revisi <span class="sn-pill-cnt"><?= $statusCounts['Perlu Revisi']; ?></span>
+  </button>
+  <button type="button" class="sn-status-pill" data-status="Disetujui">
+    Disetujui <span class="sn-pill-cnt"><?= $statusCounts['Disetujui']; ?></span>
+  </button>
+  <?php if ($statusCounts['Ditolak'] > 0) : ?>
+    <button type="button" class="sn-status-pill" data-status="Ditolak">
+      Ditolak <span class="sn-pill-cnt"><?= $statusCounts['Ditolak']; ?></span>
+    </button>
+  <?php endif; ?>
+  <small class="text-muted ml-auto d-none d-md-inline" style="font-size: 0.72rem;">
+    <i class="far fa-hand-pointer mr-1"></i>Klik baris untuk melihat rincian peserta &amp; biaya
+  </small>
+</div>
+
+<div class="table-responsive">
+  <table id="example11" class="table table-bordered table-hover mb-0" style="width: 100%;">
+    <thead>
       <tr>
-        <td><?= $no++; ?></td>
-        <td><?= $data['id_perjalanan']; ?></td>
-        <!--Aksi-->
-        
-        <?php if ($data['status_surat'] == "Draft"): ?>
-          <td>
-            <a href="/sinadi/validasi_data/<?= $data['id_perjalanan']; ?>" class="btn mb-1 btn-xs btn-primary tombol-ttd-fitur-baru">
-              <i class="fas fa-pen-square"></i>
-            </a>
-            <?php if (session()->get('username') == $data['username'] || $akses) : ?>
-              <!-- Tombol Dokumen -->
+        <th width="4%">No</th>
+        <th>Id</th>
+        <th width="11%">Aksi</th>
+        <th width="11%">Status Surat</th>
+        <th width="13%">Tanggal Pelaksanaan</th>
+        <th width="11%">MAK / Sumber</th>
+        <th width="22%">Nama Kegiatan</th>
+        <th width="14%">Tempat Tujuan</th>
+        <th width="7%">Peserta</th>
+        <th width="10%">Total Nominal</th>
+        <th width="10%">Pembuat</th>
+      </tr>
+    </thead>
+    <tbody>
+      <?php $no = 1; ?>
+      <?php foreach ($rows as $data) : ?>
+        <?php
+        $idPerjalanan = (int) ($data['id_perjalanan'] ?? 0);
+        $statusSurat = (string) ($data['status_surat'] ?? 'Draft');
+        $isOwnerOrAdmin = (session()->get('username') === ($data['username'] ?? '') || !empty($akses));
+        $formEditUrl = '/sinadi/' . ($activeMenu === 'dinasDalamKota' ? 'formulirPerjalananDinas' : 'formulirPerjalananDinasAntarKota') . '/' . $idPerjalanan;
+        $sumberAnggaran = !empty($data['sumber_anggaran']) ? strtoupper((string) $data['sumber_anggaran']) : 'APBN';
+        $tglAwal = (string) ($data['tgl_pelaksanaan'] ?? '');
+        $tglAkhir = (string) ($data['tgl_pelaksanaan_akhir'] ?? '');
+        $dlFn = ( $tglAkhir !== '' && (int) date('Y', strtotime($tglAkhir)) >= 2025 ) ? 'downloadFileSinadiNew' : 'downloadFileSinadi';
+        ?>
+        <tr>
+          <td class="text-center font-weight-bold"><?= $no++; ?></td>
+          <td><?= $idPerjalanan; ?></td>
 
-              <!-- Tombol Ubah Dokumen -->
-              <?php if ($akses || $data['status_surat'] != "Disetujui"): ?>
-                <a
-                  href="/sinadi/<?= $activeMenu == 'dinasDalamKota' ? 'formulirPerjalananDinas' : 'formulirPerjalananDinasAntarKota'; ?>/<?= $data['id_perjalanan']; ?>"
-                  class="btn mb-1 btn-xs bg-gradient-warning"
-                  data-toggle="tooltip"
-                  data-placement="bottom"
-                  title="Ubah Dokumen"
-                  for="Edit Data">
-                  <i class="fas fa-edit"></i>
+          <!-- Kolom Aksi -->
+          <td class="text-nowrap">
+            <div class="sn-act-group">
+              <?php if ($statusSurat === 'Draft') : ?>
+                <a href="/sinadi/validasi_data/<?= $idPerjalanan; ?>"
+                   class="btn btn-xs btn-primary sn-act-btn"
+                   title="Tanda Tangan &amp; Kirim Validasi">
+                  <i class="fas fa-signature"></i>
                 </a>
-              <?php endif; ?>
+                <?php if ($isOwnerOrAdmin) : ?>
+                  <a href="<?= $formEditUrl; ?>"
+                     class="btn btn-xs btn-warning sn-act-btn"
+                     title="Ubah Dokumen">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  <?php if (!empty($akses)) : ?>
+                    <form action="/sinadi/dlt_sinadi/<?= $idPerjalanan; ?>" method="post" class="d-inline formHapusData">
+                      <?= csrf_field(); ?>
+                      <input type="hidden" name="_method" value="DELETE">
+                      <button type="submit" class="btn btn-xs btn-danger sn-act-btn" title="Hapus Dokumen">
+                        <i class="fas fa-trash-alt"></i>
+                      </button>
+                    </form>
+                  <?php endif; ?>
+                <?php endif; ?>
 
-                <?php if ($akses) : ?>
-                  <!-- Tombol Hapus Dokumen -->
-                  <form
-                    action="/sinadi/dlt_sinadi/<?= $data['id_perjalanan']; ?>"
-                    method="post"
-                    class="d-inline formHapusData">
+              <?php elseif ($statusSurat === 'Diajukan' || $statusSurat === 'Dalam Verifikasi') : ?>
+                <a href="/sinadi/validasi_data/view/<?= $idPerjalanan; ?>"
+                   class="btn btn-xs btn-info sn-act-btn"
+                   title="Pratinjau &amp; Lacak Verifikasi">
+                  <i class="fas fa-eye"></i>
+                </a>
+
+              <?php elseif ($statusSurat === 'Perlu Revisi') : ?>
+                <a href="/sinadi/validasi_data/<?= $idPerjalanan; ?>"
+                   class="btn btn-xs btn-primary sn-act-btn"
+                   title="Tanda Tangan &amp; Ajukan Ulang">
+                  <i class="fas fa-signature"></i>
+                </a>
+                <?php if ($isOwnerOrAdmin) : ?>
+                  <a href="<?= $formEditUrl; ?>"
+                     class="btn btn-xs btn-warning sn-act-btn"
+                     title="Revisi / Ubah Dokumen">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  <form action="/sinadi/dlt_sinadi/<?= $idPerjalanan; ?>" method="post" class="d-inline formHapusData">
                     <?= csrf_field(); ?>
                     <input type="hidden" name="_method" value="DELETE">
-                    <button
-                      type="submit"
-                      class="btn mb-1 btn-xs bg-gradient-danger"
-                      data-toggle="tooltip"
-                      data-placement="bottom"
-                      title="Hapus Dokumen">
+                    <button type="submit" class="btn btn-xs btn-danger sn-act-btn" title="Hapus Dokumen">
                       <i class="fas fa-trash-alt"></i>
                     </button>
                   </form>
                 <?php endif; ?>
-            <?php else : ?>
-              <!--<button-->
-              <!--  class="btn mb-1 btn-xs bg-gradient-info tombol-td"-->
-              <!--  data-toggle="tooltip"-->
-              <!--  data-placement="right"-->
-              <!--  title="Pratinjau"-->
-              <!--  for="Lihat Data">-->
-              <!--  <i class="fas fa-eye"></i>-->
-              <!--</button>-->
-            <?php endif; ?>
-          </td>
-        <?php elseif ($data['status_surat'] == "Diajukan"): ?>
-          <td>
-            <button class="btn mb-1 btn-xs btn-info disabled"><i class="fas fa-spinner fa-pulse"></i></button>
-            <a href="/sinadi/validasi_data/view/<?= $data['id_perjalanan']; ?>"
-                class="btn mb-1 btn-xs bg-gradient-info"
-                data-toggle="tooltip"
-                data-placement="right"
-                title="Pratinjau"
-                for="Lihat Data">
-                <i class="fas fa-eye"></i>
-            </a>
-
-
-          </td>
-        <?php elseif ($data['status_surat'] == "Dalam Verifikasi"): ?>
-          <td>
-            <button class="btn mb-1 btn-xs btn-info disabled"><i class="fas fa-spinner fa-pulse"></i></button>
-            <a href="/sinadi/validasi_data/view/<?= $data['id_perjalanan']; ?>"
-                class="btn mb-1 btn-xs bg-gradient-info"
-                data-toggle="tooltip"
-                data-placement="right"
-                title="Pratinjau"
-                for="Lihat Data">
-                <i class="fas fa-eye"></i>
-            </a>
-
-
-          </td>
-        <?php elseif ($data['status_surat'] == "Perlu Revisi"): ?>
-          <td>
-            <a href="/sinadi/validasi_data/<?= $data['id_perjalanan']; ?>" class="btn mb-1 btn-xs btn-primary tombol-ttd-fitur-baru">
-              <i class="fas fa-pen-square"></i>
-            </a>
-            <?php if (session()->get('username') == $data['username'] || $akses) : ?>
-              <!--<button-->
-              <!--  class="btn mb-1 btn-xs bg-gradient-info tombol-td"-->
-              <!--  data-toggle="tooltip"-->
-              <!--  data-placement="right"-->
-              <!--  title="Pratinjau"-->
-              <!--  for="Lihat Data">-->
-              <!--  <i class="fas fa-eye"></i>-->
-              <!--</button>-->
-              <?php if ($akses || $data['status_surat'] != "Disetujui"): ?>
-                <a
-                  href="/sinadi/<?= $activeMenu == 'dinasDalamKota' ? 'formulirPerjalananDinas' : 'formulirPerjalananDinasAntarKota'; ?>/<?= $data['id_perjalanan']; ?>"
-                  class="btn mb-1 btn-xs bg-gradient-warning"
-                  data-toggle="tooltip"
-                  data-placement="bottom"
-                  title="Ubah Dokumen"
-                  for="Edit Data">
-                  <i class="fas fa-edit"></i>
+                <a href="/sinadi/validasi_data/view/<?= $idPerjalanan; ?>"
+                   class="btn btn-xs btn-info sn-act-btn"
+                   title="Lihat Catatan Revisi">
+                  <i class="fas fa-eye"></i>
                 </a>
-              <?php endif; ?>
 
-              <form
-                action="/sinadi/dlt_sinadi/<?= $data['id_perjalanan']; ?>"
-                method="post"
-                class="d-inline formHapusData">
-                <?= csrf_field(); ?>
-                <input type="hidden" name="_method" value="DELETE">
-                <button
-                  type="submit"
-                  class="btn mb-1 btn-xs bg-gradient-danger"
-                  data-toggle="tooltip"
-                  data-placement="bottom"
-                  title="Hapus Dokumen">
-                  <i class="fas fa-trash-alt"></i>
+              <?php elseif ($statusSurat === 'Disetujui') : ?>
+                <button type="button"
+                        class="btn btn-xs btn-danger sn-act-btn"
+                        onclick="<?= $dlFn; ?>('<?= $idPerjalanan; ?>','<?= esc($data['nama'] ?? '', 'js'); ?>','<?= esc($data['bukti_pembayaran'] ?? '', 'js'); ?>')"
+                        title="Unduh Berkas PDF">
+                  <i class="fas fa-file-pdf"></i>
                 </button>
-              </form>
-            <?php else : ?>
-              <!--<button-->
-              <!--  class="btn mb-1 btn-xs bg-gradient-info tombol-td"-->
-              <!--  data-toggle="tooltip"-->
-              <!--  data-placement="right"-->
-              <!--  title="Pratinjau"-->
-              <!--  for="Lihat Data">-->
-              <!--  <i class="fas fa-eye"></i>-->
-              <!--</button>-->
-            <?php endif; ?>
-            <a href="/sinadi/validasi_data/view/<?= $data['id_perjalanan']; ?>"
-                class="btn mb-1 btn-xs bg-gradient-info"
-                data-toggle="tooltip"
-                data-placement="right"
-                title="Pratinjau"
-                for="Lihat Data">
-                <i class="fas fa-eye"></i>
-            </a>
-
-          </td>
-        <?php elseif ($data['status_surat'] == "Disetujui"): ?>
-          <td>
-            <?php if (session()->get('username') == $data['username'] || $akses) : ?>
-              <!-- Tombol Pratinjau -->
-              <!--<button-->
-              <!--  class="btn mb-1 btn-xs bg-gradient-info tombol-td"-->
-              <!--  data-toggle="tooltip"-->
-              <!--  data-placement="bottom"-->
-              <!--  title="Pratinjau"-->
-              <!--  for="Lihat Data">-->
-              <!--  <i class="fas fa-eye"></i>-->
-              <!--</button>-->
-
-              <!-- Tombol Download File -->
-              <button
-                class="btn mb-1 btn-xs btn-danger"
-                onclick="<?= (date('Y', strtotime($data['tgl_pelaksanaan_akhir'])) >= 2025) ? 'downloadFileSinadiNew' : 'downloadFileSinadi'; ?>('<?= $data['id_perjalanan']; ?>','<?= $data['nama']; ?>','<?= $data['bukti_pembayaran']; ?>')"
-                data-toggle="tooltip"
-                data-placement="bottom"
-                title="Download File">
-                <i class="fas fa-file-pdf"></i>
-              </button>
-
-
-
-              <!-- Tombol Ubah Dokumen -->
-              <?php if ($akses || $data['status_surat'] != "Disetujui"): ?>
-                <a
-                  href="/sinadi/<?= $activeMenu == 'dinasDalamKota' ? 'formulirPerjalananDinas' : 'formulirPerjalananDinasAntarKota'; ?>/<?= $data['id_perjalanan']; ?>"
-                  class="btn mb-1 btn-xs bg-gradient-warning"
-                  data-toggle="tooltip"
-                  data-placement="bottom"
-                  title="Ubah Dokumen"
-                  for="Edit Data">
-                  <i class="fas fa-edit"></i>
+                <a href="/sinadi/validasi_data/view/<?= $idPerjalanan; ?>"
+                   class="btn btn-xs btn-info sn-act-btn"
+                   title="Pratinjau Dokumen">
+                  <i class="fas fa-eye"></i>
                 </a>
+                <?php if (!empty($akses)) : ?>
+                  <a href="<?= $formEditUrl; ?>"
+                     class="btn btn-xs btn-warning sn-act-btn"
+                     title="Ubah Dokumen (Super User)">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  <form action="/sinadi/dlt_sinadi/<?= $idPerjalanan; ?>" method="post" class="d-inline formHapusData">
+                    <?= csrf_field(); ?>
+                    <input type="hidden" name="_method" value="DELETE">
+                    <button type="submit" class="btn btn-xs btn-outline-danger sn-act-btn" title="Hapus Dokumen">
+                      <i class="fas fa-trash-alt"></i>
+                    </button>
+                  </form>
+                <?php endif; ?>
+
+              <?php else : ?>
+                <span class="badge badge-secondary"><i class="fas fa-ban"></i></span>
               <?php endif; ?>
-
-              <!-- Tombol Hapus Dokumen -->
-              <?php if ($akses || ($data['status_surat'] != "Disetujui" && $data['status_surat'] != "Ditolak")): ?>
-                <form
-                  action="/sinadi/dlt_sinadi/<?= $data['id_perjalanan']; ?>"
-                  method="post"
-                  class="d-inline formHapusData">
-                  <?= csrf_field(); ?>
-                  <input type="hidden" name="_method" value="DELETE">
-                  <button
-                    type="submit"
-                    class="btn mb-1 btn-xs bg-gradient-danger"
-                    data-toggle="tooltip"
-                    data-placement="bottom"
-                    title="Hapus Dokumen">
-                    <i class="fas fa-trash-alt"></i>
-                  </button>
-                </form>
-              <?php endif; ?>
-            <?php else : ?>
-              <!-- Tombol Pratinjau -->
-              <!--<button-->
-              <!--  class="btn mb-1 btn-xs bg-gradient-info tombol-td"-->
-              <!--  data-toggle="tooltip"-->
-              <!--  data-placement="right"-->
-              <!--  title="Pratinjau"-->
-              <!--  for="Lihat Data">-->
-              <!--  <i class="fas fa-eye"></i>-->
-              <!--</button>-->
-
-              <!-- Tombol Download File -->
-              <button
-                class="btn mb-1 btn-xs btn-danger"
-                onclick="<?= (date('Y', strtotime($data['tgl_pelaksanaan_akhir'])) >= 2025) ? 'downloadFileSinadiNew' : 'downloadFileSinadi'; ?>('<?= $data['id_perjalanan']; ?>','<?= $data['nama']; ?>','<?= $data['bukti_pembayaran']; ?>')"
-                data-toggle="tooltip"
-                data-placement="right"
-                title="Download File">
-                <i class="fas fa-file-pdf"></i>
-              </button>
-
-
-            <?php endif; ?>
-            <a href="/sinadi/validasi_data/view/<?= $data['id_perjalanan']; ?>"
-                class="btn mb-1 btn-xs bg-gradient-info"
-                data-toggle="tooltip"
-                data-placement="right"
-                title="Pratinjau"
-                for="Lihat Data">
-                <i class="fas fa-eye"></i>
-            </a>
-
+            </div>
           </td>
-        <?php elseif ($data['status_surat'] == "Ditolak"): ?>
-          <td><button class="btn mb-1 btn-secondary disabled"><i class="fas fa-ban"></i></button></td>
-        <?php endif; ?>
-        <!--Aksi-->
-        
-        <td class="sinadi-label-disini">
-          <?php if ($data['status_surat'] == "Draft"): ?>
-            <span class="badge badge-secondary"><?= $data['status_surat']; ?></span>
-          <?php elseif ($data['status_surat'] == "Diajukan"): ?>
-            <span class="badge badge-primary"><?= $data['status_surat']; ?></span>
-          <?php elseif ($data['status_surat'] == "Dalam Verifikasi"): ?>
-            <span class="badge badge-info"><?= $data['status_surat']; ?></span>
-          <?php elseif ($data['status_surat'] == "Perlu Revisi"): ?>
-            <span class="badge badge-warning"><?= $data['status_surat']; ?></span>
-          <?php elseif ($data['status_surat'] == "Disetujui"): ?>
-            <span class="badge badge-success"><?= $data['status_surat']; ?></span>
-          <?php elseif ($data['status_surat'] == "Ditolak"): ?>
-            <span class="badge badge-danger"><?= $data['status_surat']; ?></span>
-          <?php endif; ?>
-        </td>
-        
-        <?php if ($data['tgl_pelaksanaan'] == $data['tgl_pelaksanaan_akhir']) : ?>
-          <td><?= $data['tgl_pelaksanaan']; ?></td>
-        <?php else : ?>
-          <td><?= $data['tgl_pelaksanaan']; ?> s/d <?= $data['tgl_pelaksanaan_akhir']; ?></td>
-        <?php endif; ?>
-        <td><?= $data['mata_anggaran']; ?></td>
-        <td><?= isset($data['sumber_anggaran']) ? $data['sumber_anggaran'] : 'APBN'; ?></td>
-        <td data-toggle="tooltip" data-placement="top" title="<?= $data['nama_kegiatan']; ?>"><?= strlen($data['nama_kegiatan']) > 36 ? substr($data['nama_kegiatan'], 0, 36) . '...' : $data['nama_kegiatan']; ?></td>
-        <td data-toggle="tooltip" data-placement="top" title="<?= $data['tempat_perjalanan']; ?>"><?= strlen($data['tempat_perjalanan']) > 36 ? substr($data['tempat_perjalanan'], 0, 36) . '...' : $data['tempat_perjalanan']; ?></td>
-        <td><?= $data['jumlah_peserta']; ?> Orang</td>
-        <td><?= number_format($data['total_perjalanan'], '2', ',', '.'); ?></td>
-        <td>
-          <?= name_capitalize($data['nama']); ?>
-        </td>
-      </tr>
-    <?php endforeach; ?>
-  </tbody>
-  <tfoot>
-    <tr>
-      <th>No</th>
-      <th>Id</th>
-      <th>Aksi</th>
-      <th>Status Surat</th>
-      <th>Tanggal Pelaksanaan</th>
-      <th>Mata Anggaran</th>
-      <th>Sumber Anggaran</th>
-      <th>Nama Kegiatan</th>
-      <th>Tempat Perjalanan</th>
-      <th>Jumlah Orang</th>
-      <th>Nominal</th>
-      <th>Akses Data</th>
-    </tr>
-  </tfoot>
-</table>
 
+          <!-- Status Surat -->
+          <td>
+            <?php if ($statusSurat === 'Draft') : ?>
+              <span class="sn-badge-status badge-secondary"><i class="fas fa-pencil-alt"></i> Draft</span>
+            <?php elseif ($statusSurat === 'Diajukan') : ?>
+              <span class="sn-badge-status badge-primary"><i class="fas fa-paper-plane"></i> Diajukan</span>
+            <?php elseif ($statusSurat === 'Dalam Verifikasi') : ?>
+              <span class="sn-badge-status badge-info"><i class="fas fa-sync-alt"></i> Dalam Verifikasi</span>
+            <?php elseif ($statusSurat === 'Perlu Revisi') : ?>
+              <span class="sn-badge-status badge-warning text-dark"><i class="fas fa-exclamation-circle"></i> Perlu Revisi</span>
+            <?php elseif ($statusSurat === 'Disetujui') : ?>
+              <span class="sn-badge-status badge-success"><i class="fas fa-check-circle"></i> Disetujui</span>
+            <?php else : ?>
+              <span class="sn-badge-status badge-danger"><i class="fas fa-times-circle"></i> <?= esc($statusSurat); ?></span>
+            <?php endif; ?>
+          </td>
+
+          <!-- Tanggal Pelaksanaan -->
+          <td class="text-nowrap">
+            <i class="far fa-calendar-alt text-muted mr-1"></i>
+            <?php if ($tglAwal === $tglAkhir || $tglAkhir === '') : ?>
+              <?= esc($tglAwal); ?>
+            <?php else : ?>
+              <?= esc($tglAwal); ?><br><small class="text-muted">s/d <?= esc($tglAkhir); ?></small>
+            <?php endif; ?>
+          </td>
+
+          <!-- MAK & Sumber Anggaran -->
+          <td>
+            <div class="font-weight-bold text-dark" style="font-size: 0.77rem;"><?= !empty($data['mata_anggaran']) ? esc($data['mata_anggaran']) : '-'; ?></div>
+            <span class="sn-sumber-pill <?= $sumberAnggaran === 'RPL' ? 'sn-sumber-rpl' : 'sn-sumber-apbn'; ?>">
+              <?= esc($sumberAnggaran); ?>
+            </span>
+          </td>
+
+          <!-- Nama Kegiatan -->
+          <td title="<?= esc($data['nama_kegiatan'] ?? '', 'attr'); ?>">
+            <div class="font-weight-bold" style="color: #0f172a; line-height: 1.35;">
+              <?= esc(mb_strimwidth((string) ($data['nama_kegiatan'] ?? ''), 0, 64, '...')); ?>
+            </div>
+          </td>
+
+          <!-- Tempat Perjalanan -->
+          <td title="<?= esc($data['tempat_perjalanan'] ?? '', 'attr'); ?>">
+            <i class="fas fa-map-marker-alt text-danger mr-1" style="opacity:0.75;"></i>
+            <?= esc(mb_strimwidth((string) ($data['tempat_perjalanan'] ?? ''), 0, 40, '...')); ?>
+          </td>
+
+          <!-- Jumlah Peserta -->
+          <td class="text-center text-nowrap">
+            <span class="badge badge-light border px-2 py-1" style="font-size: 0.74rem; color: #0f766e;">
+              <i class="fas fa-users mr-1"></i><?= (int) ($data['jumlah_peserta'] ?? 0); ?>
+            </span>
+          </td>
+
+          <!-- Total Nominal -->
+          <td class="text-right font-weight-bold text-nowrap" style="color: #0f172a;">
+            Rp <?= number_format((float) ($data['total_perjalanan'] ?? 0), 0, ',', '.'); ?>
+          </td>
+
+          <!-- Pembuat / Akses Data -->
+          <td>
+            <small class="font-weight-bold text-muted"><?= esc(name_capitalize((string) ($data['nama'] ?? ''))); ?></small>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
 
 <script>
-  var table = $("#example11").DataTable({
-    paging: true, // Nonaktifkan paginasi
-    info: false, // Nonaktifkan info tabel
-    columnDefs: [{
-      targets: [0, 1, 3, 4, 5, 6, 7], // Kolom yang akan memiliki fitur ekspansi
-      className: "details-control",
-      orderable: true,
-    }, ],
-  });
-  table.columns(1).visible(false);
-
-  // Event handler untuk mengontrol ekspansi baris
-  $("#example11 tbody").on("click", "td.details-control", function() {
-    var tr = $(this).closest("tr");
-    var row = table.row(tr);
-
-    if (row.child.isShown()) {
-      // Baris sudah terbuka, tutup
-      row.child.hide();
-      tr.removeClass("shown");
-    } else {
-      // Baris ditutup, buka dan tampilkan konten detail
-      var id = row.data()[1];
-
-      // Menampilkan SweetAlert2 sebagai indikator loading
-      Swal.fire({
-        title: "Sedang mengambil data...",
-        onBeforeOpen: () => {
-          Swal.showLoading();
-        },
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        allowEnterKey: false
-      });
-
-      getDataSinadi(id)
-        .then((response) => {
-
-          Swal.close();
-          // Lanjutkan dengan tindakan lain setelah berhasil mendapatkan data
-          // Tampilkan konten detail di dalam baris
-          row.child(response.data).show(); // Menggunakan 'response' sebagai konten detail
-          tr.addClass("shown");
-          console.log("Element dari baris yang dibuka:", row.node());
-          // Swal.close();
-        })
-        .catch((error) => {
-          console.log("Data berhasil diambil:", response.cek);
-          Swal.fire("Terjadi kesalahan", error, "error");
-        });
+  (function() {
+    if ($.fn.DataTable.isDataTable('#example11')) {
+      $('#example11').DataTable().destroy();
     }
-  });
-</script>
-<script>
-  $(document).ready(function () {
-    setTimeout(function () {
-      const steps = [];
 
-      const tombolTtd = document.querySelector('.tombol-ttd-fitur-baru');
-      if (tombolTtd) {
-        steps.push({
-          element: tombolTtd,
-          intro: 'Terdapat fitur baru tanda-tangan digital disini, Anda dapat melakukan tanda tangan setelah membuat data perjalanan baru pada formulir yang telah dibuat dengan status "Draft"/"Perlu Revisi"!',
-          position: 'auto', // Otomatis sesuaikan posisi tooltip
-          tooltipClass: 'custom-tooltip'
-        });
+    var table = $('#example11').DataTable({
+      paging: true,
+      pageLength: 25,
+      lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+      info: true,
+      autoWidth: false,
+      deferRender: true,
+      order: [],
+      columnDefs: [
+        {
+          targets: [1],
+          visible: false,
+          searchable: false
+        },
+        {
+          targets: [0, 3, 4, 5, 6, 7, 8, 9, 10],
+          className: 'details-control'
+        },
+        {
+          targets: [2],
+          orderable: false
+        }
+      ],
+      language: {
+        search: 'Cari:',
+        lengthMenu: 'Tampilkan _MENU_',
+        info: 'Menampilkan _START_–_END_ dari _TOTAL_ dokumen',
+        infoEmpty: 'Tidak ada dokumen perjalanan dinas',
+        zeroRecords: 'Tidak ada dokumen perjalanan dinas pada kriteria ini',
+        paginate: {
+          previous: '&laquo;',
+          next: '&raquo;'
+        }
       }
+    });
 
-      const sinadiLabel = document.querySelector('.sinadi-label-disini');
-      if (sinadiLabel) {
-        steps.push({
-          element: sinadiLabel,
-          intro: 'Anda dapat melihat status surat sekarang disini!',
-          position: 'auto'
-        });
+    // Filter cepat berdasarkan pill status surat
+    $('#snStatusFilterBar').off('click', '.sn-status-pill').on('click', '.sn-status-pill', function() {
+      $('#snStatusFilterBar .sn-status-pill').removeClass('active');
+      $(this).addClass('active');
+      var status = $(this).data('status') || '';
+      if (status === '') {
+        table.column(3).search('').draw();
+      } else {
+        table.column(3).search(status, false, false).draw();
       }
+    });
 
-      if (steps.length > 0) {
-        introJs().setOptions({
-          steps: steps,
-          doneLabel: 'Ok',
-          scrollToElement: true,         // Auto-scroll ke elemen
-          tooltipPosition: 'auto',       // Tooltip akan menyesuaikan posisi terbaik
-          buttons: ['next', 'prev'],     // Navigasi prev/next
-          highlightClass: 'intro-highlight'
-        }).onbeforechange(function (element) {
-          // Scroll halus ke elemen dengan dukungan horizontal dan vertikal
-          if (element) {
-            element.scrollIntoView({
-              behavior: 'smooth',
-              block: 'center',    // Vertikal
-              inline: 'center'    // Horizontal
-            });
-          }
-        }).start();
+    // Ekspansi rincian peserta tanpa blocking full-screen SweetAlert
+    $('#example11 tbody').off('click', 'td.details-control').on('click', 'td.details-control', function(e) {
+      if ($(e.target).closest('a, button, form, input').length) {
+        return;
       }
-    }, 200);
-  });
-</script>
-<script>
-$(".fileSinadi").on('click', function() {
+      var tr = $(this).closest('tr');
+      var row = table.row(tr);
 
-  var file = $(this).data('file');
+      if (row.child.isShown()) {
+        row.child.hide();
+        tr.removeClass('shown');
+      } else {
+        var rowData = row.data();
+        if (!rowData) return;
+        var id = rowData[1];
 
-  if (file !== "#") {
-    var fullUrl = '<?= base_url(); ?>/' + file;
-    // var iframeSrc = 'https://drive.google.com/viewerng/viewer?embedded=true&url=' + encodeURIComponent(fullUrl);
+        row.child('<div class="p-3 text-center text-muted small"><i class="fas fa-spinner fa-spin mr-2 text-info"></i>Memuat rincian peserta perjalanan dinas...</div>').show();
+        tr.addClass('shown');
 
-    $("#modal-xl").find('.modal-body').html(
-      '<iframe src="' + fullUrl + '" frameborder="1" style="width: 100%; height: 80vh;"></iframe>'
-    );
-    $("#modal-xl").modal('show');
-  }
-});
+        getDataSinadi(id)
+          .then(function(response) {
+            if (response && response.data) {
+              row.child(response.data).show();
+            }
+          })
+          .catch(function() {
+            row.child.hide();
+            tr.removeClass('shown');
+          });
+      }
+    });
+  })();
 </script>

@@ -1450,7 +1450,7 @@
   <?= in_array($activeMenu, ['dashboard_vaksin']) ? '<script src="/js/dashboard_vaksin.js"></script>' : ''; ?>
   <?= in_array($activeMenu, ['skema_titimangsa']) ? '<script src="/js/skema_titimangsa.js"></script>' : ''; ?>
   <?= in_array($activeMenu, ['kelola_data_cuti', 'kelola_data_permohonan']) ? '<script src="/js/kelola_data_cuti.js"></script>' : ''; ?>
-  <?= in_array($activeMenu, ['sinadiSaya', 'dinasDalamKota', 'dinasLuarKota']) ? '<script src="/js/sinadi.js"></script>' : ''; ?>
+  <?= in_array($activeMenu, ['sinadiSaya']) ? '<script src="/js/sinadi.js?v=' . (@filemtime(FCPATH . 'js/sinadi.js') ?: '2') . '"></script>' : ''; ?>
   <?php if (in_array($activeMenu, ['dinasDalamKota', 'dinasLuarKota'])): ?>
     <script src="/js/formulirPerjalananDinas3.js?v=<?= time(); ?>"></script>
   <?php endif; ?>

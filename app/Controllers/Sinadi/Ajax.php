@@ -8,224 +8,77 @@ class Ajax extends BaseController
 {
   public function getPeserta($id = 148)
   {
-    // if ($this->request->isAJAX()) {
+    if (session_status() === PHP_SESSION_ACTIVE) {
+      session_write_close();
+    }
 
-    $data['peserta'] = $this->sinadiPerjalananDinasModel->join('sinadi_perjalanan_dinas_peserta', 'sinadi_perjalanan_dinas_peserta.id_perjalanan = sinadi_perjalanan_dinas.id_perjalanan')
-      ->where("sinadi_perjalanan_dinas.id_perjalanan", $id)
+    // Ambil langsung dari tabel peserta tanpa JOIN ulang tabel perjalanan & tanpa kolom BLOB ttd_peserta
+    $data['peserta'] = $this->sinadiPerjalananDinasPesertaModel
+      ->select(
+        'id_peserta, id_perjalanan, nip_pegawai, nama_pegawai, golongan, jabatan_pegawai, '
+        . 'kota_asal, kota, tgl_pergi, tgl_pulang, no_surat_tugas, tgl_surat_tugas, '
+        . 'no_sppd, tgl_sppd, transport_nominal, transport_hari, transport_jumlah, '
+        . 'harian_nominal, harian_hari, harian_jumlah, penginapan_nominal, penginapan_hari, '
+        . 'penginapan_jumlah, jumlah_transfer'
+      )
+      ->where('id_perjalanan', (int) $id)
       ->findAll();
-    $msg = [
-      'cek' => $data['peserta'],
-      'data' => view('sinadi/peserta_table', $data)
-    ];
-    // echo json_encode($data);
-    echo json_encode($msg);
-    // return view('sinadi/peserta_table', $data);
-    // $msg = [
-    //   'tes' => $data,
-    //   'data' => view('sinadi/peserta_table', $data),
-    //   'count' => count($data['dataCuti']),
-    //   'skema' => $skema
-    // ];
+
+    return $this->response->setJSON([
+      'data' => view('sinadi/peserta_table', $data),
+    ]);
   }
-  // }
   public function getPeserta1()
   {
-    // if ($this->request->isAJAX()) {
-    //   $msg = [
-    //     'tes' => $data,
-    //     'data' => view('sinadi/peserta_table', $data),
-    //     'count' => count($data['dataCuti']),
-    //     'skema' => $skema
-    //   ];
-
-    //   echo json_encode($msg);
-    // }
   }
 
   public function dinasDalamKotaView($id = '')
   {
     if ($this->request->isAJAX()) {
-      $akses = $this->userModel
-        ->join('sinadi_akses', 'sinadi_akses.id_user=user.id_user')
-        ->where("user.username", session()->get('username'))
-        ->first();
-      $data['akses'] = false;
-      $aksesTim = false;
-      if ($akses) {
-          if ($akses['status'] == 'Akses Diterima') {
-            $data['akses'] = true;
-          }
-          if (isset($akses['akses_tim']) && $akses['akses_tim'] == 1) {
-            $aksesTim = true;
-          }
+      $username = (string) session()->get('username');
+      if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
       }
 
-      $start = $this->request->getVar('start');
-      $end = $this->request->getVar('end');
+      $activeMenu = (string) ($this->request->getVar('activeMenu') ?: 'dinasDalamKota');
+      $listData = \App\Libraries\SinadiVerifikatorHelper::fetchPerjalananList(
+        'dalam kota',
+        $activeMenu,
+        (string) $this->request->getVar('start'),
+        (string) $this->request->getVar('end'),
+        $username
+      );
 
-      // Memastikan bahwa rentang tanggal yang dipilih valid
-      if ($start && $end) {
-        $userSaya = $this->dataPegawaiModel->join('user', 'user.id_user=data_pegawai.id_user')
-          ->where('username', session()->get('username'))->first();
-        // Mengambil data dari tabel sinadi_perjalanan_dinas dengan filter rentang tanggal yang dipilih
-        if ($userSaya || $data['akses'] == true) {
-
-          // Pindahkan join ini ke atas agar bisa digunakan di dalam blok if ($data['akses'] == false)
-          $this->sinadiPerjalananDinasModel->join('sinadi_perjalanan_dinas_peserta', 'sinadi_perjalanan_dinas_peserta.id_perjalanan=sinadi_perjalanan_dinas.id_perjalanan');
-
-          if ($data['akses'] == false) {
-            // Pilih hanya kolom dari master dan identitas user untuk menghindari only_full_group_by
-            $this->sinadiPerjalananDinasModel->select("sinadi_perjalanan_dinas.*, user.nama, user.username");
-            $this->sinadiPerjalananDinasModel->join('data_pegawai', 'data_pegawai.nip=sinadi_perjalanan_dinas.pic_nip', 'LEFT');
-            
-            if ($aksesTim) {
-                // Sekarang aman karena sinadi_perjalanan_dinas_peserta sudah di-join sebelumnya
-                $this->sinadiPerjalananDinasModel->join('data_pegawai as dp_peserta', 'dp_peserta.nip = sinadi_perjalanan_dinas_peserta.nip_pegawai', 'LEFT');
-            }
-          } else {
-            $this->sinadiPerjalananDinasModel->select("sinadi_perjalanan_dinas.*, user.nama, user.username");
-          }
-          
-          $this->sinadiPerjalananDinasModel->join('user', 'sinadi_perjalanan_dinas.updated_by=user.id_user');
-          $this->sinadiPerjalananDinasModel->where('sinadi_perjalanan_dinas.jenis_perjalanan_dinas', 'dalam kota');
-          $this->sinadiPerjalananDinasModel->where('sinadi_perjalanan_dinas.tgl_pelaksanaan >=', $start);
-          $this->sinadiPerjalananDinasModel->where('sinadi_perjalanan_dinas.tgl_pelaksanaan <=', $end);
-          if ($data['akses'] == false) {
-            // Tampilkan data jika user adalah peserta ATAU pembuat dokumen
-            $this->sinadiPerjalananDinasModel
-              ->groupStart()
-                ->where('sinadi_perjalanan_dinas_peserta.nip_pegawai', $userSaya['nip'])
-                ->orWhere('sinadi_perjalanan_dinas.created_by', $userSaya['id_user']);
-            
-            if ($aksesTim && isset($userSaya['id_tim_kerja'])) {
-                $this->sinadiPerjalananDinasModel->orWhere('dp_peserta.id_tim_kerja', $userSaya['id_tim_kerja']);
-            }
-                
-            $this->sinadiPerjalananDinasModel->groupEnd();
-          }
-          $this->sinadiPerjalananDinasModel->groupBy('sinadi_perjalanan_dinas.id_perjalanan, user.nama, user.username');
-          $this->sinadiPerjalananDinasModel->orderBy('sinadi_perjalanan_dinas.created_at', 'DESC');
-          $perjalanan = $this->sinadiPerjalananDinasModel->findAll();
-        } else {
-          $perjalanan = array();
-        }
-      } else {
-        $start = date('Y-m-d', strtotime('-2 months'));
-        $end = date('Y-m-d', strtotime('+1 months'));
-        $perjalanan = array();
-      }
-
-      // Menghitung jumlah peserta untuk setiap entri perjalanan dan menyimpannya dalam array baru
-      $data['perjalanan'] = [];
-      foreach ($perjalanan as $perjalananItem) {
-        $jumlahPeserta = $this->sinadiPerjalananDinasPesertaModel
-          ->where('id_perjalanan', $perjalananItem['id_perjalanan'])
-          ->countAllResults();
-
-        $perjalananItem['jumlah_peserta'] = $jumlahPeserta;
-        $data['perjalanan'][] = $perjalananItem;
-      }
-      $data['activeMenu'] = $this->request->getVar('activeMenu');
-
-      $msg = [
-        'start' => $start,
-        'end' => $end,
-        'data' => view("sinadi/sinadi_dalam_kota_view", $data)
-      ];
-      echo json_encode($msg);
+      return $this->response->setJSON([
+        'start' => $listData['start'],
+        'end'   => $listData['end'],
+        'data'  => view('sinadi/sinadi_dalam_kota_view', $listData),
+      ]);
     }
   }
 
   public function dinasLuarKotaView($id = '')
   {
     if ($this->request->isAJAX()) {
-      $data['activeMenu'] = $this->request->getVar('activeMenu');
-      $akses = $this->userModel
-        ->join('sinadi_akses', 'sinadi_akses.id_user=user.id_user')
-        ->where("user.username", session()->get('username'))
-        ->first();
-      $data['akses'] = false;
-      $aksesTim = false;
-      if ($akses) {
-          if ($akses['status'] == 'Akses Diterima') {
-            $data['akses'] = true;
-          }
-          if (isset($akses['akses_tim']) && $akses['akses_tim'] == 1) {
-            $aksesTim = true;
-          }
+      $username = (string) session()->get('username');
+      if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
       }
 
-      $start = $this->request->getVar('start');
-      $end = $this->request->getVar('end');
+      $activeMenu = (string) ($this->request->getVar('activeMenu') ?: 'dinasLuarKota');
+      $listData = \App\Libraries\SinadiVerifikatorHelper::fetchPerjalananList(
+        'luar kota',
+        $activeMenu,
+        (string) $this->request->getVar('start'),
+        (string) $this->request->getVar('end'),
+        $username
+      );
 
-      if ($start && $end) {
-        $userSaya = $this->dataPegawaiModel->join('user', 'user.id_user=data_pegawai.id_user')
-          ->where('username', session()->get('username'))->first();
-          
-        if ($userSaya || $data['akses'] == true) {
-          
-          // Pindahkan join ini ke atas agar bisa digunakan di dalam blok if ($data['akses'] == false)
-          $this->sinadiPerjalananDinasModel->join('sinadi_perjalanan_dinas_peserta', 'sinadi_perjalanan_dinas_peserta.id_perjalanan=sinadi_perjalanan_dinas.id_perjalanan');
-
-          if ($data['akses'] == false) {
-            // Pilih hanya kolom dari master dan identitas user untuk menghindari only_full_group_by
-            $this->sinadiPerjalananDinasModel->select("sinadi_perjalanan_dinas.*, user.nama, user.username");
-            $this->sinadiPerjalananDinasModel->join('data_pegawai', 'data_pegawai.nip=sinadi_perjalanan_dinas.pic_nip', 'LEFT');
-            
-            if ($aksesTim) {
-                // Sekarang aman karena sinadi_perjalanan_dinas_peserta sudah di-join sebelumnya
-                $this->sinadiPerjalananDinasModel->join('data_pegawai as dp_peserta', 'dp_peserta.nip = sinadi_perjalanan_dinas_peserta.nip_pegawai', 'LEFT');
-            }
-          } else {
-            $this->sinadiPerjalananDinasModel->select("sinadi_perjalanan_dinas.*, user.nama, user.username");
-          }
-
-          $this->sinadiPerjalananDinasModel->join('user', 'sinadi_perjalanan_dinas.updated_by=user.id_user');
-          $this->sinadiPerjalananDinasModel->where('sinadi_perjalanan_dinas.jenis_perjalanan_dinas', 'luar kota');
-          $this->sinadiPerjalananDinasModel->where('sinadi_perjalanan_dinas.tgl_pelaksanaan >=', $start);
-          $this->sinadiPerjalananDinasModel->where('sinadi_perjalanan_dinas.tgl_pelaksanaan <=', $end);
-          if ($data['akses'] == false) {
-            // Tampilkan data jika user adalah peserta ATAU pembuat dokumen
-            $this->sinadiPerjalananDinasModel
-              ->groupStart()
-                ->where('sinadi_perjalanan_dinas_peserta.nip_pegawai', $userSaya['nip'])
-                ->orWhere('sinadi_perjalanan_dinas.created_by', $userSaya['id_user']);
-            
-            if ($aksesTim && isset($userSaya['id_tim_kerja'])) {
-                $this->sinadiPerjalananDinasModel->orWhere('dp_peserta.id_tim_kerja', $userSaya['id_tim_kerja']);
-            }
-            
-            $this->sinadiPerjalananDinasModel->groupEnd();
-          }
-          $this->sinadiPerjalananDinasModel->groupBy('sinadi_perjalanan_dinas.id_perjalanan, user.nama, user.username');
-          $this->sinadiPerjalananDinasModel->orderBy('sinadi_perjalanan_dinas.created_at', 'DESC');
-          $perjalanan = $this->sinadiPerjalananDinasModel->findAll();
-        } else {
-          $perjalanan = array();
-        }
-      } else {
-        $start = date('Y-m-d', strtotime('-2 months'));
-        $end = date('Y-m-d', strtotime('+1 months'));
-        $perjalanan = array();
-      }
-
-      // Menghitung jumlah peserta untuk setiap entri perjalanan dan menyimpannya dalam array baru
-      $data['perjalanan'] = [];
-      foreach ($perjalanan as $perjalananItem) {
-        $jumlahPeserta = $this->sinadiPerjalananDinasPesertaModel
-          ->where('id_perjalanan', $perjalananItem['id_perjalanan'])
-          ->countAllResults();
-
-        $perjalananItem['jumlah_peserta'] = $jumlahPeserta;
-        $data['perjalanan'][] = $perjalananItem;
-      }
-
-      $msg = [
-        'start' => $start,
-        'end' => $end,
-        'data' => view("sinadi/sinadi_dalam_kota_view", $data)
-      ];
-      echo json_encode($msg);
+      return $this->response->setJSON([
+        'start' => $listData['start'],
+        'end'   => $listData['end'],
+        'data'  => view('sinadi/sinadi_dalam_kota_view', $listData),
+      ]);
     }
   }
 
@@ -333,6 +186,9 @@ class Ajax extends BaseController
   public function verifikasiBuktiPembayaran()
   {
     $username = session()->get('username');
+    if (session_status() === PHP_SESSION_ACTIVE) {
+      session_write_close();
+    }
     if (empty($username)) {
       return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
     }

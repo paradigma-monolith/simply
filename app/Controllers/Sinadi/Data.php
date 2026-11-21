@@ -265,6 +265,8 @@ class Data extends BaseController
 
   public function verifikasiSurat()
   {
+    SinadiVerifikatorHelper::ensureSinadiIndexes();
+
     $data['title'] = "Sinadi | Validasi Dokumen Perjalanan Dinas";
     $data['activeMenu'] = "sinadiBlockir";
     // Default submenu to APBN when no 'tipe' is provided
@@ -389,7 +391,16 @@ class Data extends BaseController
 
   public function dinasDalamKota()
   {
-    $data['title'] = "Sinadi | Perjalanan Dinas Dalam Kota"; // kelola_data_cuti
+    $listData = SinadiVerifikatorHelper::fetchPerjalananList(
+      'dalam kota',
+      'dinasDalamKota',
+      (string) $this->request->getVar('start'),
+      (string) $this->request->getVar('end'),
+      (string) session()->get('username')
+    );
+
+    $data = $listData;
+    $data['title'] = "Sinadi | Perjalanan Dinas Dalam Kota";
     $data['activeMenu'] = "dinasDalamKota";
 
     return view('sinadi/sinadi_dalam_kota', $data);
@@ -397,7 +408,16 @@ class Data extends BaseController
 
   public function dinasLuarKota()
   {
-    $data['title'] = "Sinadi | Perjalanan Dinas Luar Kota"; // kelola_data_cuti
+    $listData = SinadiVerifikatorHelper::fetchPerjalananList(
+      'luar kota',
+      'dinasLuarKota',
+      (string) $this->request->getVar('start'),
+      (string) $this->request->getVar('end'),
+      (string) session()->get('username')
+    );
+
+    $data = $listData;
+    $data['title'] = "Sinadi | Perjalanan Dinas Luar Kota";
     $data['activeMenu'] = "dinasLuarKota";
 
     return view('sinadi/sinadi_dalam_kota', $data);
