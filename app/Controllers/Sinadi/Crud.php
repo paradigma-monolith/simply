@@ -83,8 +83,15 @@ class Crud extends BaseController
             'verifikator_' . $verifikatorKe => $verifikator
           ];
           if ($status == "Disetujui" && $verifikatorKe <= 5) {
-            $cekVerifikatorSelanjutnya = $this->sinadiVerifikatorModel->orderBy('created_at', 'desc')->first();
-            if ($cekVerifikatorSelanjutnya['verifikator_' . ($verifikatorKe + 1)] == null) {
+            $sumberAnggaran = strtoupper((string) ($cekData['sumber_anggaran'] ?? 'APBN'));
+            $cekVerifikatorSelanjutnya = \App\Libraries\SinadiVerifikatorHelper::getConfigByTipe(
+              $sumberAnggaran,
+              $this->sinadiVerifikatorApbnModel,
+              $this->sinadiVerifikatorRplModel,
+              $this->sinadiVerifikatorModel
+            );
+            $nextKey = 'verifikator_' . ((int) $verifikatorKe + 1);
+            if ((int) $verifikatorKe >= 5 || empty($cekVerifikatorSelanjutnya[$nextKey])) {
               $data += [
                 'status_surat' => $status
               ];
@@ -126,13 +133,15 @@ class Crud extends BaseController
 
     $daftar_periksa = [];
 
-    foreach ($list as $item) {
-      $isChecked = in_array($item, $values);
+    if (is_array($list)) {
+      foreach ($list as $item) {
+        $isChecked = is_array($values) && in_array($item, $values);
 
-      $daftar_periksa[] = [
-        'list'  => $item,
-        'value' => $isChecked ? 'checked' : '',
-      ];
+        $daftar_periksa[] = [
+          'list'  => $item,
+          'value' => $isChecked ? 'checked' : '',
+        ];
+      }
     }
 
     $data = [
@@ -322,10 +331,13 @@ class Crud extends BaseController
   private function hitungTotal($jumlah)
   {
     $total = 0;
+    if (!is_array($jumlah)) {
+      return 0;
+    }
 
     foreach ($jumlah as $nilai) {
       // Menghapus tanda ribuan (.)
-      $nilai = str_replace('.', '', $nilai);
+      $nilai = str_replace('.', '', (string) $nilai);
 
       // Mengubah tanda koma menjadi titik
       $nilai = str_replace(',', '.', $nilai);
@@ -474,6 +486,8 @@ class Crud extends BaseController
       $jabatan = "";
       $golongan = "";
       // d(count($this->request->getVar("tes")));
+      $activeSetting = $this->sinadiSettingModel->select('id_sinadi_setting')->where('status', 'Aktif')->first();
+      $activeSettingId = $activeSetting ? (int) $activeSetting['id_sinadi_setting'] : 1;
       for ($i = 0; $i < $jmlDataPeserta; $i++) {
         if ($this->request->getVar("nip")[$i] == "") {
           $nip = $this->request->getVar("manualNip")[$inputManual];
@@ -510,7 +524,7 @@ class Crud extends BaseController
 
         $data = [
           'id_perjalanan' => $newId,
-          'id_sinadi_setting' => $this->sinadiSettingModel->where('status', 'Aktif')->first()['id_sinadi_setting'],
+          'id_sinadi_setting' => $activeSettingId,
           'tgl_pergi' => $this->request->getVar("tgl_pergi")[$i],
           'tgl_pulang' => $this->request->getVar("tgl_pulang")[$i],
           'nip_pegawai' => $nip,
@@ -760,6 +774,8 @@ class Crud extends BaseController
       $jabatan = "";
       $golongan = "";
       // d(count($this->request->getVar("tes")));
+      $activeSetting = $this->sinadiSettingModel->select('id_sinadi_setting')->where('status', 'Aktif')->first();
+      $activeSettingId = $activeSetting ? (int) $activeSetting['id_sinadi_setting'] : 1;
       $dataSebelumnya = 0;
       for ($i = 0; $i < $jmlDataPeserta; $i++) {
         if ($this->request->getVar("nip")[$i] == "") {
@@ -804,7 +820,7 @@ class Crud extends BaseController
 
         $data += [
           'id_perjalanan' => $newId,
-          'id_sinadi_setting' => $this->sinadiSettingModel->where('status', 'Aktif')->first()['id_sinadi_setting'],
+          'id_sinadi_setting' => $activeSettingId,
           'tgl_pergi' => $this->request->getVar("tgl_pergi")[$i],
           'tgl_pulang' => $this->request->getVar("tgl_pulang")[$i],
           'nip_pegawai' => $nip,
@@ -867,11 +883,11 @@ class Crud extends BaseController
       $penginapan_jumlah = $cekDataMaster['total_penginapan'] - $cekData['penginapan_jumlah'];
       $total_perjalanan = $cekDataMaster['total_perjalanan'] - $cekData['jumlah_transfer'];
       $data = [
-        'id_perjalanan' => $cekDataMaster['id_perjalanan'],
-        'transport_jumlah' => $transport_jumlah,
-        'harian_jumlah' => $harian_jumlah,
-        'penginapan_jumlah' => $penginapan_jumlah,
-        'total_perjalanan' => $total_perjalanan
+        'id_perjalanan'    => $cekDataMaster['id_perjalanan'],
+        'total_transport'  => $transport_jumlah,
+        'total_harian'     => $harian_jumlah,
+        'total_penginapan' => $penginapan_jumlah,
+        'total_perjalanan' => $total_perjalanan,
       ];
       $this->sinadiPerjalananDinasModel->save($data);
     }

@@ -1,23 +1,32 @@
 <?= $this->extend('layouts/adminLTE-3.2.0'); ?>
 <?= $this->section('content'); ?>
 
-<style>
-  .table thead th {
-    vertical-align: middle;
-  }
+<?php
+$pegawaiByNip = [];
+foreach ($pegawai as $pItem) {
+  $cleanNip = preg_replace('/\D/', '', (string) ($pItem['nip'] ?? ''));
+  $pegawaiByNip[$cleanNip] = ($pItem['nip'] ?? '') . ' | ' . ($pItem['nama'] ?? '');
+}
+$resolveOfficial = static function (?string $rawNip) use ($pegawaiByNip): string {
+  $clean = preg_replace('/\D/', '', (string) $rawNip);
+  return $pegawaiByNip[$clean] ?? ($rawNip ?: '-');
+};
+?>
 
-  .table td,
-  .table th {
-    vertical-align: middle;
-  }
-</style>
-<!-- Main content -->
-<section class="content">
+<section class="content snf-page">
   <div class="container-fluid">
-    <!-- SELECT2 EXAMPLE -->
+    <div class="snf-hero">
+      <div>
+        <h4 class="snf-hero-title"><i class="fas fa-route mr-2"></i>Tambah Perjalanan Dinas Luar Kota</h4>
+        <p class="snf-hero-sub">Lengkapi rincian kegiatan, peserta, kota tujuan, SPPD, serta perhitungan biaya perjalanan dinas</p>
+      </div>
+      <a href="/sinadi/dinasLuarKota" class="snf-back-btn"><i class="fas fa-arrow-left mr-1"></i> Kembali ke Daftar</a>
+    </div>
+
     <div class="row">
       <div class="col-md-12">
-        <div class="card">
+        <div class="snf-section-card">
+          <div class="snf-section-body">
           <form id="sinadiTambahPerjalananDinas" action="/sinadi/tambah_sinadi" method="post" enctype="multipart/form-data">
             <input type="hidden" name="jenis_perjalanan_dinas" value="luar kota">
             <div>
@@ -211,8 +220,7 @@
                               <td>
                                 <label><span>Kota/ Kabupaten Tujuan</span></label>
                                 <input type="hidden" class="kota_tujuan_input" value="" name="kota_tujuan[]">
-                                <select class="select2 kota_tujuan_select" multiple="multiple" name="kota[]" data-placeholder="--Kota/ Kabupaten--" style="width: 100%;" required>
-                                  <option value="">--Kota/ Kabupaten--</option>
+                                <select class="select2 kota_tujuan_select" multiple="multiple" name="kota[]" data-placeholder="--Pilih Kota/Kabupaten Tujuan--" style="width: 100%;" required>
                                   <?php foreach ($kota as $data) : ?>
                                     <option value="<?= $data['nama_kota_kabupaten']; ?>"><?= $data['nama_kota_kabupaten']; ?></option>
                                   <?php endforeach; ?>
@@ -331,55 +339,35 @@
                       <thead>
                         <tr>
                           <td><label><span>Nama Kantor</span></label></td>
-                          <td><input type="text" disabled class="form-control" name="" value="<?= $setting['alias_kantor']; ?>" /></td>
-                          <td><input type="text" disabled class="form-control" name="" value="<?= $setting['nama_kantor']; ?>" /></td>
+                          <td><input type="text" disabled class="form-control bg-light" value="<?= esc($setting['alias_kantor'] ?? ''); ?>" /></td>
+                          <td><input type="text" disabled class="form-control bg-light" value="<?= esc($setting['nama_kantor'] ?? ''); ?>" /></td>
                         </tr>
                         <tr>
                           <td><label><span>Kepala Kantor</span></label></td>
                           <td colspan="2">
-                            <select disabled class="form-control select2" type="text" name="" required style="width: 100%;">
-                              <option value="">--NIP/NOPEG | NAMA--</option>
-                              <?php foreach ($pegawai as $data) : ?>
-                                <option <?= $data['nip'] == preg_replace('/\D/', '', $setting['kepala_kantor_nip']) ? 'selected' : ''; ?> value="<?= $data['nip']; ?>" data-nama="<?= $data['nama']; ?>" data-jabatan="<?= $data['jabatan']; ?>" data-golongan="<?= $data['golongan']; ?>"><?= $data['nip']; ?> | <?= $data['nama']; ?></option>
-                              <?php endforeach; ?>
-                            </select>
+                            <input type="text" disabled class="form-control bg-light" value="<?= esc($resolveOfficial($setting['kepala_kantor_nip'] ?? '')); ?>">
                           </td>
                         </tr>
                         <tr>
                           <td><label><span>Pejabat Pembuat Komitmen</span></label></td>
                           <td colspan="2">
-                            <select disabled class="form-control select2" type="text" name="" required style="width: 100%;">
-                              <option value="">--NIP/NOPEG | NAMA--</option>
-                              <?php foreach ($pegawai as $data) : ?>
-                                <option <?= $data['nip'] == preg_replace('/\D/', '', $setting['ppk_nip']) ? 'selected' : ''; ?> value="<?= $data['nip']; ?>" data-nama="<?= $data['nama']; ?>" data-jabatan="<?= $data['jabatan']; ?>" data-golongan="<?= $data['golongan']; ?>"><?= $data['nip']; ?> | <?= $data['nama']; ?></option>
-                              <?php endforeach; ?>
-                            </select>
+                            <input type="text" disabled class="form-control bg-light" value="<?= esc($resolveOfficial($setting['ppk_nip'] ?? '')); ?>">
                           </td>
                         </tr>
                         <tr>
                           <td><label><span>Kepala Sub Bagian Adm Umum</span></label></td>
                           <td colspan="2">
-                            <select disabled class="form-control select2" type="text" name="" required style="width: 100%;">
-                              <option value="">--NIP/NOPEG | NAMA--</option>
-                              <?php foreach ($pegawai as $data) : ?>
-                                <option <?= $data['nip'] == preg_replace('/\D/', '', $setting['kasubag_adum_nip']) ? 'selected' : ''; ?> value="<?= $data['nip']; ?>" data-nama="<?= $data['nama']; ?>" data-jabatan="<?= $data['jabatan']; ?>" data-golongan="<?= $data['golongan']; ?>"><?= $data['nip']; ?> | <?= $data['nama']; ?></option>
-                              <?php endforeach; ?>
-                            </select>
+                            <input type="text" disabled class="form-control bg-light" value="<?= esc($resolveOfficial($setting['kasubag_adum_nip'] ?? '')); ?>">
                           </td>
                         </tr>
                         <tr>
                           <td><label><span>BENDAHARA PENGELUARAN</span></label></td>
                           <td colspan="2">
-                            <select disabled class="form-control select2" type="text" name="" required style="width: 100%;">
-                              <option value="">--NIP/NOPEG | NAMA--</option>
-                              <?php foreach ($pegawai as $data) : ?>
-                                <option <?= $data['nip'] == preg_replace('/\D/', '', $setting['bendahara_nip']) ? 'selected' : ''; ?> value="<?= $data['nip']; ?>" data-nama="<?= $data['nama']; ?>" data-jabatan="<?= $data['jabatan']; ?>" data-golongan="<?= $data['golongan']; ?>"><?= $data['nip']; ?> | <?= $data['nama']; ?></option>
-                              <?php endforeach; ?>
-                            </select>
+                            <input type="text" disabled class="form-control bg-light" value="<?= esc($resolveOfficial($setting['bendahara_nip'] ?? '')); ?>">
                           </td>
                         </tr>
                         <tr>
-                          <td><label><span>PIC</span></label></td>
+                          <td><label><span>PIC <span class="text-danger">*</span></span></label></td>
                           <td colspan="2">
                             <select class="form-control select2 pic" type="text" name="sinadi_pic" required style="width: 100%;">
                               <option value="">--NIP/NOPEG | NAMA--</option>
@@ -389,7 +377,7 @@
                             </select>
                           </td>
                         </tr>
-                        <tr>
+                        <tr class="d-none">
                           <td><input type="hidden" name="pic_nama"></td>
                           <td colspan="2"><input type="hidden" name="pic_nip"></td>
                         </tr>
@@ -398,11 +386,13 @@
                   </div>
                 </div>
               </div>
+              <?= $this->include('crud/_sinadi_form_assets'); ?>
               <div>
-                <button type="submit" class="btn btn-success btn-block btn-lg"><i class="fas fa-share"></i> <strong>Simpan</strong></button>
+                <button type="submit" class="btn btn-success btn-block btn-lg" style="border-radius: 10px; background: #0d9488; border-color: #0d9488;"><i class="fas fa-save mr-1"></i> <strong>Simpan Perjalanan Dinas</strong></button>
               </div>
             </div>
           </form>
+          </div>
         </div>
         <!-- /.card -->
       </div>

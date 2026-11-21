@@ -2,6 +2,38 @@
 <?= $this->section('content'); ?>
 <!-- Main content -->
 <style>
+  .svd-hero {
+    background: linear-gradient(135deg, #047879 0%, #0d9488 55%, #115e59 100%);
+    border-radius: 14px;
+    padding: 16px 20px;
+    color: #ffffff;
+    box-shadow: 0 8px 22px rgba(4, 120, 121, 0.16);
+    margin-bottom: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .svd-hero-title {
+    font-size: 1.12rem;
+    font-weight: 800;
+    margin: 0 0 2px;
+  }
+  .svd-back-btn {
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff !important;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 6px 13px;
+    border-radius: 9px;
+    text-decoration: none !important;
+  }
+  .svd-back-btn:hover {
+    background: #ffffff;
+    color: #0f766e !important;
+  }
   .floating-submit-btn {
     position: fixed;
     top: 55px;
@@ -68,6 +100,19 @@
 </style>
 <section class="content">
   <div class="container-fluid">
+    <div class="svd-hero">
+      <div>
+        <h4 class="svd-hero-title">
+          <i class="fas fa-clipboard-check mr-2"></i>Pemeriksaan Verifikator Tahap <?= esc($verifikatorKe ?? '1'); ?> (<?= esc($getData['sumber_anggaran'] ?? 'APBN'); ?>)
+        </h4>
+        <div class="small" style="color: rgba(255,255,255,0.86);">
+          <?= esc($getData['nama_kegiatan'] ?? ''); ?> • Total Tagihan: <strong>Rp <?= number_format((float) ($getData['total_perjalanan'] ?? 0), 0, ',', '.'); ?></strong>
+        </div>
+      </div>
+      <a href="/sinadi/verifikasiSurat?tipe=<?= urlencode((string) ($getData['sumber_anggaran'] ?? 'APBN')); ?>" class="svd-back-btn">
+        <i class="fas fa-arrow-left mr-1"></i> Kembali ke Antrean
+      </a>
+    </div>
     <div class="row">
       <div class="col-md-12">
         <div class="card card-info">
@@ -647,9 +692,9 @@
               <?php endif; ?>
           </div>
           <?php endif; ?>
-          <?php if($getDataVerifikator['verifikator_4'] != null): ?>
+          <?php if(!empty($getDataVerifikator['verifikator_4'])): ?>
           <div class="col-xl-4 border-bottom">
-              <h6 class="text-center font-weight-bold border-bottom border-primary pb-2">Verifikator 3</h6>
+              <h6 class="text-center font-weight-bold border-bottom border-primary pb-2">Verifikator 4</h6>
               <?php if($getData['verifikator_4'] != null): ?>
               <?php $verifikator = unserialize($getData['verifikator_4']); ?>
               <div class="timeline">
@@ -765,9 +810,9 @@
               <?php endif; ?>
           </div>
           <?php endif; ?>
-          <?php if($getDataVerifikator['verifikator_5'] != null): ?>
+          <?php if(!empty($getDataVerifikator['verifikator_5'])): ?>
           <div class="col-xl-4 border-bottom">
-              <h6 class="text-center font-weight-bold border-bottom border-primary pb-2">Verifikator 3</h6>
+              <h6 class="text-center font-weight-bold border-bottom border-primary pb-2">Verifikator 5</h6>
               <?php if($getData['verifikator_5'] != null): ?>
               <?php $verifikator = unserialize($getData['verifikator_5']); ?>
               <div class="timeline">
@@ -930,19 +975,27 @@
                 <input type="number" require name="total_tagihan" class="form-control" value="<?= $getData['total_perjalanan']; ?>">
               </div>
               <?php if ($lembarVerif): ?>
-                <input type="hidden" value="<?= $lembarVerif['jenis_daftar_periksa']; ?>" name="jenis_daftar_periksa">
-                <div class="form-group mb-0 row">
-                  <label class="col-sm-12 col-form-label"><?= $lembarVerif['jenis_daftar_periksa']; ?></label>
+                <input type="hidden" value="<?= esc($lembarVerif['jenis_daftar_periksa']); ?>" name="jenis_daftar_periksa">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <label class="mb-0 font-weight-bold text-dark"><?= esc($lembarVerif['jenis_daftar_periksa']); ?></label>
+                  <button type="button" class="btn btn-xs btn-outline-info" onclick="$('input[name=\'value[]\']').prop('checked', true);">
+                    <i class="fas fa-check-double mr-1"></i>Centang Semua
+                  </button>
                 </div>
                 <?php
-                $array = unserialize($lembarVerif['daftar_periksa']);
-                foreach ($array as $getArray): ?>
+                $array = @unserialize((string) $lembarVerif['daftar_periksa'], ['allowed_classes' => false]);
+                if (!is_array($array)) {
+                  $array = [];
+                }
+                foreach ($array as $chkIdx => $getArray):
+                  $chkId = 'value_existing_' . ($chkIdx + 1);
+                ?>
                   <div class="form-group mb-1">
-                    <input type="hidden" readonly name="list[]" class="form-control" value="<?= $getArray['list']; ?>">
+                    <input type="hidden" readonly name="list[]" class="form-control" value="<?= esc($getArray['list']); ?>">
                     <div class="form-check">
-                      <input class="form-check-input" type="checkbox" name="value[]" value="<?= $getArray['list']; ?>" <?= $getArray['value']; ?> id="value_1">
-                      <label class="form-check-label pl-3" for="value_1">
-                        <?= $getArray['list']; ?>
+                      <input class="form-check-input" type="checkbox" name="value[]" value="<?= esc($getArray['list']); ?>" <?= $getArray['value']; ?> id="<?= $chkId; ?>">
+                      <label class="form-check-label pl-3" for="<?= $chkId; ?>" style="cursor:pointer;">
+                        <?= esc($getArray['list']); ?>
                       </label>
                     </div>
                   </div>
@@ -1097,8 +1150,8 @@
               <div class="card">
                 <div class="card-body">
                   <!--  -->
-                  <input type="hidden" name="id_perjalanan" readonly class="" value="<?= $getData['id_perjalanan']; ?>">
-                  <input type="hidden" name="id_data_pegawai" readonly class="" value="<?= $myData['id_data_pegawai']; ?>">
+                  <input type="hidden" name="id_perjalanan" readonly class="" value="<?= $getData['id_perjalanan'] ?? ''; ?>">
+                  <input type="hidden" name="id_data_pegawai" readonly class="" value="<?= $myData['id_data_pegawai'] ?? ''; ?>">
                   <input type="hidden" name="verifikatorKe" readonly class="" value="<?= $verifikatorKe; ?>">
                   <div class="form-group mb-0 row">
                     <label class="col-sm-2 col-form-label">Nama</label>
@@ -1109,7 +1162,7 @@
                   <div class="form-group mb-0 row">
                     <label class="col-sm-2 col-form-label">NIP</label>
                     <div class="col-sm-10">
-                      <input type="text" readonly name="nip" class="form-control-plaintext" value="<?= $myData['nip']; ?>">
+                      <input type="text" readonly name="nip" class="form-control-plaintext" value="<?= $myData['nip'] ?? '-'; ?>">
                     </div>
                   </div>
                   <div class="form-group">

@@ -115,6 +115,19 @@
 </style>
 <section class="content">
   <div class="container-fluid">
+    <div style="background: linear-gradient(135deg, #047879 0%, #0d9488 55%, #115e59 100%); border-radius: 14px; padding: 16px 20px; color: #ffffff; box-shadow: 0 8px 22px rgba(4, 120, 121, 0.16); margin-bottom: 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+      <div>
+        <h4 style="font-size: 1.12rem; font-weight: 800; margin: 0 0 2px;">
+          <i class="fas fa-file-contract mr-2"></i>Pratinjau &amp; Riwayat Validasi Perjalanan Dinas
+        </h4>
+        <div class="small" style="color: rgba(255,255,255,0.86);">
+          <?= esc($getData['nama_kegiatan'] ?? ''); ?> • Status: <strong><?= esc($getData['status_surat'] ?? 'Draft'); ?></strong>
+        </div>
+      </div>
+      <a href="/sinadi/<?= $activeMenu === 'dinasDalamKota' ? 'dinasDalamKota' : 'dinasLuarKota'; ?>" style="background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.3); color: #ffffff; font-size: 0.78rem; font-weight: 700; padding: 6px 13px; border-radius: 9px; text-decoration: none;">
+        <i class="fas fa-arrow-left mr-1"></i> Kembali ke Daftar
+      </a>
+    </div>
     <div class="row">
       <div class="col-md-12">
         <div class="card card-info">
@@ -171,24 +184,67 @@
                 </div>
               </div>
               <div class="col-xl-7">
-                <h3 class="card-title mb-2"><strong><u>Berkas Perjalanan Dinas</u></strong></h3>
-                <?php if($getData['berkas'] == NULL || $getData['berkas'] == ""): ?>
-                    <h3 class="card-title mb-2"><strong class="text-danger"><u>Berkas Perjalanan Dinas Belum Terlampir/ Gagal dimuat! Silahkan melakukan pengeditan data dan tambahkan ulang berkas!</u></strong></h3>
-                <?php endif ?>
-                <a href="#" data-file="<?= '/sinadi/previewBuktiBerkas/' . $getData['berkas']; ?>" class="btn float-right btn-sm mb-1 btn-info fileNotaDinas"><i class="fas fa-eye"></i></a>
-                <iframe
-                  src="<?= base_url('sinadi/previewBuktiBerkas/' . $getData['berkas']); ?>"
-                  width="100%"
-                  height="600px"
-                  title="Pratinjau File">
-                </iframe>
-                <div class="text-center">
-                    <a href="/sinadi/nominatif/<?= $getData['id_perjalanan']; ?>" class="btn btn-danger btn-block my-2">Nominatif</a>
-                    <a href="/sinadi/kuitansi-riil/<?= $getData['id_perjalanan']; ?>" class="btn btn-danger btn-block my-2">Kuitansi dan Riil</a>
-                    
-                    <?php if($getPeserta[0]['kota'] != $getPeserta[0]['kota_asal']): ?>
-                        <a href="/sinadi/sppd/<?= $getData['id_perjalanan']; ?>" class="btn btn-danger btn-block my-2">SPPD</a>
-                        <a href="#" data-toggle="modal" data-target="#modalSppdSrikandi" class="btn btn-success btn-block my-2">SPPD Srikandi</a>
+                <?php
+                  $berkasName = $berkasInfo['name'] ?? trim((string) ($getData['berkas'] ?? ''));
+                  $berkasExists = !empty($berkasInfo['exists']);
+                  $berkasSizeBytes = (int) ($berkasInfo['size_bytes'] ?? 0);
+                  $berkasSizeLabel = '';
+                  if ($berkasExists && $berkasSizeBytes > 0) {
+                    if ($berkasSizeBytes >= 1048576) {
+                      $berkasSizeLabel = number_format($berkasSizeBytes / 1048576, 1) . ' MB';
+                    } elseif ($berkasSizeBytes >= 1024) {
+                      $berkasSizeLabel = number_format($berkasSizeBytes / 1024, 0) . ' KB';
+                    } else {
+                      $berkasSizeLabel = $berkasSizeBytes . ' B';
+                    }
+                  }
+                  $berkasPath = $berkasExists ? '/sinadi/previewBuktiBerkas/' . rawurlencode($berkasName) : '#';
+                  $berkasUrl = $berkasExists ? base_url('sinadi/previewBuktiBerkas/' . rawurlencode($berkasName)) : '';
+                ?>
+                <div class="d-flex flex-wrap align-items-center justify-content-between mb-2" style="gap: 6px;">
+                  <div>
+                    <h3 class="card-title mb-0 float-none"><strong><u>Berkas Perjalanan Dinas</u></strong></h3>
+                    <?php if ($berkasSizeLabel !== '') : ?>
+                      <span class="badge badge-secondary ml-1"><?= esc($berkasSizeLabel); ?></span>
+                    <?php endif; ?>
+                  </div>
+                  <?php if ($berkasExists) : ?>
+                    <div class="btn-group btn-group-sm">
+                      <a href="<?= esc($berkasUrl); ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary" title="Buka di tab baru">
+                        <i class="fas fa-external-link-alt"></i> Tab Baru
+                      </a>
+                      <a href="#" data-file="<?= esc($berkasPath); ?>" class="btn btn-info fileNotaDinas" title="Perbesar di jendela modal">
+                        <i class="fas fa-eye"></i>
+                      </a>
+                    </div>
+                  <?php endif; ?>
+                </div>
+                <?php if ($berkasName === '') : ?>
+                  <div class="alert alert-warning mb-2">
+                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                    <strong>Berkas Perjalanan Dinas Belum Terlampir!</strong>
+                  </div>
+                <?php elseif (!$berkasExists) : ?>
+                  <div class="alert alert-danger mb-2">
+                    <i class="fas fa-file-excel mr-1"></i>
+                    <strong>File Berkas Tidak Ditemukan di Server</strong> (<code><?= esc($berkasName); ?></code>).
+                  </div>
+                <?php else : ?>
+                  <iframe
+                    src="<?= esc($berkasUrl); ?>"
+                    loading="lazy"
+                    width="100%"
+                    height="560px"
+                    style="border: 1px solid #e2e8f0; border-radius: 10px;"
+                    title="Pratinjau File">
+                  </iframe>
+                <?php endif; ?>
+                <div class="row mx-n1 mt-2">
+                    <div class="col-6 col-md-3 px-1 mb-2"><a href="/sinadi/nominatif/<?= $getData['id_perjalanan']; ?>" class="btn btn-danger btn-sm btn-block"><i class="fas fa-file-pdf mr-1"></i>Nominatif</a></div>
+                    <div class="col-6 col-md-3 px-1 mb-2"><a href="/sinadi/kuitansi-riil/<?= $getData['id_perjalanan']; ?>" class="btn btn-danger btn-sm btn-block"><i class="fas fa-file-pdf mr-1"></i>Kuitansi &amp; Riil</a></div>
+                    <?php if(!empty($getPeserta[0]) && $getPeserta[0]['kota'] != $getPeserta[0]['kota_asal']): ?>
+                        <div class="col-6 col-md-3 px-1 mb-2"><a href="/sinadi/sppd/<?= $getData['id_perjalanan']; ?>" class="btn btn-danger btn-sm btn-block"><i class="fas fa-file-pdf mr-1"></i>SPPD</a></div>
+                        <div class="col-6 col-md-3 px-1 mb-2"><a href="#" data-toggle="modal" data-target="#modalSppdSrikandi" class="btn btn-success btn-sm btn-block"><i class="fas fa-print mr-1"></i>SPPD Srikandi</a></div>
                     <?php endif; ?>
                 </div>
               </div>
@@ -643,9 +699,9 @@
               <?php endif; ?>
           </div>
           <?php endif; ?>
-          <?php if($getDataVerifikator['verifikator_4'] != null): ?>
+          <?php if(!empty($getDataVerifikator['verifikator_4'])): ?>
           <div class="col-xl-4 border-bottom">
-              <h6 class="text-center font-weight-bold border-bottom border-primary pb-2">Verifikator 3</h6>
+              <h6 class="text-center font-weight-bold border-bottom border-primary pb-2">Verifikator 4</h6>
               <?php if($getData['verifikator_4'] != null): ?>
               <?php $verifikator = unserialize($getData['verifikator_4']); ?>
               <div class="timeline">
@@ -761,9 +817,9 @@
               <?php endif; ?>
           </div>
           <?php endif; ?>
-          <?php if($getDataVerifikator['verifikator_5'] != null): ?>
+          <?php if(!empty($getDataVerifikator['verifikator_5'])): ?>
           <div class="col-xl-4 border-bottom">
-              <h6 class="text-center font-weight-bold border-bottom border-primary pb-2">Verifikator 3</h6>
+              <h6 class="text-center font-weight-bold border-bottom border-primary pb-2">Verifikator 5</h6>
               <?php if($getData['verifikator_5'] != null): ?>
               <?php $verifikator = unserialize($getData['verifikator_5']); ?>
               <div class="timeline">
