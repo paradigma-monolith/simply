@@ -36,7 +36,7 @@
                     <input type="checkbox" data-id="tanggalSuperUserAbsen">
                   </span>
                 </div>
-                <input type="text" disabled name="tanggal" class="form-control" placeholder="Akses Super User" autocomplete="off" style="min-width: 200px;" />
+                <input type="text" id="tanggalAbsenHarian" disabled name="tanggal" class="form-control" placeholder="Akses Super User" autocomplete="off" style="min-width: 200px;" />
               </div>
 
               <button type="submit" data-url="/absen/export/rekamAbsen" class="btn btn-success btn-sm text-nowrap">
@@ -395,7 +395,7 @@
   // Toggle Super User date range picker
   $(document).on('change', 'input[data-id="tanggalSuperUserAbsen"]', function() {
     var isChecked = $(this).is(':checked');
-    var $tglInput = $('input[name="tanggal"]');
+    var $tglInput = $('#tanggalAbsenHarian');
 
     if (isChecked) {
       $tglInput.prop('disabled', false);
@@ -418,7 +418,7 @@
   });
 
   // Muat data absensi langsung saat rentang tanggal berubah (tanpa delay buatan)
-  $(document).on('change', 'input[name="tanggal"]', function() {
+  $(document).on('change', '#tanggalAbsenHarian', function() {
     var value = $.trim($(this).val() || '');
     if (value !== '') {
       fetchAbsenHarian(value);
@@ -523,8 +523,8 @@
   `;
 
   function getSelectedTargetDate() {
-    var $tglInput = $('input[name="tanggal"]');
-    var raw = (!$tglInput.prop('disabled') && $tglInput.length) ? $.trim($tglInput.val() || '') : '';
+    var $tglInput = $('#tanggalAbsenHarian');
+    var raw = ($tglInput.length && !$tglInput.prop('disabled')) ? $.trim($tglInput.val() || '') : '';
     if (raw !== '') {
       var first = $.trim(raw.split(' - ')[0] || '');
       if (/^\d{4}-\d{2}-\d{2}$/.test(first)) {
@@ -738,9 +738,9 @@
           timer: 900,
           showConfirmButton: false
         });
-        var $tglInput = $('input[name="tanggal"]');
-        var activeDate = $.trim($tglInput.val() || '');
-        if (activeDate !== '' && !$tglInput.prop('disabled')) {
+        var $tglInput = $('#tanggalAbsenHarian');
+        var activeDate = $tglInput.length ? $.trim($tglInput.val() || '') : '';
+        if (activeDate !== '' && !$tglInput.prop('disabled') && /^\d{4}-\d{2}-\d{2}(\s*-\s*\d{4}-\d{2}-\d{2})?$/.test(activeDate)) {
           fetchAbsenHarian(activeDate);
         } else {
           setTimeout(function() { location.reload(); }, 900);
@@ -781,8 +781,9 @@
         success: function(response) {
           if (response.data === 'sukses') {
             Swal.fire({ title: 'Terhapus!', text: 'Data absen berhasil dihapus.', icon: 'success', timer: 900, showConfirmButton: false });
-            var activeDate = $.trim($('input[name="tanggal"]').val() || '');
-            if (activeDate !== '' && !$('input[name="tanggal"]').prop('disabled')) {
+            var $tglInput = $('#tanggalAbsenHarian');
+            var activeDate = $tglInput.length ? $.trim($tglInput.val() || '') : '';
+            if (activeDate !== '' && !$tglInput.prop('disabled') && /^\d{4}-\d{2}-\d{2}(\s*-\s*\d{4}-\d{2}-\d{2})?$/.test(activeDate)) {
               fetchAbsenHarian(activeDate);
             } else {
               setTimeout(function() { location.reload(); }, 900);
