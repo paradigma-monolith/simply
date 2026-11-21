@@ -473,8 +473,7 @@ class Crud extends BaseController
       $nama = "";
       $jabatan = "";
       $golongan = "";
-      $activeSettingRow = $this->sinadiSettingModel->select('id_sinadi_setting')->where('status', 'Aktif')->first();
-      $activeSettingId = $activeSettingRow ? $activeSettingRow['id_sinadi_setting'] : 1;
+      // d(count($this->request->getVar("tes")));
       for ($i = 0; $i < $jmlDataPeserta; $i++) {
         if ($this->request->getVar("nip")[$i] == "") {
           $nip = $this->request->getVar("manualNip")[$inputManual];
@@ -511,7 +510,7 @@ class Crud extends BaseController
 
         $data = [
           'id_perjalanan' => $newId,
-          'id_sinadi_setting' => $activeSettingId,
+          'id_sinadi_setting' => $this->sinadiSettingModel->where('status', 'Aktif')->first()['id_sinadi_setting'],
           'tgl_pergi' => $this->request->getVar("tgl_pergi")[$i],
           'tgl_pulang' => $this->request->getVar("tgl_pulang")[$i],
           'nip_pegawai' => $nip,
@@ -760,8 +759,7 @@ class Crud extends BaseController
       $nama = "";
       $jabatan = "";
       $golongan = "";
-      $activeSettingRow = $this->sinadiSettingModel->select('id_sinadi_setting')->where('status', 'Aktif')->first();
-      $activeSettingId = $activeSettingRow ? $activeSettingRow['id_sinadi_setting'] : 1;
+      // d(count($this->request->getVar("tes")));
       $dataSebelumnya = 0;
       for ($i = 0; $i < $jmlDataPeserta; $i++) {
         if ($this->request->getVar("nip")[$i] == "") {
@@ -806,7 +804,7 @@ class Crud extends BaseController
 
         $data += [
           'id_perjalanan' => $newId,
-          'id_sinadi_setting' => $activeSettingId,
+          'id_sinadi_setting' => $this->sinadiSettingModel->where('status', 'Aktif')->first()['id_sinadi_setting'],
           'tgl_pergi' => $this->request->getVar("tgl_pergi")[$i],
           'tgl_pulang' => $this->request->getVar("tgl_pulang")[$i],
           'nip_pegawai' => $nip,
