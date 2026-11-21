@@ -509,7 +509,7 @@
     </div>
     
     <div class="w-100">
-        <input type="number" name="nip" class="form-control" placeholder="Masukkan NIP / NOPEG" value="<?= $nip ? $nip : ''; ?>">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" name="nip" class="form-control" placeholder="Masukkan NIP / NOPEG" value="<?= $nip ? esc($nip) : ''; ?>">
         <textarea name="address" class="form-control d-none" id="address"></textarea>
         <input type="hidden" name="status_absen" id="status_absen" value="<?= $showWfo ? 'WFO' : ($showWfa ? 'WFA' : 'DL') ?>">
     </div>
@@ -568,709 +568,709 @@
       setInterval(updateText, 5000);
     });
 
-    // Pilih elemen target
+    // Pilih elemen target & state lokasi/akses
     var target = document.getElementById('location');
     var setLatitude = null;
     var setLongitude = null;
-
-    // Daftar nilai target lokasi
-    var targetLocations = [
-      "Informasi Lokasi Anda Akan Muncul Disini!",
-      "Gagal mendapatkan alamat.",
-      "User denied the request for Geolocation.",
-      "Location information is unavailable.",
-      "The request to get user location timed out.",
-      "An unknown error occurred.",
-      "Geolocation is not supported by this browser.",
-      "Failed to get location name."
-    ];
-
+    var isGeoReady = false;
+    var userMarker = null;
+    var userCircle = null;
+    var reverseGeoController = null;
+    var lastGeocodedGrid = '';
+    var lastDetectedToastKey = '';
 
     var map = L.map('map', {
-      center: [51.505, -0.09], // Default coordinates (London)
-      zoom: 14,
-      zoomControl: false // Disable zoom control
+      center: [-6.8991, 107.6114],
+      zoom: 15,
+      zoomControl: false
     });
 
-    // Add tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: ''
     }).addTo(map);
 
-    function onLocationFound(e) {
-      var radius = e.accuracy / 2;
-
-      L.marker([e.latitude, e.longitude]).addTo(map)
-        .bindPopup('You are within ' + radius + ' meters from this point.')
-        .openPopup();
-
-      L.circle([e.latitude, e.longitude], radius).addTo(map);
-
-      map.setView([e.latitude, e.longitude], 13);
-
-      fetch(`https://nominatim.openstreetmap.org/reverse?lat=${e.latitude}&lon=${e.longitude}&format=json`)
-        .then(response => response.json())
-        .then(data => {
-          console.log(data);
-          target.innerText = data.display_name;
-          setLongitude = data.lon
-          setLatitude = data.lat
-
-          document.getElementById('address').value = JSON.stringify(data.address, null, 2);
-        })
-        .catch(error => {
-          target.innerText = 'Gagal mendapatkan alamat.';
-          console.error(error);
-        });
+    function formatCoordLabel(lat, lon) {
+      return 'Koordinat: ' + Number(lat).toFixed(6) + ', ' + Number(lon).toFixed(6);
     }
 
-    function showError(error) {
-      var message = '';
+    function applyResolvedAddress(displayName, addressObj) {
+      if (displayName && String(displayName).trim() !== '') {
+        target.innerText = displayName;
+        var statusAbsen = $('#status_absen').val();
+        if (statusAbsen === 'DL' && isGeoReady) {
+          $('.location-view').text(displayName + ' (Dinas Luar)');
+        } else if (statusAbsen === 'WFA' && isGeoReady && typeof wfaAllowed !== 'undefined' && wfaAllowed) {
+          $('.location-view').text(displayName + ' (WFA)');
+        } else if ($('.location-view').text().indexOf('Koordinat:') === 0 || $('.location-view').text() === 'Memuat lokasi...' || $('.location-view').text() === 'Mendeteksi lokasi...') {
+          $('.location-view').text(displayName);
+        }
+      }
+      if (addressObj) {
+        document.getElementById('address').value = typeof addressObj === 'string'
+          ? addressObj
+          : JSON.stringify(addressObj, null, 2);
+      }
+    }
 
-      switch (error.code) {
-        case error.PERMISSION_DENIED:
-          message = "User denied the request for Geolocation.";
-          break;
-        case error.POSITION_UNAVAILABLE:
-          message = "Location information is unavailable.";
-          break;
-        case error.TIMEOUT:
-          message = "The request to get user location timed out.";
-          break;
-        case error.UNKNOWN_ERROR:
-          message = "An unknown error occurred.";
-          break;
+    function enrichAddressNonBlocking(lat, lon) {
+      var gridKey = Number(lat).toFixed(4) + ',' + Number(lon).toFixed(4);
+      if (gridKey === lastGeocodedGrid && target.innerText && target.innerText.indexOf('Koordinat:') !== 0) {
+        return;
       }
 
-      target.textContent = message;
-    }
-    
-    function getKoordinat() {
-        Swal.fire({
-            title: "Menyesuaikan area sekitar dengan device!",
-            html: "Tolong tunggu beberapa saat..",
-            timer: 10000,
-            timerProgressBar: true,
-            allowOutsideClick: false,
-            didOpen: () => {
-              Swal.showLoading();
-            },
-            willClose: () => {
-              clearInterval(timerInterval);
-            }
-        }).then((result) => {
-            /* Read more about handling dismissals below */
-            if (result.dismiss === Swal.DismissReason.timer) {
-              console.log("I was closed by the timer");
-            }
-        });
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                function(position) {
-                    // Mendapatkan latitude dan longitude
-                    const latitude = position.coords.latitude;
-                    const longitude = position.coords.longitude;
-                    const accuracy = position.coords.accuracy;
-    
-                    // Menampilkan latitude dan longitude di console
-                    document.getElementById('longitude').innerText = parseFloat(longitude).toFixed(6);
-                    document.getElementById('latitude').innerText = parseFloat(latitude).toFixed(6);
-                    Swal.fire({
-                        position: "top-end",
-                        icon: "info",
-                        title: "Akurasi sekitar " + accuracy.toFixed(2) + " meter dari lokasi yang terdeteksi",
-                        showConfirmButton: false,
-                        timer: 2500
-                    });
-
-    
-                    // Memanggil fungsi onLocationFound dengan objek koordinat
-                    onLocationFound({
-                        latitude: latitude,
-                        longitude: longitude,
-                        accuracy: accuracy
-                    });
-                },
-                showError, // Fungsi untuk menangani error geolocation
-                {
-                    enableHighAccuracy: true,
-                    maximumAge: 0,
-                    timeout: 15000
-                }
-            );
-        } else {
-            target.textContent = 'Geolocation is not supported by this browser.';
+      try {
+        var cachedRaw = sessionStorage.getItem('absen_geo_' + gridKey);
+        if (cachedRaw) {
+          var cached = JSON.parse(cachedRaw);
+          if (cached && cached.display_name) {
+            lastGeocodedGrid = gridKey;
+            applyResolvedAddress(cached.display_name, cached.address || null);
+            return;
+          }
         }
+      } catch (err) {}
+
+      if (reverseGeoController) {
+        try { reverseGeoController.abort(); } catch (err) {}
+      }
+      reverseGeoController = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var signal = reverseGeoController ? reverseGeoController.signal : undefined;
+      var timerId = setTimeout(function() {
+        if (reverseGeoController) {
+          try { reverseGeoController.abort(); } catch (err) {}
+        }
+      }, 4500);
+
+      function saveGeoCache(name, addr) {
+        lastGeocodedGrid = gridKey;
+        try {
+          sessionStorage.setItem('absen_geo_' + gridKey, JSON.stringify({ display_name: name, address: addr || null }));
+        } catch (err) {}
+      }
+
+      fetch('https://nominatim.openstreetmap.org/reverse?lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon) + '&format=json', { signal: signal })
+        .then(function(response) {
+          if (!response.ok) throw new Error('Nominatim HTTP ' + response.status);
+          return response.json();
+        })
+        .then(function(data) {
+          clearTimeout(timerId);
+          if (data && data.display_name) {
+            saveGeoCache(data.display_name, data.address || null);
+            applyResolvedAddress(data.display_name, data.address || null);
+          } else {
+            throw new Error('Nominatim empty');
+          }
+        })
+        .catch(function() {
+          clearTimeout(timerId);
+          // Fallback non-blocking ke reverse geocode ringan agar alamat tetap tampil meski Nominatim 403/429
+          fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + encodeURIComponent(lat) + '&longitude=' + encodeURIComponent(lon) + '&localityLanguage=id')
+            .then(function(res) {
+              if (!res.ok) throw new Error('BDC HTTP ' + res.status);
+              return res.json();
+            })
+            .then(function(bdc) {
+              var parts = [bdc.locality, bdc.city, bdc.principalSubdivision, bdc.countryName].filter(Boolean);
+              if (parts.length > 0) {
+                var label = parts.join(', ');
+                saveGeoCache(label, bdc);
+                applyResolvedAddress(label, bdc);
+              }
+            })
+            .catch(function() {
+              // Tetap aman menggunakan koordinat GPS asli tanpa memblokir absensi
+            });
+        });
     }
 
+    function onLocationFound(e, showToast) {
+      var latNum = Number(e.latitude);
+      var lonNum = Number(e.longitude);
+      if (!isFinite(latNum) || !isFinite(lonNum)) {
+        return;
+      }
 
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            function(position) {
-                // Mendapatkan latitude dan longitude
-                const latitude = position.coords.latitude;
-                const longitude = position.coords.longitude;
-                const accuracy = position.coords.accuracy;
+      setLatitude = latNum;
+      setLongitude = lonNum;
+      isGeoReady = true;
 
-                // Menampilkan latitude dan longitude di console
-                document.getElementById('longitude').innerText = parseFloat(longitude).toFixed(6);
-                document.getElementById('latitude').innerText = parseFloat(latitude).toFixed(6);
-                Swal.fire({
-                    position: "top-end",
-                    icon: "info",
-                    html: "Akurasi sekitar<br />" + accuracy.toFixed(1) + " meter dari lokasi yang terdeteksi",
-                    showConfirmButton: false,
-                    timer: 2500
-                });
+      document.getElementById('latitude').innerText = latNum.toFixed(6);
+      document.getElementById('longitude').innerText = lonNum.toFixed(6);
 
-                // Memanggil fungsi onLocationFound dengan objek koordinat
+      if (!target.innerText || target.innerText.indexOf('User denied') === 0 || target.innerText.indexOf('Location') === 0 || target.innerText.indexOf('The request') === 0 || target.innerText === 'Gagal mendapatkan alamat.') {
+        target.innerText = formatCoordLabel(latNum, lonNum);
+      }
+
+      var radius = Math.max(5, Number(e.accuracy || 20) / 2);
+      if (userMarker) {
+        userMarker.setLatLng([latNum, lonNum]);
+      } else {
+        userMarker = L.marker([latNum, lonNum]).addTo(map);
+      }
+      if (userCircle) {
+        userCircle.setLatLng([latNum, lonNum]).setRadius(radius);
+      } else {
+        userCircle = L.circle([latNum, lonNum], { radius: radius }).addTo(map);
+      }
+      map.setView([latNum, lonNum], 15);
+
+      if (showToast && isFinite(Number(e.accuracy))) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'info',
+          title: 'GPS aktif (akurasi ~' + Number(e.accuracy).toFixed(0) + ' m)',
+          showConfirmButton: false,
+          timer: 2000
+        });
+      }
+
+      // Evaluasi zona WFO/WFA/DL LANGSUNG menggunakan koordinat GPS asli (tanpa menunggu Nominatim)
+      if (typeof getDistanceLocation === 'function') {
+        getDistanceLocation();
+      }
+
+      // Perkaya nama alamat secara asynchronous di latar belakang
+      enrichAddressNonBlocking(latNum, lonNum);
+    }
+
+    function showGeoError(error) {
+      var message = 'Tidak dapat mendeteksi lokasi perangkat.';
+      switch (error && error.code) {
+        case 1:
+          message = 'Izin lokasi ditolak. Aktifkan izin lokasi di perangkat/aplikasi.';
+          break;
+        case 2:
+          message = 'Sinyal lokasi tidak tersedia. Pastikan GPS aktif.';
+          break;
+        case 3:
+          message = 'Waktu pencarian lokasi habis. Tekan tombol refresh lokasi di kanan bawah.';
+          break;
+      }
+      target.textContent = message;
+      $('.location-view').text(message).addClass('text-danger');
+      if (typeof getDistanceLocation === 'function') {
+        getDistanceLocation();
+      }
+    }
+
+    function requestGeolocation(isManualRefresh) {
+      if (!navigator.geolocation) {
+        target.textContent = 'Geolocation tidak didukung perangkat ini.';
+        $('.location-view').text(target.textContent).addClass('text-danger');
+        return;
+      }
+
+      if (isManualRefresh) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'info',
+          title: 'Memperbarui lokasi GPS...',
+          showConfirmButton: false,
+          timer: 3000
+        });
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        function(position) {
+          onLocationFound({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          }, true);
+        },
+        function(err) {
+          // Fallback otomatis ke lokasi jaringan (low accuracy) bila GPS presisi timeout di dalam ruangan
+          if (err && (err.code === 2 || err.code === 3)) {
+            navigator.geolocation.getCurrentPosition(
+              function(posFallback) {
                 onLocationFound({
-                    latitude: latitude,
-                    longitude: longitude,
-                    accuracy: accuracy
-                });
-            },
-            showError, // Fungsi untuk menangani error geolocation
-            {
-                enableHighAccuracy: true,
-                maximumAge: 0,
-                timeout: 15000
-            }
-        );
-    } else {
-        target.textContent = 'Geolocation is not supported by this browser.';
+                  latitude: posFallback.coords.latitude,
+                  longitude: posFallback.coords.longitude,
+                  accuracy: posFallback.coords.accuracy
+                }, true);
+              },
+              showGeoError,
+              { enableHighAccuracy: false, maximumAge: 30000, timeout: 10000 }
+            );
+          } else {
+            showGeoError(err);
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: isManualRefresh ? 0 : 15000,
+          timeout: 10000
+        }
+      );
     }
+
+    function getKoordinat() {
+      requestGeolocation(true);
+    }
+
+    requestGeolocation(false);
   </script>
 
   <script>
     var watermarkLogo = new Image();
     watermarkLogo.src = '/dist/img/logo-bkk-no-margin.png';
+    var isSubmittingAbsen = false;
+
+    function captureAbsenPhoto(statusAbsen, dlLabel) {
+      var video = document.getElementById('video');
+      if (!video || !video.videoWidth || !video.videoHeight) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Kamera Belum Siap',
+          text: 'Mohon tunggu 1–2 detik hingga tampilan kamera muncul, atau periksa izin kamera perangkat Anda.'
+        });
+        return null;
+      }
+
+      var maxW = 640;
+      var targetW = video.videoWidth;
+      var targetH = video.videoHeight;
+      if (targetW > maxW) {
+        targetH = Math.round(targetH * (maxW / targetW));
+        targetW = maxW;
+      }
+
+      var canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      var context = canvas.getContext('2d');
+      context.drawImage(video, 0, 0, targetW, targetH);
+
+      if (statusAbsen === 'DL') {
+        var timeStr = "Waktu: " + getFormatTime();
+        var locStr = "Lokasi: " + ($("#location").text() || $(".location-view").text());
+        var coordStr = "Lat: " + $("#latitude").text() + " | Long: " + $("#longitude").text();
+
+        var logoWidth = Math.round(Math.min(180, targetW * 0.28));
+        var logoHeight = (watermarkLogo.height / watermarkLogo.width) * logoWidth;
+        if (isNaN(logoHeight)) logoHeight = logoWidth;
+
+        if (watermarkLogo.complete && watermarkLogo.naturalHeight !== 0) {
+          context.drawImage(watermarkLogo, 15, 15, logoWidth, logoHeight);
+        }
+
+        context.font = "14px Arial";
+        var maxWidth = targetW - 30;
+        var textToWrap = timeStr + " | " + locStr + " | " + coordStr;
+        var words = textToWrap.split(' ');
+        var line = '';
+        var locLines = [];
+
+        for (var n = 0; n < words.length; n++) {
+          var testLine = line + words[n] + ' ';
+          if (context.measureText(testLine).width > maxWidth && n > 0) {
+            locLines.push(line);
+            line = words[n] + ' ';
+          } else {
+            line = testLine;
+          }
+        }
+        locLines.push(line);
+
+        var lineHeight = 18;
+        var bgHeight = ((1 + locLines.length) * lineHeight) + 15;
+
+        context.fillStyle = "rgba(0, 0, 0, 0.5)";
+        context.fillRect(0, targetH - bgHeight, targetW, bgHeight);
+
+        context.fillStyle = "white";
+        context.textAlign = "left";
+
+        var currentY = targetH - bgHeight + 20;
+        context.font = "bold 14px Arial";
+        context.fillText(dlLabel, 15, currentY);
+        currentY += lineHeight;
+
+        context.font = "12px Arial";
+        for (var k = 0; k < locLines.length; k++) {
+          context.fillText(locLines[k], 15, currentY);
+          currentY += lineHeight;
+        }
+      }
+
+      return canvas.toDataURL('image/jpeg', 0.72);
+    }
 
     $(".clock-in").on('click', function() {
-      // Mengambil video element
-      var video = document.getElementById('video');
+      if (isSubmittingAbsen) return;
 
-      // Membuat canvas untuk menangkap gambar
-      var canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      var context = canvas.getContext('2d');
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      var statusAbsen = $('#status_absen').val();
-
-      // Tambahkan Watermark untuk Dinas Luar (DL)
-      if (statusAbsen === 'DL') {
-          var timeStr = "Waktu: " + getFormatTime();
-          var locStr = "Lokasi: " + $("#location").text();
-          var coordStr = "Lat: " + $("#latitude").text() + " | Long: " + $("#longitude").text();
-          
-          // Gambar Logo di Kiri Atas
-          var logoWidth = 180; // Logo diperbesar 2x lipat
-          var logoHeight = (watermarkLogo.height / watermarkLogo.width) * logoWidth;
-          if (isNaN(logoHeight)) logoHeight = 180;
-          
-          if (watermarkLogo.complete && watermarkLogo.naturalHeight !== 0) {
-              // Posisi x=15, y=15 (Kiri Atas)
-              context.drawImage(watermarkLogo, 15, 15, logoWidth, logoHeight);
-          }
-
-          context.font = "14px Arial";
-          var maxWidth = canvas.width - 30; // Kembalikan full width margin 15px kiri kanan
-          
-          var textToWrap = timeStr + " | " + locStr + " | " + coordStr;
-          
-          var words = textToWrap.split(' ');
-          var line = '';
-          var locLines = [];
-
-          for(var n = 0; n < words.length; n++) {
-            var testLine = line + words[n] + ' ';
-            var metrics = context.measureText(testLine);
-            if (metrics.width > maxWidth && n > 0) {
-              locLines.push(line);
-              line = words[n] + ' ';
-            } else {
-              line = testLine;
-            }
-          }
-          locLines.push(line);
-
-          var lineHeight = 18;
-          var totalLines = 1 + locLines.length; // Title + Alamat(N lines)
-          var bgHeight = (totalLines * lineHeight) + 15;
-
-          context.fillStyle = "rgba(0, 0, 0, 0.5)";
-          context.fillRect(0, canvas.height - bgHeight, canvas.width, bgHeight);
-          
-          context.fillStyle = "white";
-          context.textAlign = "left";
-          
-          var currentY = canvas.height - bgHeight + 20;
-
-          context.font = "bold 14px Arial";
-          context.fillText("DINAS LUAR - MASUK", 15, currentY);
-          currentY += lineHeight;
-          
-          context.font = "12px Arial";
-          
-          for(var k = 0; k < locLines.length; k++) {
-              context.fillText(locLines[k], 15, currentY);
-              currentY += lineHeight;
-          }
+      var nip = $.trim($('input[name="nip"]').val() || '');
+      if (nip === '') {
+        Swal.fire({ icon: 'warning', title: 'NIP Kosong', text: 'Silakan masukkan NIP / NOPEG terlebih dahulu.' });
+        return;
       }
 
-      // Mengambil data gambar dari canvas
-      var imageData = canvas.toDataURL('image/jpeg');
+      var statusAbsen = $('#status_absen').val();
+      var imageData = captureAbsenPhoto(statusAbsen, 'DINAS LUAR - MASUK');
+      if (!imageData) return;
 
-      // Mengirim data gambar menggunakan AJAX
-      var nip = $('input[name="nip"]').val();
+      isSubmittingAbsen = true;
+      var formData = new FormData();
+      formData.append('nip', nip);
+      formData.append('image', imageData);
+      formData.append('latitude', isGeoReady ? setLatitude.toFixed(6) : $("#latitude").text());
+      formData.append('longitude', isGeoReady ? setLongitude.toFixed(6) : $("#longitude").text());
+      formData.append('alamat', $(".location-view").text() || $("#location").text());
+      formData.append('posisi_alamat', $('textarea[name="address"]').val());
+      formData.append('status', statusAbsen);
 
-      if (nip != "") {
-        var formData = new FormData();
-        formData.append('nip', nip);
-        formData.append('image', imageData);
-        formData.append('latitude', $("#latitude").text());
-        formData.append('longitude', $("#longitude").text());
-        formData.append('alamat', $(".location-view").text());
-        formData.append('posisi_alamat', $('textarea[name="address"]').val());
-        formData.append('status', statusAbsen);
+      $.ajax({
+        url: '/absensi/clockIn',
+        data: formData,
+        method: 'post',
+        dataType: 'json',
+        timeout: 25000,
+        contentType: false,
+        processData: false,
+        beforeSend: function() {
+          Swal.fire({
+            title: "Menyimpan absen masuk...",
+            showConfirmButton: false,
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); },
+            backdrop: `rgba(0,0,123,0.4) left top no-repeat`
+          });
+        },
+        success: function(response) {
+          if (response && response.data) {
+            if (response.data == 'sukses') {
+              if (statusAbsen === 'DL') {
+                var link = document.createElement('a');
+                link.download = 'DL_Masuk_' + nip + '_' + new Date().getTime() + '.jpg';
+                link.href = imageData;
+                link.click();
 
-        $.ajax({
-          url: `/absensi/clockIn`,
-          data: formData,
-          method: 'post',
-          dataType: 'json',
-          contentType: false, // Important! Tell jQuery not to set contentType
-          processData: false, // Important! Tell jQuery not to process data
-          beforeSend: function() {
-            Swal.fire({
-              title: "Tunggu...",
-              showConfirmButton: false,
-              allowOutsideClick: false,
-              backdrop: `rgba(0,0,123,0.4) left top no-repeat`
-            });
-          },
-          success: function(response) {
-            if (response.data) {
-              if (response.data == 'sukses') {
-                if (statusAbsen === 'DL') {
-                  var link = document.createElement('a');
-                  link.download = 'DL_Masuk_' + nip + '_' + new Date().getTime() + '.jpg';
-                  link.href = imageData;
-                  link.click();
-                  
-                  Swal.fire({
-                    title: 'Berhasil Absen DL!',
-                    html: `
-                      <img src="${imageData}" style="width: 220px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #ddd; display: block; margin-left: auto; margin-right: auto;" alt="Preview DL">
-                      <p style="margin-bottom: 10px; font-size: 14px;">Foto dengan watermark telah otomatis diunduh.<br/>Silakan tanda tangan di bawah ini:</p>
-                      <div style="position: relative; width: 100%;">
-                        <canvas id="signature-pad" style="width: 100%; height: 150px; border: 1px solid #ccc; border-radius: 8px; touch-action: none; background: #fff; box-sizing: border-box; display: block;"></canvas>
-                        <button type="button" id="clear-signature" title="Hapus Tanda Tangan" style="position: absolute; bottom: 8px; right: 8px; background: rgba(220, 53, 69, 0.9); color: #fff; border: none; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); padding: 0;">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8.086 2.207a2 2 0 0 1 2.828 0l3.879 3.879a2 2 0 0 1 0 2.828l-5.5 5.5A2 2 0 0 1 7.879 15H5.12a2 2 0 0 1-1.414-.586l-2.5-2.5a2 2 0 0 1 0-2.828l6.879-6.879zm2.121.707a1 1 0 0 0-1.414 0L4.16 7.547l5.293 5.293 4.633-4.633a1 1 0 0 0 0-1.414l-3.879-3.879zM8.746 13.547 3.453 8.254 1.914 9.547a1 1 0 0 0 0 1.414l2.5 2.5a1 1 0 0 0 .707.293H7.88a1 1 0 0 0 .707-.293l.16-.16z"/></svg>
-                        </button>
-                      </div>
-                    `,
-                    showCancelButton: true,
-                    confirmButtonText: 'Simpan',
-                    cancelButtonText: 'Tutup',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                         const canvas = document.getElementById('signature-pad');
-                         // Set ukuran internal canvas menyesuaikan dengan ukuran elemen (responsif)
-                         const ratio = Math.max(window.devicePixelRatio || 1, 1);
-                         canvas.width = canvas.offsetWidth * ratio;
-                         canvas.height = canvas.offsetHeight * ratio;
-                         const ctx = canvas.getContext('2d');
-                         ctx.scale(ratio, ratio);
-                        let drawing = false;
-                        ctx.lineWidth = 3; // Sedikit ditebalkan
-                        ctx.lineCap = "round";
-                        ctx.lineJoin = "round";
-                        ctx.strokeStyle = "#000";
-
-                        let lastPos = null;
-
-                        function getPos(e) {
-                            const rect = canvas.getBoundingClientRect();
-                            let clientX = e.clientX;
-                            let clientY = e.clientY;
-                            if (e.touches && e.touches.length > 0) {
-                                clientX = e.touches[0].clientX;
-                                clientY = e.touches[0].clientY;
-                            }
-                            return { x: clientX - rect.left, y: clientY - rect.top };
-                        }
-
-                        function startPos(e) {
-                            drawing = true;
-                            lastPos = getPos(e);
-                            
-                            // Gambar titik awal agar jika hanya disentuh (tap) tetap muncul
-                            ctx.beginPath();
-                            ctx.arc(lastPos.x, lastPos.y, ctx.lineWidth / 2, 0, Math.PI * 2);
-                            ctx.fill();
-                            
-                            ctx.beginPath();
-                            ctx.moveTo(lastPos.x, lastPos.y);
-                            e.preventDefault();
-                        }
-
-                        function drawLine(e) {
-                            if (!drawing) return;
-                            const pos = getPos(e);
-                            
-                            // Algoritma Midpoint Smoothing (Kurva Kuadratik)
-                            const midX = (lastPos.x + pos.x) / 2;
-                            const midY = (lastPos.y + pos.y) / 2;
-                            
-                            ctx.quadraticCurveTo(lastPos.x, lastPos.y, midX, midY);
-                            ctx.stroke();
-                            
-                            ctx.beginPath();
-                            ctx.moveTo(midX, midY);
-                            
-                            lastPos = pos;
-                            e.preventDefault();
-                        }
-
-                        function endPos(e) { 
-                            if (!drawing) return;
-                            // Selesaikan garis ke titik terakhir
-                            ctx.lineTo(lastPos.x, lastPos.y);
-                            ctx.stroke();
-                            drawing = false; 
-                        }
-
-                        canvas.addEventListener('mousedown', startPos, {passive: false});
-                        canvas.addEventListener('mousemove', drawLine, {passive: false});
-                        canvas.addEventListener('mouseup', endPos);
-                        canvas.addEventListener('mouseleave', endPos);
-                        canvas.addEventListener('touchstart', startPos, {passive: false});
-                        canvas.addEventListener('touchmove', drawLine, {passive: false});
-                        canvas.addEventListener('touchend', endPos);
-                        canvas.addEventListener('touchcancel', endPos);
-
-                        document.getElementById('clear-signature').addEventListener('click', () => {
-                            // Karena di-scale, clearRect harus menggunakan ukuran fisik aslinya atau scale inverse
-                            ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        });
-                    },
-                    preConfirm: () => {
-                        const canvas = document.getElementById('signature-pad');
-                        const blank = document.createElement('canvas');
-                        blank.width = canvas.width;
-                        blank.height = canvas.height;
-                        if (canvas.toDataURL() === blank.toDataURL()) {
-                            Swal.showValidationMessage('Tanda tangan tidak boleh kosong!');
-                            return false;
-                        }
-                        return $.ajax({
-                            url: '/absensi/simpanTandaTangan',
-                            method: 'POST',
-                            dataType: 'json',
-                            data: { nip: nip, status: 'DL', jenis: 'masuk', signature: canvas.toDataURL('image/png') }
-                        }).then(response => {
-                            if (response.status !== 'success') {
-                                throw new Error(response.message || 'Gagal menyimpan ke database');
-                            }
-                            return response;
-                        }).catch(error => {
-                            Swal.showValidationMessage(`Gagal: ${error.message || error}`);
-                        });
-                    },
-                    allowOutsideClick: () => !Swal.isLoading()
-                  }).then((result) => {
-                      if (result.isConfirmed) {
-                          Swal.fire({ icon: 'success', title: 'Tersimpan!', text: 'Tanda tangan berhasil disimpan.', timer: 2000, showConfirmButton: false });
-                      }
-                  });
-                } else {
-                  Swal.fire({
-                    icon: 'success',
-                    title: `Selamat datang!`,
-                    html: response.pesan
-                  });
-                }
-              } else if(response.pesan == 'akses terhadap kamera mati, tolong periksa kembali izin perangkat anda atau coba lagi!') {
                 Swal.fire({
-                  icon: 'warning',
-                  title: `Kesalahan pengambilan gambar!`,
-                  html: response.pesan
+                  title: 'Berhasil Absen DL!',
+                  html: `
+                    <img src="${imageData}" style="width: 220px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #ddd; display: block; margin-left: auto; margin-right: auto;" alt="Preview DL">
+                    <p style="margin-bottom: 10px; font-size: 14px;">Foto dengan watermark telah otomatis diunduh.<br/>Silakan tanda tangan di bawah ini:</p>
+                    <div style="position: relative; width: 100%;">
+                      <canvas id="signature-pad" style="width: 100%; height: 150px; border: 1px solid #ccc; border-radius: 8px; touch-action: none; background: #fff; box-sizing: border-box; display: block;"></canvas>
+                      <button type="button" id="clear-signature" title="Hapus Tanda Tangan" style="position: absolute; bottom: 8px; right: 8px; background: rgba(220, 53, 69, 0.9); color: #fff; border: none; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); padding: 0;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8.086 2.207a2 2 0 0 1 2.828 0l3.879 3.879a2 2 0 0 1 0 2.828l-5.5 5.5A2 2 0 0 1 7.879 15H5.12a2 2 0 0 1-1.414-.586l-2.5-2.5a2 2 0 0 1 0-2.828l6.879-6.879zm2.121.707a1 1 0 0 0-1.414 0L4.16 7.547l5.293 5.293 4.633-4.633a1 1 0 0 0 0-1.414l-3.879-3.879zM8.746 13.547 3.453 8.254 1.914 9.547a1 1 0 0 0 0 1.414l2.5 2.5a1 1 0 0 0 .707.293H7.88a1 1 0 0 0 .707-.293l.16-.16z"/></svg>
+                      </button>
+                    </div>
+                  `,
+                  showCancelButton: true,
+                  confirmButtonText: 'Simpan',
+                  cancelButtonText: 'Tutup',
+                  allowOutsideClick: false,
+                  didOpen: () => {
+                    const canvas = document.getElementById('signature-pad');
+                    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                    canvas.width = canvas.offsetWidth * ratio;
+                    canvas.height = canvas.offsetHeight * ratio;
+                    const ctx = canvas.getContext('2d');
+                    ctx.scale(ratio, ratio);
+                    let drawing = false;
+                    ctx.lineWidth = 3;
+                    ctx.lineCap = "round";
+                    ctx.lineJoin = "round";
+                    ctx.strokeStyle = "#000";
+                    let lastPos = null;
+
+                    function getPos(e) {
+                      const rect = canvas.getBoundingClientRect();
+                      let clientX = e.clientX;
+                      let clientY = e.clientY;
+                      if (e.touches && e.touches.length > 0) {
+                        clientX = e.touches[0].clientX;
+                        clientY = e.touches[0].clientY;
+                      }
+                      return { x: clientX - rect.left, y: clientY - rect.top };
+                    }
+                    function startPos(e) {
+                      drawing = true;
+                      lastPos = getPos(e);
+                      ctx.beginPath();
+                      ctx.arc(lastPos.x, lastPos.y, ctx.lineWidth / 2, 0, Math.PI * 2);
+                      ctx.fill();
+                      ctx.beginPath();
+                      ctx.moveTo(lastPos.x, lastPos.y);
+                      e.preventDefault();
+                    }
+                    function drawLine(e) {
+                      if (!drawing) return;
+                      const pos = getPos(e);
+                      const midX = (lastPos.x + pos.x) / 2;
+                      const midY = (lastPos.y + pos.y) / 2;
+                      ctx.quadraticCurveTo(lastPos.x, lastPos.y, midX, midY);
+                      ctx.stroke();
+                      ctx.beginPath();
+                      ctx.moveTo(midX, midY);
+                      lastPos = pos;
+                      e.preventDefault();
+                    }
+                    function endPos() {
+                      if (!drawing) return;
+                      ctx.lineTo(lastPos.x, lastPos.y);
+                      ctx.stroke();
+                      drawing = false;
+                    }
+
+                    canvas.addEventListener('mousedown', startPos, {passive: false});
+                    canvas.addEventListener('mousemove', drawLine, {passive: false});
+                    canvas.addEventListener('mouseup', endPos);
+                    canvas.addEventListener('mouseleave', endPos);
+                    canvas.addEventListener('touchstart', startPos, {passive: false});
+                    canvas.addEventListener('touchmove', drawLine, {passive: false});
+                    canvas.addEventListener('touchend', endPos);
+                    canvas.addEventListener('touchcancel', endPos);
+
+                    document.getElementById('clear-signature').addEventListener('click', () => {
+                      ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    });
+                  },
+                  preConfirm: () => {
+                    const canvas = document.getElementById('signature-pad');
+                    const blank = document.createElement('canvas');
+                    blank.width = canvas.width;
+                    blank.height = canvas.height;
+                    if (canvas.toDataURL() === blank.toDataURL()) {
+                      Swal.showValidationMessage('Tanda tangan tidak boleh kosong!');
+                      return false;
+                    }
+                    return $.ajax({
+                      url: '/absensi/simpanTandaTangan',
+                      method: 'POST',
+                      dataType: 'json',
+                      data: { nip: nip, status: 'DL', jenis: 'masuk', signature: canvas.toDataURL('image/png') }
+                    }).then(response => {
+                      if (response.status !== 'success') {
+                        throw new Error(response.message || 'Gagal menyimpan ke database');
+                      }
+                      return response;
+                    }).catch(error => {
+                      Swal.showValidationMessage(`Gagal: ${error.message || error}`);
+                    });
+                  },
+                  allowOutsideClick: () => !Swal.isLoading()
+                }).then((result) => {
+                  if (result.isConfirmed) {
+                    Swal.fire({ icon: 'success', title: 'Tersimpan!', text: 'Tanda tangan berhasil disimpan.', timer: 2000, showConfirmButton: false });
+                  }
                 });
               } else {
                 Swal.fire({
-                  icon: 'warning',
-                  title: `Lokasi tidak terdeteksi!`,
+                  icon: 'success',
+                  title: `Selamat datang!`,
                   html: response.pesan
                 });
               }
+            } else if (response.code === 'nip_not_found') {
+              Swal.fire({ icon: 'error', title: 'NIP/NOPEG anda tidak terdaftar!' });
+            } else if (response.pesan == 'akses terhadap kamera mati, tolong periksa kembali izin perangkat anda atau coba lagi!') {
+              Swal.fire({ icon: 'warning', title: 'Kesalahan pengambilan gambar!', html: response.pesan });
             } else {
-              Swal.fire({
-                icon: 'error',
-                title: `NIP/NOPEG anda tidak terdaftar!`,
-              });
+              Swal.fire({ icon: 'warning', title: 'Lokasi tidak terdeteksi!', html: response.pesan });
             }
-          },
-          error: function(xhr, ajaxOptions, thrownError) {
-            Swal.fire({
-              icon: 'error',
-              title: 'Oops...',
-              text: xhr.status + "\n" + xhr.responseText + "\n" + thrownError,
-            });
+          } else {
+            Swal.fire({ icon: 'error', title: 'NIP/NOPEG anda tidak terdaftar!' });
           }
-        });
-      }
+        },
+        error: function(xhr, status) {
+          Swal.fire({
+            icon: 'error',
+            title: status === 'timeout' ? 'Koneksi Lambat' : 'Gagal Mengirim Absen',
+            text: status === 'timeout'
+              ? 'Server terlalu lama merespons. Periksa sinyal internet Anda lalu coba tekan kembali.'
+              : 'Terjadi gangguan koneksi (' + xhr.status + '). Silakan coba kembali.'
+          });
+        },
+        complete: function() {
+          isSubmittingAbsen = false;
+        }
+      });
     });
+
     $(".clock-out").on('click', function() {
-      // Mengambil video element
-      var video = document.getElementById('video');
+      if (isSubmittingAbsen) return;
 
-      // Membuat canvas untuk menangkap gambar
-      var canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      var context = canvas.getContext('2d');
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      var statusAbsen = $('#status_absen').val();
-
-      // Tambahkan Watermark untuk Dinas Luar (DL)
-      if (statusAbsen === 'DL') {
-          var timeStr = "Waktu: " + getFormatTime();
-          var locStr = "Lokasi: " + $("#location").text();
-          var coordStr = "Lat: " + $("#latitude").text() + " | Long: " + $("#longitude").text();
-          
-          // Gambar Logo di Kiri Atas
-          var logoWidth = 180; // Logo diperbesar 2x lipat
-          var logoHeight = (watermarkLogo.height / watermarkLogo.width) * logoWidth;
-          if (isNaN(logoHeight)) logoHeight = 180;
-          
-          if (watermarkLogo.complete && watermarkLogo.naturalHeight !== 0) {
-              // Posisi x=15, y=15 (Kiri Atas)
-              context.drawImage(watermarkLogo, 15, 15, logoWidth, logoHeight);
-          }
-
-          context.font = "14px Arial";
-          var maxWidth = canvas.width - 30; // Kembalikan full width margin 15px kiri kanan
-          
-          var textToWrap = timeStr + " | " + locStr + " | " + coordStr;
-          
-          var words = textToWrap.split(' ');
-          var line = '';
-          var locLines = [];
-
-          for(var n = 0; n < words.length; n++) {
-            var testLine = line + words[n] + ' ';
-            var metrics = context.measureText(testLine);
-            if (metrics.width > maxWidth && n > 0) {
-              locLines.push(line);
-              line = words[n] + ' ';
-            } else {
-              line = testLine;
-            }
-          }
-          locLines.push(line);
-
-          var lineHeight = 18;
-          var totalLines = 1 + locLines.length; // Title + Alamat(N lines)
-          var bgHeight = (totalLines * lineHeight) + 15;
-
-          context.fillStyle = "rgba(0, 0, 0, 0.5)";
-          context.fillRect(0, canvas.height - bgHeight, canvas.width, bgHeight);
-          
-          context.fillStyle = "white";
-          context.textAlign = "left";
-          
-          var currentY = canvas.height - bgHeight + 20;
-
-          context.font = "bold 14px Arial";
-          context.fillText("DINAS LUAR - PULANG", 15, currentY);
-          currentY += lineHeight;
-          
-          context.font = "12px Arial";
-          
-          for(var k = 0; k < locLines.length; k++) {
-              context.fillText(locLines[k], 15, currentY);
-              currentY += lineHeight;
-          }
+      var nip = $.trim($('input[name="nip"]').val() || '');
+      if (nip === '') {
+        Swal.fire({ icon: 'warning', title: 'NIP Kosong', text: 'Silakan masukkan NIP / NOPEG terlebih dahulu.' });
+        return;
       }
 
-      // Mengambil data gambar dari canvas
-      var imageData = canvas.toDataURL('image/jpeg');
+      var statusAbsen = $('#status_absen').val();
+      var imageData = captureAbsenPhoto(statusAbsen, 'DINAS LUAR - PULANG');
+      if (!imageData) return;
 
-      // Mengirim data gambar menggunakan AJAX
-      var nip = $('input[name="nip"]').val();
+      isSubmittingAbsen = true;
+      var formData = new FormData();
+      formData.append('nip', nip);
+      formData.append('image', imageData);
+      formData.append('latitude', isGeoReady ? setLatitude.toFixed(6) : $("#latitude").text());
+      formData.append('longitude', isGeoReady ? setLongitude.toFixed(6) : $("#longitude").text());
+      formData.append('alamat', $(".location-view").text() || $("#location").text());
+      formData.append('posisi_alamat', $('textarea[name="address"]').val());
+      formData.append('status', statusAbsen);
 
-      if (nip != "") {
-        var formData = new FormData();
-        formData.append('nip', nip);
-        formData.append('image', imageData);
-        formData.append('latitude', $("#latitude").text());
-        formData.append('longitude', $("#longitude").text());
-        formData.append('alamat', $(".location-view").text());
-        formData.append('posisi_alamat', $('textarea[name="address"]').val());
-        formData.append('status', statusAbsen);
+      $.ajax({
+        url: '/absensi/clockOut',
+        data: formData,
+        method: 'post',
+        dataType: 'json',
+        timeout: 25000,
+        contentType: false,
+        processData: false,
+        beforeSend: function() {
+          Swal.fire({
+            title: "Menyimpan absen pulang...",
+            showConfirmButton: false,
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); },
+            backdrop: `rgba(0,0,123,0.4) left top no-repeat`
+          });
+        },
+        success: function(response) {
+          if (response && response.data) {
+            if (response.data == 'sukses') {
+              if (statusAbsen === 'DL') {
+                var link = document.createElement('a');
+                link.download = 'DL_Pulang_' + nip + '_' + new Date().getTime() + '.jpg';
+                link.href = imageData;
+                link.click();
 
-        $.ajax({
-          url: `/absensi/clockOut`,
-          data: formData,
-          method: 'post',
-          dataType: 'json',
-          contentType: false, // Important! Tell jQuery not to set contentType
-          processData: false, // Important! Tell jQuery not to process data
-          beforeSend: function() {
-            Swal.fire({
-              title: "Tunggu...",
-              showConfirmButton: false,
-              allowOutsideClick: false,
-              backdrop: `rgba(0,0,123,0.4) left top no-repeat`
-            });
-          },
-          success: function(response) {
-            if (response.data) {
-              if (response.data == 'sukses') {
-                if (statusAbsen === 'DL') {
-                  var link = document.createElement('a');
-                  link.download = 'DL_Pulang_' + nip + '_' + new Date().getTime() + '.jpg';
-                  link.href = imageData;
-                  link.click();
-                  
-                  Swal.fire({
-                    title: 'Berhasil Absen DL!',
-                    html: `
-                      <img src="${imageData}" style="width: 220px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #ddd; display: block; margin-left: auto; margin-right: auto;" alt="Preview DL">
-                      <p style="margin-bottom: 10px; font-size: 14px;">Foto dengan watermark telah otomatis diunduh.<br/>Silakan tanda tangan di bawah ini:</p>
-                      <div style="position: relative; width: 100%;">
-                        <canvas id="signature-pad" style="width: 100%; height: 150px; border: 1px solid #ccc; border-radius: 8px; touch-action: none; background: #fff; box-sizing: border-box; display: block;"></canvas>
-                        <button type="button" id="clear-signature" title="Hapus Tanda Tangan" style="position: absolute; bottom: 8px; right: 8px; background: rgba(220, 53, 69, 0.9); color: #fff; border: none; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); padding: 0;">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8.086 2.207a2 2 0 0 1 2.828 0l3.879 3.879a2 2 0 0 1 0 2.828l-5.5 5.5A2 2 0 0 1 7.879 15H5.12a2 2 0 0 1-1.414-.586l-2.5-2.5a2 2 0 0 1 0-2.828l6.879-6.879zm2.121.707a1 1 0 0 0-1.414 0L4.16 7.547l5.293 5.293 4.633-4.633a1 1 0 0 0 0-1.414l-3.879-3.879zM8.746 13.547 3.453 8.254 1.914 9.547a1 1 0 0 0 0 1.414l2.5 2.5a1 1 0 0 0 .707.293H7.88a1 1 0 0 0 .707-.293l.16-.16z"/></svg>
-                        </button>
-                      </div>
-                    `,
-                    showCancelButton: true,
-                    confirmButtonText: 'Simpan',
-                    cancelButtonText: 'Tutup',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                         const canvas = document.getElementById('signature-pad');
-                         // Set ukuran internal canvas menyesuaikan dengan ukuran elemen (responsif)
-                         const ratio = Math.max(window.devicePixelRatio || 1, 1);
-                         canvas.width = canvas.offsetWidth * ratio;
-                         canvas.height = canvas.offsetHeight * ratio;
-                         const ctx = canvas.getContext('2d');
-                         ctx.scale(ratio, ratio);
-                        let drawing = false;
-                        ctx.lineWidth = 2.5;
-                        ctx.lineCap = "round";
-                        ctx.lineJoin = "round";
-                        ctx.strokeStyle = "#000";
-
-                        function getPos(e) {
-                            const rect = canvas.getBoundingClientRect();
-                            let clientX = e.clientX;
-                            let clientY = e.clientY;
-                            if (e.touches && e.touches.length > 0) {
-                                clientX = e.touches[0].clientX;
-                                clientY = e.touches[0].clientY;
-                            }
-                            return { x: clientX - rect.left, y: clientY - rect.top };
-                        }
-                        function startPos(e) {
-                            drawing = true;
-                            const pos = getPos(e);
-                            ctx.beginPath();
-                            ctx.moveTo(pos.x, pos.y);
-                            e.preventDefault();
-                        }
-                        function drawLine(e) {
-                            if (!drawing) return;
-                            const pos = getPos(e);
-                            ctx.lineTo(pos.x, pos.y);
-                            ctx.stroke();
-                            e.preventDefault();
-                        }
-                        function endPos(e) { drawing = false; }
-
-                        canvas.addEventListener('mousedown', startPos);
-                        canvas.addEventListener('mousemove', drawLine);
-                        canvas.addEventListener('mouseup', endPos);
-                        canvas.addEventListener('mouseleave', endPos);
-                        canvas.addEventListener('touchstart', startPos);
-                        canvas.addEventListener('touchmove', drawLine);
-                        canvas.addEventListener('touchend', endPos);
-                        canvas.addEventListener('touchcancel', endPos);
-
-                        document.getElementById('clear-signature').addEventListener('click', () => {
-                            ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        });
-                    },
-                    preConfirm: () => {
-                        const canvas = document.getElementById('signature-pad');
-                        const blank = document.createElement('canvas');
-                        blank.width = canvas.width;
-                        blank.height = canvas.height;
-                        if (canvas.toDataURL() === blank.toDataURL()) {
-                            Swal.showValidationMessage('Tanda tangan tidak boleh kosong!');
-                            return false;
-                        }
-                        return $.ajax({
-                            url: '/absensi/simpanTandaTangan',
-                            method: 'POST',
-                            dataType: 'json',
-                            data: { nip: nip, status: 'DL', jenis: 'pulang', signature: canvas.toDataURL('image/png') }
-                        }).then(response => {
-                            if (response.status !== 'success') {
-                                throw new Error(response.message || 'Gagal menyimpan ke database');
-                            }
-                            return response;
-                        }).catch(error => {
-                            Swal.showValidationMessage(`Gagal: ${error.message || error}`);
-                        });
-                    },
-                    allowOutsideClick: () => !Swal.isLoading()
-                  }).then((result) => {
-                      if (result.isConfirmed) {
-                          Swal.fire({ icon: 'success', title: 'Tersimpan!', text: 'Tanda tangan berhasil disimpan.', timer: 2000, showConfirmButton: false });
-                      }
-                  });
-                } else {
-                  Swal.fire({
-                    icon: 'success',
-                    title: `Terimakasih, hati-hati dijalan!`,
-                    html: response.pesan
-                  });
-                }
-              } else if(response.pesan == 'akses terhadap kamera mati, tolong periksa kembali izin perangkat anda atau coba lagi!') {
                 Swal.fire({
-                  icon: 'warning',
-                  title: `Kesalahan pengambilan gambar!`,
-                  html: response.pesan
+                  title: 'Berhasil Absen DL!',
+                  html: `
+                    <img src="${imageData}" style="width: 220px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #ddd; display: block; margin-left: auto; margin-right: auto;" alt="Preview DL">
+                    <p style="margin-bottom: 10px; font-size: 14px;">Foto dengan watermark telah otomatis diunduh.<br/>Silakan tanda tangan di bawah ini:</p>
+                    <div style="position: relative; width: 100%;">
+                      <canvas id="signature-pad" style="width: 100%; height: 150px; border: 1px solid #ccc; border-radius: 8px; touch-action: none; background: #fff; box-sizing: border-box; display: block;"></canvas>
+                      <button type="button" id="clear-signature" title="Hapus Tanda Tangan" style="position: absolute; bottom: 8px; right: 8px; background: rgba(220, 53, 69, 0.9); color: #fff; border: none; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); padding: 0;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8.086 2.207a2 2 0 0 1 2.828 0l3.879 3.879a2 2 0 0 1 0 2.828l-5.5 5.5A2 2 0 0 1 7.879 15H5.12a2 2 0 0 1-1.414-.586l-2.5-2.5a2 2 0 0 1 0-2.828l6.879-6.879zm2.121.707a1 1 0 0 0-1.414 0L4.16 7.547l5.293 5.293 4.633-4.633a1 1 0 0 0 0-1.414l-3.879-3.879zM8.746 13.547 3.453 8.254 1.914 9.547a1 1 0 0 0 0 1.414l2.5 2.5a1 1 0 0 0 .707.293H7.88a1 1 0 0 0 .707-.293l.16-.16z"/></svg>
+                      </button>
+                    </div>
+                  `,
+                  showCancelButton: true,
+                  confirmButtonText: 'Simpan',
+                  cancelButtonText: 'Tutup',
+                  allowOutsideClick: false,
+                  didOpen: () => {
+                    const canvas = document.getElementById('signature-pad');
+                    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                    canvas.width = canvas.offsetWidth * ratio;
+                    canvas.height = canvas.offsetHeight * ratio;
+                    const ctx = canvas.getContext('2d');
+                    ctx.scale(ratio, ratio);
+                    let drawing = false;
+                    ctx.lineWidth = 2.5;
+                    ctx.lineCap = "round";
+                    ctx.lineJoin = "round";
+                    ctx.strokeStyle = "#000";
+
+                    function getPos(e) {
+                      const rect = canvas.getBoundingClientRect();
+                      let clientX = e.clientX;
+                      let clientY = e.clientY;
+                      if (e.touches && e.touches.length > 0) {
+                        clientX = e.touches[0].clientX;
+                        clientY = e.touches[0].clientY;
+                      }
+                      return { x: clientX - rect.left, y: clientY - rect.top };
+                    }
+                    function startPos(e) {
+                      drawing = true;
+                      const pos = getPos(e);
+                      ctx.beginPath();
+                      ctx.moveTo(pos.x, pos.y);
+                      e.preventDefault();
+                    }
+                    function drawLine(e) {
+                      if (!drawing) return;
+                      const pos = getPos(e);
+                      ctx.lineTo(pos.x, pos.y);
+                      ctx.stroke();
+                      e.preventDefault();
+                    }
+                    function endPos() { drawing = false; }
+
+                    canvas.addEventListener('mousedown', startPos);
+                    canvas.addEventListener('mousemove', drawLine);
+                    canvas.addEventListener('mouseup', endPos);
+                    canvas.addEventListener('mouseleave', endPos);
+                    canvas.addEventListener('touchstart', startPos);
+                    canvas.addEventListener('touchmove', drawLine);
+                    canvas.addEventListener('touchend', endPos);
+                    canvas.addEventListener('touchcancel', endPos);
+
+                    document.getElementById('clear-signature').addEventListener('click', () => {
+                      ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    });
+                  },
+                  preConfirm: () => {
+                    const canvas = document.getElementById('signature-pad');
+                    const blank = document.createElement('canvas');
+                    blank.width = canvas.width;
+                    blank.height = canvas.height;
+                    if (canvas.toDataURL() === blank.toDataURL()) {
+                      Swal.showValidationMessage('Tanda tangan tidak boleh kosong!');
+                      return false;
+                    }
+                    return $.ajax({
+                      url: '/absensi/simpanTandaTangan',
+                      method: 'POST',
+                      dataType: 'json',
+                      data: { nip: nip, status: 'DL', jenis: 'pulang', signature: canvas.toDataURL('image/png') }
+                    }).then(response => {
+                      if (response.status !== 'success') {
+                        throw new Error(response.message || 'Gagal menyimpan ke database');
+                      }
+                      return response;
+                    }).catch(error => {
+                      Swal.showValidationMessage(`Gagal: ${error.message || error}`);
+                    });
+                  },
+                  allowOutsideClick: () => !Swal.isLoading()
+                }).then((result) => {
+                  if (result.isConfirmed) {
+                    Swal.fire({ icon: 'success', title: 'Tersimpan!', text: 'Tanda tangan berhasil disimpan.', timer: 2000, showConfirmButton: false });
+                  }
                 });
               } else {
                 Swal.fire({
-                  icon: 'warning',
-                  title: `Lokasi tidak terdeteksi!`,
+                  icon: 'success',
+                  title: `Terimakasih, hati-hati dijalan!`,
                   html: response.pesan
                 });
               }
+            } else if (response.code === 'nip_not_found') {
+              Swal.fire({ icon: 'error', title: 'NIP/NOPEG anda tidak terdaftar!' });
+            } else if (response.code === 'not_clocked_in') {
+              Swal.fire({ icon: 'error', title: 'Anda belum "Tandai Masuk" sebelumnya!' });
+            } else if (response.pesan == 'akses terhadap kamera mati, tolong periksa kembali izin perangkat anda atau coba lagi!') {
+              Swal.fire({ icon: 'warning', title: 'Kesalahan pengambilan gambar!', html: response.pesan });
             } else {
-              Swal.fire({
-                icon: 'error',
-                title: `Anda belum "Tandai Masuk" sebelumnya!`,
-              });
+              Swal.fire({ icon: 'warning', title: 'Lokasi tidak terdeteksi!', html: response.pesan });
             }
-          },
-          error: function(xhr, ajaxOptions, thrownError) {
-            Swal.fire({
-              icon: 'error',
-              title: 'Oops...',
-              text: xhr.status + "\n" + xhr.responseText + "\n" + thrownError,
-            });
+          } else {
+            Swal.fire({ icon: 'error', title: 'Anda belum "Tandai Masuk" sebelumnya!' });
           }
-        });
-      }
+        },
+        error: function(xhr, status) {
+          Swal.fire({
+            icon: 'error',
+            title: status === 'timeout' ? 'Koneksi Lambat' : 'Gagal Mengirim Absen',
+            text: status === 'timeout'
+              ? 'Server terlalu lama merespons. Periksa sinyal internet Anda lalu coba tekan kembali.'
+              : 'Terjadi gangguan koneksi (' + xhr.status + '). Silakan coba kembali.'
+          });
+        },
+        complete: function() {
+          isSubmittingAbsen = false;
+        }
+      });
     });
   </script>
 
@@ -1302,332 +1302,256 @@
     let currentFacingMode = 'user'; // mode default: kamera depan
 
     async function startVideo() {
-      function requestWebcam(facingMode) {
-        // Hentikan stream yang sedang berjalan jika ada
-        if (video.srcObject) {
-          video.srcObject.getTracks().forEach(track => track.stop());
+      var videoEl = document.getElementById('video');
+      function attachStream(stream, facingMode) {
+        videoEl.srcObject = stream;
+        videoEl.style.transform = (facingMode === 'user') ? 'scaleX(-1)' : 'none';
+      }
+
+      function requestWebcam(facingMode, fallbackAny) {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          Swal.fire({ icon: 'error', title: 'Kamera Tidak Didukung', text: 'Perangkat/browser ini tidak mendukung akses kamera.' });
+          return;
+        }
+        if (videoEl.srcObject) {
+          videoEl.srcObject.getTracks().forEach(function(track) { track.stop(); });
         }
 
-        navigator.mediaDevices.getUserMedia({
-            video: {
-              width: { ideal: 640 },
-              height: { ideal: 480 },
-              facingMode: facingMode
-            }
+        var constraints = fallbackAny
+          ? { video: true }
+          : { video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: facingMode } };
+
+        navigator.mediaDevices.getUserMedia(constraints)
+          .then(function(stream) {
+            attachStream(stream, facingMode);
           })
-          .then((stream) => {
-            video.srcObject = stream;
-            
-            // Mirror efek hanya untuk kamera depan (user)
-            if (facingMode === 'user') {
-                video.style.transform = 'scaleX(-1)';
-            } else {
-                video.style.transform = 'none';
+          .catch(function(err) {
+            if (!fallbackAny) {
+              requestWebcam(facingMode, true);
+              return;
             }
-          })
-          .catch((err) => {
             console.error('Error accessing webcam:', err);
-            if (confirm('Failed to access webcam. Retry?')) {
-              requestWebcam(facingMode); // Mencoba lagi jika pengguna menekan OK
-            }
+            Swal.fire({
+              icon: 'warning',
+              title: 'Akses Kamera Gagal',
+              text: 'Pastikan izin kamera aktif di perangkat/aplikasi Simply.',
+              confirmButtonText: 'Coba Lagi'
+            }).then(function(r) {
+              if (r.isConfirmed) requestWebcam(facingMode, false);
+            });
           });
       }
 
       window.switchCamera = function() {
-          currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-          requestWebcam(currentFacingMode);
+        currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+        requestWebcam(currentFacingMode, false);
       };
 
-      requestWebcam(currentFacingMode);
-
-      // Setelah video ditambahkan ke DOM
-      video.addEventListener('play', async () => {
-        // video.style.marginTop = '50px'; // Atur margin top
-      });
+      requestWebcam(currentFacingMode, false);
     }
 
     startVideo();
   </script>
 
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-
-      let timerInterval;
-      Swal.fire({
-        title: "Mencari alamat terdekat!",
-        html: "Tolong tunggu beberapa saat..",
-        timer: 10000,
-        timerProgressBar: true,
-        allowOutsideClick: false,
-        didOpen: () => {
-          Swal.showLoading();
-        },
-        willClose: () => {
-          clearInterval(timerInterval);
-        }
-      }).then((result) => {
-        /* Read more about handling dismissals below */
-        if (result.dismiss === Swal.DismissReason.timer) {
-          console.log("I was closed by the timer");
-        }
-      });
-    })
-
+    // Data Zona Target (Multiple Polygons) & state sinkronisasi
+    let targetPolygons = [];
+    let targetPolygonsAkses = [];
+    let wfaAllowed = false;
+    let targetPolygonsLoaded = false;
+    let pegawaiFound = false;
+    let lastLoadedNip = '';
+    let currentTargetReq = null;
+    let nipDebounceTimer = null;
+    const targetAreaCache = {};
 
     function getDistanceLocation() {
-      var nip = $('input[name="nip"]').val();
-      if (!nip || nip.trim() === "") {
-          $(".btn").attr("disabled", true);
-          $(".ketAkses").removeClass("d-none");
-          $(".ketAkses").html("NIP belum diisi!<br/>Silakan masukkan NIP / NOPEG terlebih dahulu.");
-          $(".location-view").text($("#location").text());
-          $("#overlay").hide();
-          return;
+      var nip = $.trim($('input[name="nip"]').val() || '');
+      $("#overlay").hide();
+
+      if (nip === '') {
+        $(".btn").attr("disabled", true);
+        $(".ketAkses").removeClass("d-none").html("NIP belum diisi!<br/>Silakan masukkan NIP / NOPEG terlebih dahulu.");
+        if ($("#location").text()) {
+          $(".location-view").text($("#location").text()).removeClass('text-danger');
+        }
+        return;
       }
 
-      const data = [setLongitude, setLatitude];
+      if (!targetPolygonsLoaded) {
+        $(".btn").attr("disabled", true);
+        $(".ketAkses").removeClass("d-none").html("Memeriksa data pegawai...");
+        return;
+      }
+
+      if (!pegawaiFound) {
+        $(".btn").attr("disabled", true);
+        $(".ketAkses").removeClass("d-none").html("NIP / NOPEG tidak terdaftar!<br/>Pastikan NIP Anda sudah benar.");
+        return;
+      }
+
+      const statusAbsen = $('#status_absen').val();
+      const hasValidCoords = isGeoReady && isFinite(Number(setLongitude)) && isFinite(Number(setLatitude));
+
+      if (!hasValidCoords) {
+        $(".btn").attr("disabled", true);
+        $(".ketAkses").removeClass("d-none").html("Menunggu lokasi perangkat...<br/>Pastikan GPS aktif dan izinkan akses lokasi.");
+        $(".location-view").text($("#location").text() || "Mendeteksi lokasi...").addClass('text-danger');
+        return;
+      }
+
+      const data = [Number(setLongitude), Number(setLatitude)];
+      const locDisplay = $("#location").text() || formatCoordLabel(setLatitude, setLongitude);
+
+      if (statusAbsen === 'DL') {
+        $(".btn").attr("disabled", false);
+        $(".ketAkses").addClass("d-none");
+        $(".location-view").text(locDisplay + " (Dinas Luar)").removeClass('text-danger');
+        return;
+      }
+
+      if (statusAbsen === 'WFA') {
+        if (!wfaAllowed) {
+          $(".btn").attr("disabled", true);
+          $(".ketAkses").removeClass("d-none").html("Anda tidak diizinkan untuk absen WFA!<br/>Silakan hubungi admin.");
+        } else {
+          $(".btn").attr("disabled", false);
+          $(".ketAkses").addClass("d-none");
+          $(".location-view").text(locDisplay + " (WFA)").removeClass('text-danger');
+        }
+        return;
+      }
+
+      // Logic for WFO
       const isDataInside = getLocationDescription(data, targetPolygons);
       const isDataAccesArea = getLocationDescription(data, targetPolygonsAkses);
-      const statusAbsen = $('#status_absen').val();
 
-      console.log(targetPolygonsAkses);
-      console.log(isDataAccesArea);
-      console.log(targetPolygons);
-      console.log(isDataInside);
-      
-      if (statusAbsen === 'DL') {
-          // DL (Dinas Luar) allowed anywhere, but it records DL
-          if (setLongitude && setLatitude) {
-              $(".btn").attr("disabled", false);
-              $(".ketAkses").addClass("d-none");
-              $(".location-view").text($("#location").text() + " (Dinas Luar)");
-              $(".location-view").removeClass('text-danger');
-          } else {
-              $(".btn").attr("disabled", true);
-              $(".ketAkses").removeClass("d-none");
-              $(".ketAkses").html("Menunggu lokasi perangkat...<br/>Pastikan GPS aktif dan izinkan akses lokasi.");
-              $(".location-view").text("Mendeteksi lokasi...");
-              $(".location-view").addClass('text-danger');
-          }
-      } else if (statusAbsen === 'WFA') {
-          // Logic for WFA: Check specific WFA permission
-          if(!wfaAllowed) {
-             $(".btn").attr("disabled", true);
-             $(".ketAkses").removeClass("d-none");
-             $(".ketAkses").html("Anda tidak diizinkan untuk absen WFA!<br/>Silakan hubungi admin.");
-             
-             Swal.fire({
-                title: "Akses WFA Ditolak!",
-                text: "Anda tidak memiliki izin untuk melakukan absensi WFA. Silakan hubungi admin.",
-                icon: "error"
+      if (targetPolygonsAkses.length > 0) {
+        if (isDataAccesArea && isDataAccesArea !== "Anda berada diluar wilayah absen") {
+          $(".btn").attr("disabled", false);
+          $(".ketAkses").addClass("d-none");
+          $(".location-view").text(isDataAccesArea).removeClass('text-danger');
+
+          var toastKey = nip + '|' + isDataAccesArea;
+          if (lastDetectedToastKey !== toastKey) {
+            lastDetectedToastKey = toastKey;
+            Swal.fire({
+              toast: true,
+              position: 'top-end',
+              icon: 'success',
+              title: 'Zona terdeteksi: ' + isDataAccesArea,
+              showConfirmButton: false,
+              timer: 1800
             });
-          } else {
-             if (setLongitude && setLatitude) {
-                 $(".btn").attr("disabled", false);
-                 $(".ketAkses").addClass("d-none");
-                 $(".location-view").text($("#location").text() + " (WFA)");
-                 $(".location-view").removeClass('text-danger');
-             } else {
-                 $(".btn").attr("disabled", true);
-                 $(".ketAkses").removeClass("d-none");
-                 $(".ketAkses").html("Menunggu lokasi perangkat...<br/>Pastikan GPS aktif dan izinkan akses lokasi.");
-                 $(".location-view").text("Mendeteksi lokasi...");
-                 $(".location-view").addClass('text-danger');
-             }
           }
+        } else {
+          $(".btn").attr("disabled", true);
+          $(".ketAkses").removeClass("d-none").html("Anda berada di luar zona Absen WFO yang diizinkan untuk Anda!");
+          $(".location-view").text(locDisplay).addClass('text-danger');
+        }
       } else {
-          // Logic for WFO
-          // Harus berada di dalam zona absen (targetPolygons)
-          
-          // Cek dulu apakah data polygon tersedia (NIP valid)
-          if(targetPolygons.length === 0 && targetPolygonsAkses.length === 0) {
-             $(".btn").attr("disabled", true);
-             $(".ketAkses").removeClass("d-none");
-             Swal.fire({
-                title: "NIP tidak ditemukan!",
-                text: "Pastikan NIP Anda telah terdaftar.",
-                icon: "error"
-            });
-            return;
-          }
+        if (isDataInside && isDataInside !== "Anda berada diluar wilayah absen") {
+          $(".btn").attr("disabled", false);
+          $(".ketAkses").addClass("d-none");
+          $(".location-view").text(isDataInside).removeClass('text-danger');
 
-          if (targetPolygonsAkses.length > 0) {
-              // Jika user memiliki spesifik lokasi absen
-              if (isDataAccesArea && isDataAccesArea !== "Anda berada diluar wilayah absen") {
-                  $(".btn").attr("disabled", false);
-                  $(".ketAkses").addClass("d-none");
-                  $(".location-view").text(isDataAccesArea);
-                  $(".location-view").removeClass('text-danger');
-                  
-                  Swal.fire({
-                    icon: "success",
-                    title: "Terdeteksi",
-                    text: isDataAccesArea,
-                    showConfirmButton: false,
-                    timer: 1500
-                  });
-              } else {
-                  $(".btn").attr("disabled", true);
-                  $(".ketAkses").removeClass("d-none");
-                  $(".ketAkses").html("Anda berada di luar zona Absen WFO yang diizinkan untuk Anda!");
-                  $(".location-view").text($("#location").text());
-                  $(".location-view").addClass('text-danger');
-                  
-                  Swal.fire({
-                    icon: "warning",
-                    title: "Di Luar Zona WFO",
-                    text: "Posisi Anda tidak terdeteksi di dalam area kerja Anda.",
-                    showConfirmButton: false,
-                    timer: 1500
-                  });
-              }
-          } else {
-              // Jika user tidak memiliki spesifik lokasi absen, gunakan general lokasi absen
-              if (isDataInside && isDataInside !== "Anda berada diluar wilayah absen") {
-                  $(".btn").attr("disabled", false);
-                  $(".ketAkses").addClass("d-none");
-                  $(".location-view").text(isDataInside);
-                  $(".location-view").removeClass('text-danger');
-                  
-                  Swal.fire({
-                    icon: "success",
-                    title: "Terdeteksi",
-                    text: isDataInside,
-                    showConfirmButton: false,
-                    timer: 1500
-                  });
-              } else {
-                  $(".btn").attr("disabled", true);
-                  $(".ketAkses").removeClass("d-none");
-                  $(".ketAkses").html("Anda berada di luar zona Absen WFO!");
-                  $(".location-view").text($("#location").text());
-                  $(".location-view").addClass('text-danger');
-                  
-                  Swal.fire({
-                    icon: "warning",
-                    title: "Di Luar Zona WFO",
-                    text: "Posisi Anda tidak terdeteksi di dalam area kerja.",
-                    showConfirmButton: false,
-                    timer: 1500
-                  });
-              }
+          var toastKeyGen = nip + '|' + isDataInside;
+          if (lastDetectedToastKey !== toastKeyGen) {
+            lastDetectedToastKey = toastKeyGen;
+            Swal.fire({
+              toast: true,
+              position: 'top-end',
+              icon: 'success',
+              title: 'Zona terdeteksi: ' + isDataInside,
+              showConfirmButton: false,
+              timer: 1800
+            });
           }
+        } else {
+          $(".btn").attr("disabled", true);
+          $(".ketAkses").removeClass("d-none").html("Anda berada di luar zona Absen WFO!");
+          $(".location-view").text(locDisplay).addClass('text-danger');
+        }
       }
-      
-      $("#overlay").hide();
     }
 
-    // Simpan nilai awal teks
-    var previousText = $('#location').text();
-    var cekPreviousText = true;
-
-    // Fungsi untuk mengubah tipe absen
     function setAbsenType(type) {
-      // Update hidden input
       $('#status_absen').val(type);
-      
-      // Update button styles
       $('.absen-type-btn').removeClass('active');
       $(`.absen-type-btn[data-type="${type}"]`).addClass('active');
-      
-      if(type === 'DL') {
-          $('#btnDownloadDL').css('display', 'flex');
+
+      if (type === 'DL') {
+        $('#btnDownloadDL').css('display', 'flex');
       } else {
-          $('#btnDownloadDL').css('display', 'none');
+        $('#btnDownloadDL').css('display', 'none');
       }
-      
-      // Re-check location/polygon based on new type immediately
-      console.log("Absen Type changed to: " + type);
+
       getDistanceLocation();
     }
 
     $(document).ready(function() {
-        if ($('#status_absen').val() === 'DL') {
-            $('#btnDownloadDL').css('display', 'flex');
-        }
+      if ($('#status_absen').val() === 'DL') {
+        $('#btnDownloadDL').css('display', 'flex');
+      }
     });
 
     $("#btnDownloadDL").click(function() {
-        var nip = $('input[name="nip"]').val();
-        if (nip != "") {
-            $.ajax({
-              url: "/absensi/getLatestDLPhoto",
-              data: {nip: nip},
-              method: 'post',
-              dataType: 'json',
-              beforeSend: function() {
-                Swal.fire({
-                    title: 'Loading...',
-                    text: 'Mengambil foto DL terakhir',
-                    allowOutsideClick: false,
-                    showConfirmButton: false,
-                    didOpen: () => {
-                      Swal.showLoading();
-                    }
-                });
-              },
-              success: function(response) {
-                if (response.data == 'sukses' && response.image) {
-                    Swal.close();
-                    var link = document.createElement('a');
-                    link.download = 'DL_Terakhir_' + nip + '.jpg';
-                    link.href = response.image;
-                    link.click();
-                } else {
-                    Swal.fire({
-                        icon: 'info',
-                        title: 'Tidak ada data',
-                        text: response.pesan,
-                        confirmButtonText: 'OK'
-                    });
-                }
-              },
-              error: function() {
-                  Swal.fire({
-                      icon: 'error',
-                      title: 'Oops...',
-                      text: 'Gagal mengambil foto DL',
-                  });
-              }
-            });
-        } else {
+      var nip = $.trim($('input[name="nip"]').val() || '');
+      if (nip !== '') {
+        $.ajax({
+          url: "/absensi/getLatestDLPhoto",
+          data: { nip: nip },
+          method: 'post',
+          dataType: 'json',
+          beforeSend: function() {
             Swal.fire({
-                icon: 'warning',
-                title: 'NIP Kosong',
-                text: 'Silakan isi NIP terlebih dahulu',
+              title: 'Loading...',
+              text: 'Mengambil foto DL terakhir',
+              allowOutsideClick: false,
+              showConfirmButton: false,
+              didOpen: () => { Swal.showLoading(); }
             });
-        }
-    });
-
-    // Fungsi untuk memeriksa perubahan teks
-    function checkForChange() {
-      var currentText = $('#location').text();
-      if (currentText !== previousText) {
-        getDistanceLocation()
-        previousText = $('#location').text();
+          },
+          success: function(response) {
+            if (response.data == 'sukses' && response.image) {
+              Swal.close();
+              var link = document.createElement('a');
+              link.download = 'DL_Terakhir_' + nip + '.jpg';
+              link.href = response.image;
+              link.click();
+            } else {
+              Swal.fire({
+                icon: 'info',
+                title: 'Tidak ada data',
+                text: response.pesan,
+                confirmButtonText: 'OK'
+              });
+            }
+          },
+          error: function() {
+            Swal.fire({ icon: 'error', title: 'Oops...', text: 'Gagal mengambil foto DL' });
+          }
+        });
+      } else {
+        Swal.fire({ icon: 'warning', title: 'NIP Kosong', text: 'Silakan isi NIP terlebih dahulu' });
       }
-    }
-    setInterval(checkForChange, 1000);
+    });
   </script>
 
   <script>
     function getLocationDescription(point, polygons, toleranceMeters = 50) {
-      const x = point[0]; // User Longitude
-      const y = point[1]; // User Latitude
+      const x = Number(point[0]); // User Longitude
+      const y = Number(point[1]); // User Latitude
+      if (!isFinite(x) || !isFinite(y) || !Array.isArray(polygons) || polygons.length === 0) {
+        return 'Anda berada diluar wilayah absen';
+      }
 
-      // Konversi toleransi meter ke derajat (perkiraan kasar di khatulistiwa)
-      // 1 derajat ~ 111,320 meter
-      const toleranceDegrees = toleranceMeters / 111320; 
-
-      // Function to check if a point is in a single polygon
       function isInSinglePolygon(polygon) {
+        if (!Array.isArray(polygon) || polygon.length < 3) return false;
         let inside = false;
         for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-          const xi = polygon[i][0],
-            yi = polygon[i][1];
-          const xj = polygon[j][0],
-            yj = polygon[j][1];
-
+          const xi = Number(polygon[i][0]), yi = Number(polygon[i][1]);
+          const xj = Number(polygon[j][0]), yj = Number(polygon[j][1]);
           const intersect = ((yi > y) !== (yj > y)) &&
             (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
           if (intersect) inside = !inside;
@@ -1641,191 +1565,174 @@
 
       function distToSegmentSquared(p, v, w) {
         var l2 = dist2(v, w);
-        if (l2 == 0) return dist2(p, v);
+        if (l2 === 0) return dist2(p, v);
         var t = ((p[0] - v[0]) * (w[0] - v[0]) + (p[1] - v[1]) * (w[1] - v[1])) / l2;
         t = Math.max(0, Math.min(1, t));
         return dist2(p, [v[0] + t * (w[0] - v[0]), v[1] + t * (w[1] - v[1])]);
       }
 
-      function distToPolygon(point, polygon) {
-          let minDist2 = Infinity;
-          for (let i = 0; i < polygon.length; i++) {
-              let j = (i + 1) % polygon.length;
-              let d2 = distToSegmentSquared(point, polygon[i], polygon[j]);
-              if (d2 < minDist2) minDist2 = d2;
-          }
-          return Math.sqrt(minDist2);
+      function distToPolygon(pt, polygon) {
+        if (!Array.isArray(polygon) || polygon.length < 2) return Infinity;
+        let minDist2 = Infinity;
+        for (let i = 0; i < polygon.length; i++) {
+          let j = (i + 1) % polygon.length;
+          let d2 = distToSegmentSquared(pt, polygon[i], polygon[j]);
+          if (d2 < minDist2) minDist2 = d2;
+        }
+        return Math.sqrt(minDist2);
       }
 
-      // Check if the point is in any of the polygons
       // Prioritas 1: Benar-benar di dalam polygon
       for (let i = 0; i < polygons.length; i++) {
         if (isInSinglePolygon(polygons[i].polygon)) {
-          return polygons[i].ket_tempat; 
+          return polygons[i].ket_tempat;
         }
       }
 
       // Prioritas 2: Berada dalam radius toleransi (buffer zone)
-        for (let i = 0; i < polygons.length; i++) {
-            // Gunakan tolerance_meters spesifik per polygon jika ada, default ke 50 jika tidak
-            let currentToleranceMeters = polygons[i].tolerance_meters ? parseFloat(polygons[i].tolerance_meters) : 50;
-            let currentToleranceDegrees = currentToleranceMeters / 111320;
-            
-            let dist = distToPolygon([x, y], polygons[i].polygon);
-            // Kita gunakan latitude scaling untuk longitude distance agar lebih akurat (opsional, tapi simple degree distance cukup untuk jarak dekat)
-            // Jarak Euclidean derajat vs Toleransi derajat
-            if (dist <= currentToleranceDegrees) {
-                // Jika masuk dalam toleransi, kita anggap VALID tapi beri catatan di UI jika perlu
-                // Untuk clock-in, kita return nama tempat saja agar dianggap valid
-                return polygons[i].ket_tempat;
-            }
+      for (let i = 0; i < polygons.length; i++) {
+        let currentToleranceMeters = polygons[i].tolerance_meters ? parseFloat(polygons[i].tolerance_meters) : toleranceMeters;
+        let currentToleranceDegrees = currentToleranceMeters / 111320;
+        let dist = distToPolygon([x, y], polygons[i].polygon);
+        if (dist <= currentToleranceDegrees) {
+          return polygons[i].ket_tempat;
         }
+      }
 
-      return 'Anda berada diluar wilayah absen'; // Default message if no match
+      return 'Anda berada diluar wilayah absen';
     }
 
-    // Data Zona Target (Multiple Polygons)
-    let targetPolygons = [];
-    let targetPolygonsAkses = [];
-    let wfaAllowed = false;
+    function parsePolygonList(items, fieldName) {
+      var list = [];
+      if (!Array.isArray(items)) return list;
+      items.forEach(function(item) {
+        if (!item || typeof item[fieldName] !== 'string' || item[fieldName].trim() === '') {
+          return;
+        }
+        var cleaned = item[fieldName].replace(/\r\n|\r|\n/g, '').replace(/\s+/g, ' ').trim();
+        try {
+          var parsed = JSON.parse(cleaned);
+          if (Array.isArray(parsed) && parsed.length >= 3) {
+            list.push({
+              polygon: parsed,
+              ket_tempat: item.ket_tempat,
+              tolerance_meters: item.tolerance_meters
+            });
+          }
+        } catch (e) {
+          console.error('Error parsing polygon data:', e);
+        }
+      });
+      return list;
+    }
 
-    getTargetPolygons();
-    
-    $(document).on("change", 'input[name="nip"]', function(){
-        getTargetPolygons("cekLokasi");
-    });
-    function getTargetPolygons(cekLokasi = "") {
+    function applyTargetAreaResponse(nip, response) {
+      targetPolygons = parsePolygonList(response && response.data, 'polygon');
+      targetPolygonsAkses = parsePolygonList(response && response.akses, 'polygon_akses');
+      wfaAllowed = !!(response && (response.wfa === true || response.wfa === '1' || response.wfa === 1));
+      pegawaiFound = !!(response && response.pegawai_found !== false);
+      targetPolygonsLoaded = true;
+      lastLoadedNip = nip;
+      $("#overlay").hide();
+      getDistanceLocation();
+    }
+
+    function getTargetPolygons(forceRefresh) {
+      var nip = $.trim($('input[name="nip"]').val() || '');
+
+      if (currentTargetReq) {
+        try { currentTargetReq.abort(); } catch (err) {}
+        currentTargetReq = null;
+      }
+
+      if (nip === '') {
+        targetPolygons = [];
+        targetPolygonsAkses = [];
+        wfaAllowed = false;
+        pegawaiFound = false;
+        targetPolygonsLoaded = true;
+        lastLoadedNip = '';
+        getDistanceLocation();
+        return;
+      }
+
+      if (!forceRefresh && targetAreaCache[nip]) {
+        applyTargetAreaResponse(nip, targetAreaCache[nip]);
+        return;
+      }
+
       targetPolygons = [];
       targetPolygonsAkses = [];
       wfaAllowed = false;
-        
-      var nip = $('input[name="nip"]').val();
-      
-      if(nip == "") {
-        Swal.fire({
-          icon: 'info',
-          title: `Pastikan NIP diisi dengan benar!`
-        });
-        getDistanceLocation();
-      } else {
-          $.ajax({
-            url: '/getTargetAreaAbsen/' + nip,
-            dataType: 'json',
-            before: function() {
-                $("#overlay").show();
-                Swal.fire({
-                    title: "Menyesuaikan data pegawai dengan area tempat sekarang!",
-                    html: "Tolong tunggu beberapa saat..",
-                    timer: 10000,
-                    timerProgressBar: true,
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                      Swal.showLoading();
-                    },
-                    willClose: () => {
-                      clearInterval(timerInterval);
-                    }
-                }).then((result) => {
-                    /* Read more about handling dismissals below */
-                    if (result.dismiss === Swal.DismissReason.timer) {
-                      console.log("I was closed by the timer");
-                    }
-                });
-            },
-            success: function(response) {
-                console.log(response)
-              if (response.data) {
-                // start
-                response.data.forEach(function(item) {
-                  const cleanedPolygon = item.polygon
-                    .replace(/\r\n|\r|\n/g, '')
-                    .replace(/\s+/g, ' ')
-                    .trim();
-    
-                  try {
-                      const polygonArray = JSON.parse(cleanedPolygon);
-                      targetPolygons.push({
-                        polygon: polygonArray,
-                        ket_tempat: item.ket_tempat, // Simpan ket_tempat bersama dengan poligon
-                        tolerance_meters: item.tolerance_meters // Simpan nilai toleransi spesifik
-                      });
-                    } catch (e) {
-                    console.error('Error parsing polygon data:', e);
-                  }
-                });
-                // end
-              }
-              if (response.akses) {
-                // start
-                console.log("response akses tersedia")
-                response.akses.forEach(function(item) {
-                  const cleanedPolygonAkses = item.polygon_akses
-                    .replace(/\r\n|\r|\n/g, '')
-                    .replace(/\s+/g, ' ')
-                    .trim();
-    
-                  try {
-                    const polygonArrayAkses = JSON.parse(cleanedPolygonAkses);
-                    targetPolygonsAkses.push({
-                      polygon: polygonArrayAkses,
-                      ket_tempat: item.ket_tempat // Simpan ket_tempat bersama dengan poligon
-                    });
-                  } catch (e) {
-                    console.error('Error parsing polygon data:', e);
-                  }
-                });
-                // end
-              }
+      targetPolygonsLoaded = false;
+      getDistanceLocation();
 
-              if (response.wfa === true || response.wfa === "1" || response.wfa === 1) {
-                  wfaAllowed = true;
-              } else {
-                  wfaAllowed = false;
-              }
-              console.log("WFA Access:", wfaAllowed, "Raw:", response.wfa);
-
-              if ((response.akses && response.akses.length > 0) || (response.data && response.data.length > 0 && (!response.akses || response.akses.length === 0)) || wfaAllowed) {
-                $(".btn").attr("disabled", false);
-                $(".ketAkses").addClass("d-none");
-              } else {
-                $(".btn").attr("disabled", true);
-                $(".ketAkses").removeClass("d-none");
-              }
-            }, 
-            error: function(xhr, ajaxOptions, thrownError) {
-              alert(xhr.status + "\n" + xhr.responseText + "\n" + thrownError);
-            },
-            complete: function() {
-                Swal.close();
-                $("#overlay").show();
-                if(cekLokasi != "") {
-                    getDistanceLocation()
-                }
-            }
-          });
-      }
+      currentTargetReq = $.ajax({
+        url: '/getTargetAreaAbsen/' + encodeURIComponent(nip),
+        dataType: 'json',
+        timeout: 15000,
+        success: function(response) {
+          targetAreaCache[nip] = response;
+          applyTargetAreaResponse(nip, response);
+        },
+        error: function(xhr, status) {
+          if (status === 'abort') return;
+          targetPolygonsLoaded = true;
+          $("#overlay").hide();
+          $(".btn").attr("disabled", true);
+          $(".ketAkses").removeClass("d-none").html("Gagal memuat data zona absen. Periksa koneksi lalu coba lagi.");
+        },
+        complete: function() {
+          currentTargetReq = null;
+          $("#overlay").hide();
+        }
+      });
     }
+
+    getTargetPolygons();
+
+    $(document).on('input', 'input[name="nip"]', function() {
+      clearTimeout(nipDebounceTimer);
+      var val = $.trim($(this).val() || '');
+      if (val === '') {
+        getTargetPolygons();
+        return;
+      }
+      nipDebounceTimer = setTimeout(function() {
+        if (val !== lastLoadedNip || !targetPolygonsLoaded) {
+          getTargetPolygons();
+        }
+      }, 450);
+    });
+
+    $(document).on('change', 'input[name="nip"]', function() {
+      clearTimeout(nipDebounceTimer);
+      var val = $.trim($(this).val() || '');
+      if (val !== lastLoadedNip || !targetPolygonsLoaded) {
+        getTargetPolygons();
+      }
+    });
+
+    $(document).on('keydown', 'input[name="nip"]', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        clearTimeout(nipDebounceTimer);
+        getTargetPolygons();
+        $(this).blur();
+      }
+    });
   </script>
   <script>
-    // Random stop between 30% and 80%
-    let randomStop = Math.random() * (0.8 - 0.3) + 0.3;
-
+    // Preloader ringan & cepat agar halaman segera siap dipakai
     let tl = gsap.timeline();
-
     tl
-      .to(".progress-bar-fill", {
-        duration: 1,
-        width: `${randomStop * 100}%`
-      })
-      .to(".progress-bar-fill", {
-        duration: 1 - randomStop,
-        width: "100%"
-      })
+      .to(".progress-bar-fill", { duration: 0.35, width: "100%" })
       .to(".preloader", {
-        duration: 0.5,
+        duration: 0.25,
         opacity: 0,
         onComplete: () => {
-          document.querySelector(".preloader").style.display = "none";
+          var pre = document.querySelector(".preloader");
+          if (pre) pre.style.display = "none";
         }
       });
   </script>

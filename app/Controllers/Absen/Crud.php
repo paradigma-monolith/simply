@@ -23,6 +23,7 @@ class Crud extends BaseController
             'updated_by' => $by['id_user']
         ];
         if($this->absenJamModel->save($data)) {
+            Services::cache()->delete('absen_jam_day_' . (int) $data['hari']);
             $insertedId = $this->absenJamModel->getInsertID();
             $savedData = $this->absenJamModel->find($insertedId);
             $msg = [
@@ -37,16 +38,29 @@ class Crud extends BaseController
   
   private function getAgendaForUser($userId)
   {
-    $getData = $this->agendaUserModel
-      ->where('tgl_notif_awal <=', date('Y-m-d'))
-      ->where('tgl_notif_akhir >=', date('Y-m-d'))
-      ->findAll();
+    if (empty($userId)) {
+      return [];
+    }
+    $today = date('Y-m-d');
+    $cache = Services::cache();
+    $cacheKey = 'absen_agenda_active_' . $today;
+    $getData = $cache->get($cacheKey);
+    if (!is_array($getData)) {
+      $getData = $this->agendaUserModel
+        ->where('tgl_notif_awal <=', $today)
+        ->where('tgl_notif_akhir >=', $today)
+        ->findAll();
+      $cache->save($cacheKey, $getData, 120);
+    }
     
     $setData = array();
     
     foreach ($getData as $data) {
-      $peruntukan = unserialize($data['peruntukan']);
-      if (in_array($userId, $peruntukan)) {
+      if (empty($data['peruntukan'])) {
+        continue;
+      }
+      $peruntukan = @unserialize((string) $data['peruntukan']);
+      if (is_array($peruntukan) && in_array($userId, $peruntukan)) {
         $setData[] = $data;
       }
     }
@@ -113,435 +127,383 @@ class Crud extends BaseController
     return $agendaHtml;
   }
   
+  /**
+   * Validasi koordinat dan normalisasi alamat agar gangguan Nominatim tidak memblokir absensi.
+   */
+  private function resolveAbsenAddress($alamat, $latitude, $longitude): array
+  {
+    $latStr = trim((string) $latitude);
+    $lonStr = trim((string) $longitude);
+    $hasValidCoords = ($latStr !== '' && $lonStr !== '' && is_numeric($latStr) && is_numeric($lonStr)
+      && (float) $latStr >= -90 && (float) $latStr <= 90
+      && (float) $lonStr >= -180 && (float) $lonStr <= 180
+      && ((float) $latStr !== 0.0 || (float) $lonStr !== 0.0));
+
+    $invalidAddressPlaceholders = [
+      '',
+      'Informasi Lokasi Anda Akan Muncul Disini!',
+      'Memuat lokasi...',
+      'Mendeteksi lokasi...',
+      'Gagal mendapatkan alamat.',
+      'User denied the request for Geolocation.',
+      'Location information is unavailable.',
+      'The request to get user location timed out.',
+      'An unknown error occurred.',
+      'Geolocation is not supported by this browser.',
+      'Failed to get location name.',
+    ];
+
+    $alamatTrim = trim((string) $alamat);
+    $isPlaceholder = in_array($alamatTrim, $invalidAddressPlaceholders, true);
+
+    if (!$hasValidCoords && $isPlaceholder) {
+      return ['ok' => false, 'alamat' => $alamatTrim];
+    }
+
+    if ($isPlaceholder && $hasValidCoords) {
+      $alamatTrim = 'Koordinat: ' . number_format((float) $latStr, 6, '.', '') . ', ' . number_format((float) $lonStr, 6, '.', '');
+    }
+
+    return ['ok' => true, 'alamat' => $alamatTrim];
+  }
+
+  /**
+   * Validasi dan simpan foto base64 ke public/dist/foto_absen dengan aman (anti-crash saat kamera belum siap).
+   */
+  private function parseAndSaveFotoAbsen(?string $imageData): array
+  {
+    $img = trim((string) $imageData);
+    if ($img === '' || $img === 'data:,' || in_array($img, $this->getBlackImage(), true)) {
+      return ['valid' => false, 'filename' => null];
+    }
+    if (strpos($img, 'data:image/') !== 0 || strpos($img, ';base64,') === false) {
+      return ['valid' => false, 'filename' => null];
+    }
+
+    $parts = explode(';base64,', $img, 2);
+    if (count($parts) !== 2 || $parts[1] === '') {
+      return ['valid' => false, 'filename' => null];
+    }
+
+    $type = $parts[0];
+    $decodedData = base64_decode($parts[1], true);
+    if ($decodedData === false || strlen($decodedData) < 256) {
+      return ['valid' => false, 'filename' => null];
+    }
+
+    if (strpos($type, 'jpeg') !== false) {
+      $extension = 'jpg';
+    } elseif (strpos($type, 'png') !== false) {
+      $extension = 'png';
+    } elseif (strpos($type, 'gif') !== false) {
+      $extension = 'gif';
+    } elseif (strpos($type, 'bmp') !== false) {
+      $extension = 'bmp';
+    } elseif (strpos($type, 'webp') !== false) {
+      $extension = 'webp';
+    } elseif (strpos($type, 'tiff') !== false) {
+      $extension = 'tiff';
+    } else {
+      $extension = 'jpg';
+    }
+
+    $newName = uniqid('abs_', true) . '.' . $extension;
+    $dir = rtrim(FCPATH, '/\\') . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . 'foto_absen';
+    if (!is_dir($dir)) {
+      @mkdir($dir, 0775, true);
+    }
+
+    $filePath = $dir . DIRECTORY_SEPARATOR . $newName;
+    $saved = @file_put_contents($filePath, $decodedData);
+    return [
+      'valid'    => true,
+      'filename' => ($saved !== false) ? $newName : null,
+    ];
+  }
+
+  private function getJamRuleForDay(int $day): array
+  {
+    $cache = Services::cache();
+    $cacheKey = 'absen_jam_day_' . $day;
+    $row = $cache->get($cacheKey);
+    if (!is_array($row)) {
+      $row = $this->absenJamModel
+        ->where('hari', $day)
+        ->orderBy('created_at', 'DESC')
+        ->limit(1)
+        ->first();
+      if (is_array($row)) {
+        $cache->save($cacheKey, $row, 300);
+      } else {
+        $row = [
+          'aturan_jam_masuk'        => null,
+          'aturan_jam_pulang'       => null,
+          'toleransi_keterlambatan' => null,
+        ];
+      }
+    }
+    return $row;
+  }
+
   public function clockIn()
   {
-    if ($this->request->isAJAX()) {
-      $day = date('N');
-      $getJam = $this->absenJamModel->where('hari', $day)->orderBy('created_at', 'DESC')->limit(1)->first();
-        
-      $startTime = microtime(true); // Waktu mulai
-      $cache = Services::cache();
-      $msg = [];
+    $startTime = microtime(true);
+    $msg = [];
 
-      $nip = $this->request->getVar("nip");
-      $imageData = $this->request->getVar("image");
-      $alamat = $this->request->getVar("alamat");
-      $latitude_masuk = $this->request->getVar("latitude");
-      $longitude_masuk = $this->request->getVar("longitude");
+    if ($this->request->isAJAX()) {
+      $day = (int) date('N');
+      $getJam = $this->getJamRuleForDay($day);
+      $cache = Services::cache();
+
+      $nip = trim((string) $this->request->getVar("nip"));
+      $imageData = (string) ($this->request->getVar("image") ?? '');
+      $alamatRaw = (string) ($this->request->getVar("alamat") ?? '');
+      $latitude_masuk = trim((string) ($this->request->getVar("latitude") ?? ''));
+      $longitude_masuk = trim((string) ($this->request->getVar("longitude") ?? ''));
+      $posisi_alamat_masuk = (string) ($this->request->getVar("posisi_alamat") ?? '');
+      $statusAbsen = trim((string) ($this->request->getVar('status') ?? 'WFO'));
       $dayDate = date("Y-m-d");
       $jam_masuk = date("Y-m-d H:i:s");
       $jam_pulang = null;
-      
-      if (
-        $alamat == "Informasi Lokasi Anda Akan Muncul Disini!" ||
-        $alamat == "Gagal mendapatkan alamat." ||
-        $alamat == "User denied the request for Geolocation." ||
-        $alamat == "Location information is unavailable." ||
-        $alamat == "The request to get user location timed out." ||
-        $alamat == "An unknown error occurred." ||
-        $alamat == "Geolocation is not supported by this browser." ||
-        $alamat == "Geolocation is not supported by this browser."
-      ) {
+
+      $addrCheck = $this->resolveAbsenAddress($alamatRaw, $latitude_masuk, $longitude_masuk);
+
+      if (!$addrCheck['ok']) {
         $msg = [
-          'data' => 'error',
+          'data'  => 'error',
           'pesan' => 'pastikan lokasi di perangkat anda aktif!',
         ];
-      } else if (in_array($imageData, $this->getBlackImage())) {
-        $msg = [
-          'data' => 'error',
-          'pesan' => 'akses terhadap kamera mati, tolong periksa kembali izin perangkat anda atau coba lagi!',
-        ];
       } else {
-        $cekData = $this->dataPegawaiModel->where('nip', $nip)->first();
+        $fotoCheck = $this->parseAndSaveFotoAbsen($imageData);
+        if (!$fotoCheck['valid']) {
+          $msg = [
+            'data'  => 'error',
+            'pesan' => 'akses terhadap kamera mati, tolong periksa kembali izin perangkat anda atau coba lagi!',
+          ];
+        } else {
+          $alamat = $addrCheck['alamat'];
+          $cekData = ($nip !== '') ? $this->dataPegawaiModel->where('nip', $nip)->first() : null;
 
-        if ($cekData) {
-          $id_data_pegawai = $cekData['id_data_pegawai'];
-          
-          // Ambil agenda untuk user
-          $agendaData = $this->getAgendaForUser($cekData['id_user']);
-          $agendaHtml = $this->formatAgendaForAlert($agendaData);
+          if ($cekData) {
+            $id_data_pegawai = $cekData['id_data_pegawai'];
 
-          // Get Motivational Quote
-          $motivasiHtml = $this->getRandomMotivasi('Masuk');
-          
-          // Gabungkan: Motivasi dulu, baru Agenda (dengan pemisah garis tipis jika keduanya ada)
-          $separator = (!empty($motivasiHtml) && !empty($agendaHtml)) ? '<hr style="margin: 15px 0; border-top: 1px solid rgba(0,0,0,0.1);">' : '';
-          $combinedHtml = $motivasiHtml . $separator . $agendaHtml;
-          
-          $logoHtml = '<div style="text-align: center; margin-top: -10px; margin-bottom: 15px;"><img src="' . base_url('dist/motivasi/logo.png') . '" style="height: 45px; object-fit: contain;" alt="Logo"></div>';
+            // Ambil agenda untuk user
+            $agendaData = $this->getAgendaForUser($cekData['id_user'] ?? null);
+            $agendaHtml = $this->formatAgendaForAlert($agendaData);
 
-          $dayDate = date("Y-m-d");
-          $cekAbsen = $this->absenModel->select('id_absen, id_data_pegawai, alamat_masuk, jam_masuk, rekam_absen')->where(['id_data_pegawai' => $id_data_pegawai, 'DATE(jam_masuk)' => $dayDate])->first();
-          if ($cekAbsen) {
-            $updateData = [
-              'id_absen' => $cekAbsen['id_absen'],
-              'image_masuk_2' => $imageData
-            ];
-            
-            // =========================================================================================================================================================================
-            if ($imageData) {
-                // Pisahkan header data base64 dan data sebenarnya
-                list($type, $base64String) = explode(';', $imageData);
-                list(, $base64Data) = explode(',', $base64String);
-            
-                // Dekode data base64 menjadi string biner
-                $decodedData = base64_decode($base64Data);
-            
-                // Tentukan jenis file berdasarkan header
-                if (strpos($type, 'jpeg') !== false) {
-                    $extension = 'jpg';
-                } elseif (strpos($type, 'png') !== false) {
-                    $extension = 'png';
-                } elseif (strpos($type, 'gif') !== false) {
-                    $extension = 'gif';
-                } elseif (strpos($type, 'bmp') !== false) {
-                    $extension = 'bmp';
-                } elseif (strpos($type, 'webp') !== false) {
-                    $extension = 'webp';
-                } elseif (strpos($type, 'tiff') !== false) {
-                    $extension = 'tiff';
-                } else {
-                    $extension = 'jpg'; // Default extension jika tidak terdeteksi
+            // Get Motivational Quote
+            $motivasiHtml = $this->getRandomMotivasi('Masuk');
+
+            $separator = (!empty($motivasiHtml) && !empty($agendaHtml)) ? '<hr style="margin: 15px 0; border-top: 1px solid rgba(0,0,0,0.1);">' : '';
+            $combinedHtml = $motivasiHtml . $separator . $agendaHtml;
+            $logoHtml = '<div style="text-align: center; margin-top: -10px; margin-bottom: 15px;"><img src="' . base_url('dist/motivasi/logo.png') . '" style="height: 45px; object-fit: contain;" alt="Logo"></div>';
+
+            $cekAbsen = $this->absenModel
+              ->select('id_absen, id_data_pegawai, alamat_masuk, jam_masuk, rekam_absen')
+              ->where('id_data_pegawai', $id_data_pegawai)
+              ->where('jam_masuk >=', $dayDate . ' 00:00:00')
+              ->where('jam_masuk <=', $dayDate . ' 23:59:59')
+              ->first();
+
+            if ($cekAbsen) {
+              $updateData = [
+                'id_absen'      => $cekAbsen['id_absen'],
+                'image_masuk_2' => $imageData,
+                'status_masuk'  => $statusAbsen,
+              ];
+
+              if (!empty($fotoCheck['filename'])) {
+                $newData = [
+                  'tombol'          => "Rekam Masuk",
+                  'foto'            => $fotoCheck['filename'],
+                  'longitude'       => $longitude_masuk,
+                  'latitude'        => $latitude_masuk,
+                  'alamat_terdekat' => $alamat,
+                  'jam_absen'       => $jam_masuk,
+                ];
+                $existingData = !empty($cekAbsen['rekam_absen']) ? json_decode((string) $cekAbsen['rekam_absen'], true) : [];
+                if (!is_array($existingData)) {
+                  $existingData = [];
                 }
-            
-                // Nama file baru
-                $newName = uniqid() . '.' . $extension;
-            
-                // Path penyimpanan file
-                $filePath = FCPATH . '/dist/foto_absen/' . $newName;
-            
-                // Simpan file ke direktori
-                if (file_put_contents($filePath, $decodedData)) {
-                    $newData = [
-                        'tombol' => "Rekam Masuk",
-                        'foto' => $newName,
-                        'longitude' => $this->request->getVar("longitude"),
-                        'latitude' => $this->request->getVar("latitude"),
-                        'alamat_terdekat' => $this->request->getVar("alamat"),
-                        'jam_absen' => $jam_masuk
-                    ];
-                    
-                    if($cekAbsen['rekam_absen'] != "") {
-                        // Asumsikan $cekAbsen['rekam_absen'] berisi data JSON yang sudah ada
-                        $existingData = json_decode($cekAbsen['rekam_absen'], true);
-                        
-                        // Gabungkan data baru dengan data yang sudah ada
-                        // Jika existingData adalah array, kita tambahkan newData ke array tersebut
-                        if (is_array($existingData)) {
-                            $existingData[] = $newData;
-                        } else {
-                            // Jika data yang ada tidak berbentuk array (misalnya null atau tidak valid),
-                            // buat array baru dengan data baru sebagai elemen pertama
-                            $existingData = [$newData];
-                        }
-                    } else {
-                        $existingData = [$newData];
-                    }
-                    
-                    // Encode kembali array gabungan menjadi string JSON
-                    $combinedJsonData = json_encode($existingData);
-                    
-                    $updateData += [
-                        'rekam_absen' => $combinedJsonData
-                    ];
-                }
+                $existingData[] = $newData;
+                $updateData['rekam_absen'] = json_encode($existingData);
+              }
+
+              $this->absenModel->save($updateData);
+
+              $msg = [
+                'data'  => 'sukses',
+                'pesan' => $logoHtml . '<strong>' . name_capitalize($cekData['nama']) . '</strong> sudah menandai masuk dengan waktu submit <u>' . $cekAbsen['jam_masuk'] . '</u>' . $combinedHtml,
+              ];
+            } else {
+              $data = [
+                'id_data_pegawai'         => $id_data_pegawai,
+                'alamat_masuk'            => $alamat,
+                'latitude_masuk'          => $latitude_masuk,
+                'longitude_masuk'         => $longitude_masuk,
+                'image_masuk_1'           => $imageData,
+                'jam_masuk'               => $jam_masuk,
+                'jam_pulang'              => $jam_pulang,
+                'aturan_jam_masuk'        => $getJam['aturan_jam_masuk'] ?? null,
+                'aturan_jam_pulang'       => $getJam['aturan_jam_pulang'] ?? null,
+                'toleransi_keterlambatan' => $getJam['toleransi_keterlambatan'] ?? null,
+                'posisi_alamat_masuk'     => $posisi_alamat_masuk,
+                'status_masuk'            => $statusAbsen,
+              ];
+
+              if (!empty($fotoCheck['filename'])) {
+                $data['rekam_absen'] = json_encode([[
+                  'tombol'          => "Rekam Masuk",
+                  'foto'            => $fotoCheck['filename'],
+                  'longitude'       => $longitude_masuk,
+                  'latitude'        => $latitude_masuk,
+                  'alamat_terdekat' => $alamat,
+                  'jam_absen'       => $jam_masuk,
+                ]]);
+              }
+
+              $this->absenModel->save($data);
+
+              $msg = [
+                'data'  => 'sukses',
+                'pesan' => $logoHtml . '<strong>' . name_capitalize($cekData['nama']) . '</strong> terdeteksi waktu submit <u>' . $jam_masuk . '</u>' . $combinedHtml,
+              ];
             }
-            // =========================================================================================================================================================================
-            
-            $updateData += [
-                'status_masuk' => $this->request->getVar('status')
-            ];
-            $this->absenModel->save($updateData);
-            
-            $msg = [
-              'data' => 'sukses',
-              'pesan' => $logoHtml . '<strong>' . name_capitalize($cekData['nama']) . '</strong> sudah menandai masuk dengan waktu submit <u>' . $cekAbsen['jam_masuk'] . '</u>' . $combinedHtml,
-            ];
+
+            // Buat/perbarui token persisten hanya bila NIP valid
+            $persistentToken = bin2hex(random_bytes(16));
+            $cache->save('user_nip_token_' . $persistentToken, $nip, 2592000);
+            $this->response->setCookie('persistent_token', $persistentToken, 2592000);
           } else {
-            if ($this->request->getVar("posisi_alamat") !== null) {
-                $posisi_alamat_masuk = $this->request->getVar("posisi_alamat");
-            }
-
-            // Baris untuk input data
-            $data = [
-              'id_data_pegawai' => $id_data_pegawai,
-              'alamat_masuk' => $alamat,
-              'latitude_masuk' => $latitude_masuk,
-              'longitude_masuk' => $longitude_masuk,
-              'image_masuk_1' => $imageData,
-              'jam_masuk' => $jam_masuk,
-              'jam_pulang' => $jam_pulang,
-              'aturan_jam_masuk' => $getJam['aturan_jam_masuk'],
-              'aturan_jam_pulang' => $getJam['aturan_jam_pulang'],
-              'toleransi_keterlambatan' => $getJam['toleransi_keterlambatan'],
-            ];
-            
-            $data += [
-              'posisi_alamat_masuk' => $posisi_alamat_masuk
-            ];
-            
-            
-            // =========================================================================================================================================================================
-            if ($imageData) {
-                // Pisahkan header data base64 dan data sebenarnya
-                list($type, $base64String) = explode(';', $imageData);
-                list(, $base64Data) = explode(',', $base64String);
-            
-                // Dekode data base64 menjadi string biner
-                $decodedData = base64_decode($base64Data);
-            
-                // Tentukan jenis file berdasarkan header
-                if (strpos($type, 'jpeg') !== false) {
-                    $extension = 'jpg';
-                } elseif (strpos($type, 'png') !== false) {
-                    $extension = 'png';
-                } elseif (strpos($type, 'gif') !== false) {
-                    $extension = 'gif';
-                } elseif (strpos($type, 'bmp') !== false) {
-                    $extension = 'bmp';
-                } elseif (strpos($type, 'webp') !== false) {
-                    $extension = 'webp';
-                } elseif (strpos($type, 'tiff') !== false) {
-                    $extension = 'tiff';
-                } else {
-                    $extension = 'jpg'; // Default extension jika tidak terdeteksi
-                }
-            
-                // Nama file baru
-                $newName = uniqid() . '.' . $extension;
-            
-                // Path penyimpanan file
-                $filePath = FCPATH . '/dist/foto_absen/' . $newName;
-            
-                // Simpan file ke direktori
-                if (file_put_contents($filePath, $decodedData)) {
-                    $newData =[
-                        [
-                            'tombol' => "Rekam Masuk",
-                            'foto' => $newName,
-                            'longitude' => $this->request->getVar("longitude"),
-                            'latitude' => $this->request->getVar("latitude"),
-                            'alamat_terdekat' => $this->request->getVar("alamat"),
-                            'jam_absen' => $jam_masuk
-                        ]
-                    ];
-                    
-                    // Encode kembali array gabungan menjadi string JSON
-                    $combinedJsonData = json_encode($newData);
-                    
-                    $data += [
-                        'rekam_absen' => $combinedJsonData
-                    ];
-                }
-            }
-            // =========================================================================================================================================================================
-            
-            
-            $data += [
-                'status_masuk' => $this->request->getVar('status')
-            ];
-  
-            $this->absenModel->save($data);
-            
             $msg = [
-              'data' => 'sukses',
-              'pesan' => $logoHtml . '<strong>' . name_capitalize($cekData['nama']) . '</strong> terdeteksi waktu submit <u>' . $jam_masuk . '</u>' . $combinedHtml,
+              'data'  => 'error',
+              'code'  => 'nip_not_found',
+              'pesan' => 'NIP/NOPEG anda tidak terdaftar!',
             ];
           }
         }
       }
-      // Buat token persisten
-      $persistentToken = bin2hex(random_bytes(16));
-      $cacheKey = 'user_nip_token_' . $persistentToken;
-      $cache->save($cacheKey, $nip, 2592000); // TTL 30 hari
-
-      // Simpan token di cookie
-      $response = $this->response;
-      $response->setCookie('persistent_token', $persistentToken, 2592000);
     }
 
-        $endTime = microtime(true); // Waktu selesai
-        $processingTime = $endTime - $startTime;
-        $msg['waktu'] = ('Processing time: ' . $processingTime . ' seconds');
-    // datetime_indo
-    echo json_encode($msg);
+    $processingTime = microtime(true) - $startTime;
+    $msg['waktu'] = 'Processing time: ' . round($processingTime, 4) . ' seconds';
+    return $this->response->setJSON($msg);
   }
   public function clockOut()
   {
-    if ($this->request->isAJAX()) {
-      $msg = [];
+    $msg = [];
 
-      $nip = $this->request->getVar("nip");
-      $imageData = $this->request->getVar("image");
-      $alamat = $this->request->getVar("alamat");
-      $latitude_pulang = $this->request->getVar("latitude");
-      $longitude_pulang = $this->request->getVar("longitude");
+    if ($this->request->isAJAX()) {
+      $nip = trim((string) $this->request->getVar("nip"));
+      $imageData = (string) ($this->request->getVar("image") ?? '');
+      $alamatRaw = (string) ($this->request->getVar("alamat") ?? '');
+      $latitude_pulang = trim((string) ($this->request->getVar("latitude") ?? ''));
+      $longitude_pulang = trim((string) ($this->request->getVar("longitude") ?? ''));
+      $posisi_alamat_pulang = (string) ($this->request->getVar("posisi_alamat") ?? '');
+      $statusAbsen = trim((string) ($this->request->getVar('status') ?? 'WFO'));
       $dayDate = date("Y-m-d");
       $jam_pulang = date("Y-m-d H:i:s");
 
-      if (
-        $alamat == "Informasi Lokasi Anda Akan Muncul Disini!" ||
-        $alamat == "Gagal mendapatkan alamat." ||
-        $alamat == "User denied the request for Geolocation." ||
-        $alamat == "Location information is unavailable." ||
-        $alamat == "The request to get user location timed out." ||
-        $alamat == "An unknown error occurred." ||
-        $alamat == "Geolocation is not supported by this browser." ||
-        $alamat == "Geolocation is not supported by this browser."
-      ) {
+      $addrCheck = $this->resolveAbsenAddress($alamatRaw, $latitude_pulang, $longitude_pulang);
+
+      if (!$addrCheck['ok']) {
         $msg = [
-          'data' => 'error',
+          'data'  => 'error',
           'pesan' => 'pastikan lokasi di perangkat anda aktif!',
         ];
-      }else if (in_array($imageData, $this->getBlackImage())) {
-        $msg = [
-          'data' => 'error',
-          'pesan' => 'akses terhadap kamera mati, tolong periksa kembali izin perangkat anda atau coba lagi!',
-        ];
       } else {
-        $cekData = $this->dataPegawaiModel->where('nip', $nip)->first();
+        $fotoCheck = $this->parseAndSaveFotoAbsen($imageData);
+        if (!$fotoCheck['valid']) {
+          $msg = [
+            'data'  => 'error',
+            'pesan' => 'akses terhadap kamera mati, tolong periksa kembali izin perangkat anda atau coba lagi!',
+          ];
+        } else {
+          $alamat = $addrCheck['alamat'];
+          $cekData = ($nip !== '') ? $this->dataPegawaiModel->where('nip', $nip)->first() : null;
 
-        if ($cekData) {
-          $id_data_pegawai = $cekData['id_data_pegawai'];
-          
-          // Ambil agenda untuk user
-          $agendaData = $this->getAgendaForUser($cekData['id_user']);
-          $agendaHtml = $this->formatAgendaForAlert($agendaData);
+          if ($cekData) {
+            $id_data_pegawai = $cekData['id_data_pegawai'];
 
-          // Get Motivational Quote
-          $motivasiHtml = $this->getRandomMotivasi('Pulang');
-          
-          // Gabungkan: Motivasi dulu, baru Agenda (dengan pemisah garis tipis jika keduanya ada)
-          $separator = (!empty($motivasiHtml) && !empty($agendaHtml)) ? '<hr style="margin: 15px 0; border-top: 1px solid rgba(0,0,0,0.1);">' : '';
-          $combinedHtml = $motivasiHtml . $separator . $agendaHtml;
-          
-          $logoHtml = '<div style="text-align: center; margin-top: -10px; margin-bottom: 15px;"><img src="' . base_url('dist/motivasi/logo.png') . '" style="height: 45px; object-fit: contain;" alt="Logo"></div>';
+            $cekAbsen = $this->absenModel
+              ->select('id_absen, id_data_pegawai, jam_masuk, jam_pulang, rekam_absen')
+              ->where('id_data_pegawai', $id_data_pegawai)
+              ->where('jam_masuk >=', $dayDate . ' 00:00:00')
+              ->where('jam_masuk <=', $dayDate . ' 23:59:59')
+              ->first();
 
-          $dayDate = date("Y-m-d");
-          $cekAbsen = $this->absenModel->select('id_absen, id_data_pegawai, jam_masuk, jam_pulang, rekam_absen')->where(['id_data_pegawai' => $id_data_pegawai, 'DATE(jam_masuk)' => $dayDate])->first();
-          if ($cekAbsen) {
-            if ($this->request->getVar("posisi_alamat") !== null) {
-                $posisi_alamat_pulang = $this->request->getVar("posisi_alamat");
-            }
-            $updateData = [
-              'id_absen' => $cekAbsen['id_absen'],
-              'alamat_pulang' => $alamat,
-              'latitude_pulang' => $latitude_pulang,
-              'longitude_pulang' => $longitude_pulang,
-              'jam_pulang' => $jam_pulang,
-            ];
-            $updateData += [
-              'posisi_alamat_pulang' => $posisi_alamat_pulang
-            ];
+            if ($cekAbsen) {
+              // Ambil agenda & motivasi hanya bila memang ada absen masuk hari ini
+              $agendaData = $this->getAgendaForUser($cekData['id_user'] ?? null);
+              $agendaHtml = $this->formatAgendaForAlert($agendaData);
+              $motivasiHtml = $this->getRandomMotivasi('Pulang');
+              $separator = (!empty($motivasiHtml) && !empty($agendaHtml)) ? '<hr style="margin: 15px 0; border-top: 1px solid rgba(0,0,0,0.1);">' : '';
+              $combinedHtml = $motivasiHtml . $separator . $agendaHtml;
+              $logoHtml = '<div style="text-align: center; margin-top: -10px; margin-bottom: 15px;"><img src="' . base_url('dist/motivasi/logo.png') . '" style="height: 45px; object-fit: contain;" alt="Logo"></div>';
 
-            if ($cekAbsen['jam_pulang'] == null) {
-              $updateData += [
-                'image_pulang_1' => $imageData,
+              $updateData = [
+                'id_absen'             => $cekAbsen['id_absen'],
+                'alamat_pulang'        => $alamat,
+                'latitude_pulang'      => $latitude_pulang,
+                'longitude_pulang'     => $longitude_pulang,
+                'jam_pulang'           => $jam_pulang,
+                'posisi_alamat_pulang' => $posisi_alamat_pulang,
+                'status_pulang'        => $statusAbsen,
               ];
-              
-              // Hitung jam kerja
+
               $jamKerja = hitungJamKerja($cekAbsen['jam_masuk'], $jam_pulang);
-              
-              $msg = [
-                'data' => 'sukses',
-                'pesan' => $logoHtml . '<strong>' . name_capitalize($cekData['nama']) . '</strong> sudah menandai pulang dengan waktu submit <u>' . $jam_pulang . '</u><br><strong>Total jam kerja: ' . $jamKerja . '</strong>' . $combinedHtml,
-              ];
+
+              if ($cekAbsen['jam_pulang'] == null) {
+                $updateData['image_pulang_1'] = $imageData;
+                $msg = [
+                  'data'  => 'sukses',
+                  'pesan' => $logoHtml . '<strong>' . name_capitalize($cekData['nama']) . '</strong> sudah menandai pulang dengan waktu submit <u>' . $jam_pulang . '</u><br><strong>Total jam kerja: ' . $jamKerja . '</strong>' . $combinedHtml,
+                ];
+              } else {
+                $updateData['image_pulang_2'] = $imageData;
+                $msg = [
+                  'data'  => 'sukses',
+                  'pesan' => $logoHtml . '<strong>' . name_capitalize($cekData['nama']) . '</strong> memperbaharui data pulang dengan waktu submit <u>' . $jam_pulang . '</u><br><strong>Total jam kerja: ' . $jamKerja . '</strong>' . $combinedHtml,
+                ];
+              }
+
+              if (!empty($fotoCheck['filename'])) {
+                $newData = [
+                  'tombol'          => "Rekam Pulang",
+                  'foto'            => $fotoCheck['filename'],
+                  'longitude'       => $longitude_pulang,
+                  'latitude'        => $latitude_pulang,
+                  'alamat_terdekat' => $alamat,
+                  'jam_absen'       => $jam_pulang,
+                ];
+                $existingData = !empty($cekAbsen['rekam_absen']) ? json_decode((string) $cekAbsen['rekam_absen'], true) : [];
+                if (!is_array($existingData)) {
+                  $existingData = [];
+                }
+                $existingData[] = $newData;
+                $updateData['rekam_absen'] = json_encode($existingData);
+              }
+
+              $this->absenModel->save($updateData);
             } else {
-              $updateData += [
-                'image_pulang_2' => $imageData,
-              ];
-              
-              // Hitung jam kerja
-              $jamKerja = hitungJamKerja($cekAbsen['jam_masuk'], $jam_pulang);
-              
               $msg = [
-                'data' => 'sukses',
-                'pesan' => $logoHtml . '<strong>' . name_capitalize($cekData['nama']) . '</strong> memperbaharui data pulang dengan dengan waktu submit <u>' . $jam_pulang . '</u><br><strong>Total jam kerja: ' . $jamKerja . '</strong>' . $combinedHtml,
+                'data'  => 'error',
+                'code'  => 'not_clocked_in',
+                'pesan' => 'Anda belum "Tandai Masuk" sebelumnya hari ini!',
               ];
             }
-            
-            // =========================================================================================================================================================================
-            if ($imageData) {
-                // Pisahkan header data base64 dan data sebenarnya
-                list($type, $base64String) = explode(';', $imageData);
-                list(, $base64Data) = explode(',', $base64String);
-            
-                // Dekode data base64 menjadi string biner
-                $decodedData = base64_decode($base64Data);
-            
-                // Tentukan jenis file berdasarkan header
-                if (strpos($type, 'jpeg') !== false) {
-                    $extension = 'jpg';
-                } elseif (strpos($type, 'png') !== false) {
-                    $extension = 'png';
-                } elseif (strpos($type, 'gif') !== false) {
-                    $extension = 'gif';
-                } elseif (strpos($type, 'bmp') !== false) {
-                    $extension = 'bmp';
-                } elseif (strpos($type, 'webp') !== false) {
-                    $extension = 'webp';
-                } elseif (strpos($type, 'tiff') !== false) {
-                    $extension = 'tiff';
-                } else {
-                    $extension = 'jpg'; // Default extension jika tidak terdeteksi
-                }
-            
-                // Nama file baru
-                $newName = uniqid() . '.' . $extension;
-            
-                // Path penyimpanan file
-                $filePath = FCPATH . '/dist/foto_absen/' . $newName;
-            
-                // Simpan file ke direktori
-                if (file_put_contents($filePath, $decodedData)) {
-                    $newData = [
-                        'tombol' => "Rekam Pulang",
-                        'foto' => $newName,
-                        'longitude' => $this->request->getVar("longitude"),
-                        'latitude' => $this->request->getVar("latitude"),
-                        'alamat_terdekat' => $this->request->getVar("alamat"),
-                        'jam_absen' => $jam_pulang
-                    ];
-                    
-                    if($cekAbsen['rekam_absen'] != "") {
-                        // Asumsikan $cekAbsen['rekam_absen'] berisi data JSON yang sudah ada
-                        $existingData = json_decode($cekAbsen['rekam_absen'], true);
-                        
-                        // Gabungkan data baru dengan data yang sudah ada
-                        // Jika existingData adalah array, kita tambahkan newData ke array tersebut
-                        if (is_array($existingData)) {
-                            $existingData[] = $newData;
-                        } else {
-                            // Jika data yang ada tidak berbentuk array (misalnya null atau tidak valid),
-                            // buat array baru dengan data baru sebagai elemen pertama
-                            $existingData = [$newData];
-                        }
-                    }  else {
-                        $existingData = [$newData];
-                    }
-                    
-                    // Encode kembali array gabungan menjadi string JSON
-                    $combinedJsonData = json_encode($existingData);
-                    
-                    $updateData += [
-                        'rekam_absen' => $combinedJsonData
-                    ];
-                }
-            }
-            // =========================================================================================================================================================================
-            
-            $updateData += [
-                'status_pulang' => $this->request->getVar('status')
+          } else {
+            $msg = [
+              'data'  => 'error',
+              'code'  => 'nip_not_found',
+              'pesan' => 'NIP/NOPEG anda tidak terdaftar!',
             ];
-  
-            $this->absenModel->save($updateData);
           }
         }
       }
     }
 
-    // datetime_indo
-    echo json_encode($msg);
+    return $this->response->setJSON($msg);
   }
   public function saveZonaAbsen()
   {
@@ -975,6 +937,7 @@ class Crud extends BaseController
                   $insertData[$field] = $value;
                   $absenSettingModel->insert($insertData);
               }
+              Services::cache()->delete('absen_setting_v1');
               echo json_encode(['data' => 'sukses']);
           } else {
               echo json_encode(['data' => 'error']);
@@ -995,6 +958,7 @@ class Crud extends BaseController
           ];
           
           if($this->absenTargetModel->save($data)) {
+              Services::cache()->delete('absen_target_all_v1');
               echo json_encode(['data' => true]);
           } else {
               echo json_encode(['data' => false]);
@@ -1353,9 +1317,10 @@ class Crud extends BaseController
           ];
       }
       $lokasi = $this->request->getVar('lokasi');
+      $hasValidLokasi = is_array($lokasi) && count($lokasi) > 0;
       $data += [
         'id_data_pegawai' => $id_data_pegawai,
-        'lokasi' => json_encode($lokasi),
+        'lokasi' => $hasValidLokasi ? json_encode(array_values($lokasi)) : null,
         'updated_by' => $by['id_user']
       ];
       
@@ -1597,30 +1562,33 @@ class Crud extends BaseController
   public function getRandomMotivasi($jenisAbsen = 'Masuk')
   {
       $tanggalIni = date('Y-m-d');
+      $cache = Services::cache();
+      $cacheKey = 'absen_motivasi_pool_' . $tanggalIni . '_' . strtolower((string) $jenisAbsen);
+      $pool = $cache->get($cacheKey);
 
-      $model = new \App\Models\AbsenMotivasiModel();
-      
-      // 1. Cek apakah ada motivasi khusus untuk tanggal hari ini
-      $motivasi = $model->where('status', 'Aktif')
+      if (!is_array($pool)) {
+          $model = new \App\Models\AbsenMotivasiModel();
+          $pool = $model->where('status', 'Aktif')
                         ->where('hari', $tanggalIni)
                         ->groupStart()
                             ->where('jenis', $jenisAbsen)
                             ->orWhere('jenis', 'Semua')
                         ->groupEnd()
-                        ->orderBy('RAND()')
-                        ->first();
-                        
-      // 2. Jika tidak ada yang khusus tanggal ini, ambil dari yang 'Semua Hari'
-      if (!$motivasi) {
-          $motivasi = $model->where('status', 'Aktif')
+                        ->findAll();
+
+          if (empty($pool)) {
+              $pool = $model->where('status', 'Aktif')
                             ->where('hari', 'Semua Hari')
                             ->groupStart()
                                 ->where('jenis', $jenisAbsen)
                                 ->orWhere('jenis', 'Semua')
                             ->groupEnd()
-                            ->orderBy('RAND()')
-                            ->first();
+                            ->findAll();
+          }
+          $cache->save($cacheKey, is_array($pool) ? $pool : [], 300);
       }
+
+      $motivasi = !empty($pool) ? $pool[array_rand($pool)] : null;
 
       if ($motivasi) {
           $pesan = nl2br(htmlspecialchars($motivasi['pesan']));
@@ -1715,6 +1683,9 @@ class Crud extends BaseController
       } else {
           $model->insert($data);
       }
+      $today = date('Y-m-d');
+      Services::cache()->delete('absen_motivasi_pool_' . $today . '_masuk');
+      Services::cache()->delete('absen_motivasi_pool_' . $today . '_pulang');
       return $this->response->setJSON(['status' => 'success']);
   }
 
@@ -1728,6 +1699,9 @@ class Crud extends BaseController
               unlink(FCPATH . 'dist/motivasi/' . $oldData['image']);
           }
           $model->delete($id);
+          $today = date('Y-m-d');
+          Services::cache()->delete('absen_motivasi_pool_' . $today . '_masuk');
+          Services::cache()->delete('absen_motivasi_pool_' . $today . '_pulang');
           return $this->response->setJSON(['status' => 'success']);
       }
       return $this->response->setJSON(['status' => 'error']);

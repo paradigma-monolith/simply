@@ -27,8 +27,13 @@ class Data extends BaseController
       }
     }
 
-    $absenSettingModel = new \App\Models\AbsenSettingModel();
-    $data['absenSetting'] = $absenSettingModel->first();
+    $absenSetting = $cache->get('absen_setting_v1');
+    if (!is_array($absenSetting)) {
+      $absenSettingModel = new \App\Models\AbsenSettingModel();
+      $absenSetting = $absenSettingModel->first() ?: [];
+      $cache->save('absen_setting_v1', $absenSetting, 300);
+    }
+    $data['absenSetting'] = $absenSetting;
     
     // if (session()->has('role') && session()->get('role') === "Admin") {
     //     return view('absen/index_v2', $data);
@@ -85,8 +90,13 @@ class Data extends BaseController
       }
     }
 
-    $absenSettingModel = new \App\Models\AbsenSettingModel();
-    $data['absenSetting'] = $absenSettingModel->first();
+    $absenSetting = $cache->get('absen_setting_v1');
+    if (!is_array($absenSetting)) {
+      $absenSettingModel = new \App\Models\AbsenSettingModel();
+      $absenSetting = $absenSettingModel->first() ?: [];
+      $cache->save('absen_setting_v1', $absenSetting, 300);
+    }
+    $data['absenSetting'] = $absenSetting;
     
     // if (session()->has('role') && session()->get('role') === "Admin") {
     //     return view('absen/index_v2', $data);

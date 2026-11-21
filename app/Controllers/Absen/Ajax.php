@@ -693,61 +693,101 @@ class Ajax extends BaseController
   public function getTargetAreaAbsen($nip = "")
   {
     if ($this->request->isAJAX()) {
-      $msg = [];
+      if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+      }
 
-      $get = $this->absenTargetModel->findAll();
-      
+      $nip = trim((string) $nip);
+      $cache = Services::cache();
+
+      $get = $cache->get('absen_target_all_v1');
+      if (!is_array($get)) {
+        $get = $this->absenTargetModel->findAll();
+        $cache->save('absen_target_all_v1', $get, 600);
+      }
+
       $lokasi = false;
       $akses = [];
-      $cekLokasi = $this->dataPegawaiModel->select('absen_target_akses.lokasi')->join('absen_target_akses', 'id_data_pegawai')->where('data_pegawai.nip', $nip)->first();
-      if($cekLokasi && isset($cekLokasi["lokasi"])) {
-          $array = json_decode($cekLokasi["lokasi"], true);
-          $this->absenTargetModel;
-          $this->absenTargetModel->where('id_unit_kerja', $array[0]);
-          for ($i=1; $i<count($array); $i++) {
-            $this->absenTargetModel->orWhere('id_unit_kerja', $array[$i]);
-          }
-          $akses = $this->absenTargetModel->find();
-          $lokasi = true;
-      }
-      
       $isWfa = false;
-      $pegawai = $this->dataPegawaiModel->where('nip', trim($nip))->first();
-      if ($pegawai) {
-         $aksesWFA = $this->absenAksesModel->where('id_user', $pegawai['id_user'])->first();
-         if ($aksesWFA && (int)$aksesWFA['akses_wfa'] === 1) {
-             $isWfa = true;
-         }
+      $pegawaiFound = false;
+
+      if ($nip !== '') {
+        $pegawai = $this->dataPegawaiModel
+          ->select('id_data_pegawai, id_user, nip')
+          ->where('nip', $nip)
+          ->first();
+
+        if ($pegawai) {
+          $pegawaiFound = true;
+          $cekLokasi = $this->absenTargetAksesModel
+            ->select('lokasi')
+            ->where('id_data_pegawai', $pegawai['id_data_pegawai'])
+            ->first();
+
+          if ($cekLokasi && !empty($cekLokasi['lokasi'])) {
+            $array = json_decode((string) $cekLokasi['lokasi'], true);
+            if (is_array($array) && count($array) > 0) {
+              $unitIds = array_values(array_filter(array_map('strval', $array), static function ($v) {
+                return $v !== '' && $v !== 'null';
+              }));
+              if (!empty($unitIds)) {
+                $akses = array_values(array_filter($get, static function ($target) use ($unitIds) {
+                  return in_array((string) ($target['id_unit_kerja'] ?? ''), $unitIds, true);
+                }));
+                $lokasi = count($akses) > 0;
+              }
+            }
+          }
+
+          if (!empty($pegawai['id_user'])) {
+            $aksesWFA = $this->absenAksesModel
+              ->select('akses_wfa')
+              ->where('id_user', $pegawai['id_user'])
+              ->first();
+            if ($aksesWFA && (int) ($aksesWFA['akses_wfa'] ?? 0) === 1) {
+              $isWfa = true;
+            }
+          }
+        }
       }
 
-      $msg = ['data' => $get];
+      $msg = [
+        'data'          => $get,
+        'pegawai_found' => $pegawaiFound,
+        'wfa'           => $isWfa,
+      ];
       if ($lokasi) {
         $msg['akses'] = $akses;
       }
-      $msg['wfa'] = $isWfa;
 
-      echo json_encode($msg);
+      return $this->response->setJSON($msg);
     }
   }
   public function getTargetAreaAbsenWFA($nip = "")
   {
     if ($this->request->isAJAX()) {
-      $msg = [];
-
-      $lokasi = false;
-      $akses = [];
-      $cekLokasi = $this->dataPegawaiModel->where('data_pegawai.nip', $nip)->first();
-      if($cekLokasi) {
-          $lokasi = true;
+      if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
       }
-      
+
+      $nip = trim((string) $nip);
+      $lokasi = false;
+      if ($nip !== '') {
+        $cekLokasi = $this->dataPegawaiModel
+          ->select('id_data_pegawai')
+          ->where('data_pegawai.nip', $nip)
+          ->first();
+        if ($cekLokasi) {
+          $lokasi = true;
+        }
+      }
 
       $msg = ['data' => true];
       if ($lokasi) {
         $msg['akses'] = true;
       }
 
-      echo json_encode($msg);
+      return $this->response->setJSON($msg);
     }
   }
   public function getLatestDLPhoto() {
@@ -795,6 +835,9 @@ class Ajax extends BaseController
 
   public function getLinimasaData() {
       if ($this->request->isAJAX()) {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+          session_write_close();
+        }
         $msg = [];
         
         $cache = Services::cache();
