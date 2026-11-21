@@ -3,34 +3,46 @@
 namespace App\Controllers\KendaraanKantor;
 
 use App\Controllers\BaseController;
-use Config\Services;
 
 class Data extends BaseController
 {
+  /**
+   * Ambil peta [id_data_pegawai => nama] dalam 1 query ringan agar view tidak perlu N request AJAX get_penumpang.
+   *
+   * @return array<int, string>
+   */
+  private function getPegawaiNameMap(): array
+  {
+    $rows = $this->dataPegawaiModel
+      ->select('id_data_pegawai, nama')
+      ->findAll();
+    $map = [];
+    foreach ($rows as $row) {
+      $map[(int) $row['id_data_pegawai']] = name_capitalize((string) ($row['nama'] ?? ''));
+    }
+    return $map;
+  }
+
   public function index()
   {
     $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
     $data['nip'] = $nip;
 
-    $data['getPegawai'] = $this->dataPegawaiModel->joinAll(
-      $select   = '*',
-      $with     = 'golongan',
-      $value    = 'id_golongan',
-      $where    = ['data_pegawai.status_bekerja' => 'Aktif'],
-      $orderBy  = 'golongan.urutan',
-      $order    = 'desc',
-      $group    = '',
-      $limit    = ''
-    )->findAll();
+    $data['getPegawai'] = $this->dataPegawaiModel
+      ->select('data_pegawai.id_data_pegawai, data_pegawai.nip, data_pegawai.nama, golongan.urutan')
+      ->join('golongan', 'golongan.id_golongan = data_pegawai.id_golongan', 'left')
+      ->where('data_pegawai.status_bekerja', 'Aktif')
+      ->orderBy('golongan.urutan', 'desc')
+      ->orderBy('data_pegawai.nama', 'asc')
+      ->findAll();
 
     return view('kendaraan_kantor/index', $data);
   }
+
   public function verifikator()
   {
     $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
     $data['nip'] = $nip;
-
-    $cek = $this->dataPegawaiModel->where("nip", $nip)->first();
 
     $data['getData'] = $this->kendaraanKantorRiwayatModel
       ->select('kendaraan_kantor_riwayat.id_kendaraan_kantor_riwayat, data_pegawai.nip, kendaraan_kantor_daftar.gambar, kendaraan_kantor_daftar.nama_kendaraan, kendaraan_kantor_daftar.plat_nomor, kendaraan_kantor_riwayat.penumpang, kendaraan_kantor_riwayat.tujuan, kendaraan_kantor_riwayat.keterangan, data_pegawai.nama, kendaraan_kantor_riwayat.tanggal, DATE(kendaraan_kantor_riwayat.created_at) as date')
@@ -43,78 +55,117 @@ class Data extends BaseController
       ->orderBy('tanggal', 'ASC')
       ->findAll();
 
+    $data['pegawaiMap'] = $this->getPegawaiNameMap();
+
     return view('kendaraan_kantor/index_verifikator', $data);
   }
+
   public function daftar_kendaraan()
   {
-    $data['title'] = "Peminjaman Kendaraan | Daftar Kendaraan"; // kelola_data_cuti
+    $data['title'] = "Peminjaman Kendaraan | Daftar Kendaraan";
     $data['activeMenu'] = "daftar_kendaraan";
 
-    $data['getData'] = $this->kendaraanKantorDaftarModel->findAll();
+    $data['getData'] = $this->kendaraanKantorDaftarModel
+      ->orderBy('nama_kendaraan', 'ASC')
+      ->findAll();
 
     return view("kendaraan_kantor/daftar_kendaraan", $data);
   }
+
   public function riwayat_peminjaman()
   {
-    $data['title'] = "Peminjaman Kendaraan | Riwayat Peminjaman"; // kelola_data_cuti
+    $data['title'] = "Peminjaman Kendaraan | Riwayat Peminjaman";
     $data['activeMenu'] = "riwayat_peminjaman";
 
     $data['getData'] = $this->kendaraanKantorRiwayatModel
-      ->select("kendaraan_kantor_daftar.*, kendaraan_kantor_riwayat.*, user.nama as peminjam, user.username, JSON_UNQUOTE(JSON_EXTRACT(kendaraan_kantor_riwayat.tanggal, CONCAT('$[', JSON_LENGTH(tanggal) - 1, ']'))) as tanggal_akhir")
+      ->select("kendaraan_kantor_daftar.nama_kendaraan, kendaraan_kantor_daftar.plat_nomor, kendaraan_kantor_daftar.gambar, kendaraan_kantor_riwayat.*, user.nama as peminjam, user.username, JSON_UNQUOTE(JSON_EXTRACT(kendaraan_kantor_riwayat.tanggal, CONCAT('$[', JSON_LENGTH(tanggal) - 1, ']'))) as tanggal_akhir")
       ->join('kendaraan_kantor_daftar', 'id_kendaraan_kantor_daftar', 'LEFT')
-      ->join('user', 'kendaraan_kantor_riwayat.created_by=user.id_user')
-      ->orderBy('tanggal_akhir', 'desc')->findAll();
+      ->join('user', 'kendaraan_kantor_riwayat.created_by=user.id_user', 'LEFT')
+      ->orderBy('tanggal_akhir', 'desc')
+      ->findAll();
+
+    $data['pegawaiMap'] = $this->getPegawaiNameMap();
 
     return view("kendaraan_kantor/riwayat_peminjaman", $data);
   }
+
   public function update_riwayat($id)
   {
-    $data['title'] = "Peminjaman Kendaraan | Riwayat Peminjaman"; // kelola_data_cuti
+    $data['title'] = "Peminjaman Kendaraan | Riwayat Peminjaman";
     $data['activeMenu'] = "riwayat_peminjaman";
 
-    $data['getData'] = $this->kendaraanKantorRiwayatModel
-      ->select("kendaraan_kantor_daftar.*, kendaraan_kantor_riwayat.*, user.nama as peminjam, user.username, JSON_UNQUOTE(JSON_EXTRACT(kendaraan_kantor_riwayat.tanggal, CONCAT('$[', JSON_LENGTH(tanggal) - 1, ']'))) as tanggal_akhir")
-      ->join('kendaraan_kantor_daftar', 'id_kendaraan_kantor_daftar')
-      ->join('user', 'kendaraan_kantor_riwayat.created_by=user.id_user')
-      ->where('kendaraan_kantor_riwayat.id_kendaraan_kantor_riwayat', $id)
-      ->orderBy('tanggal_akhir', 'desc')->first();
+    $row = $this->kendaraanKantorRiwayatModel
+      ->select("kendaraan_kantor_daftar.nama_kendaraan, kendaraan_kantor_daftar.plat_nomor, kendaraan_kantor_daftar.gambar, kendaraan_kantor_riwayat.*, user.nama as peminjam, user.username, JSON_UNQUOTE(JSON_EXTRACT(kendaraan_kantor_riwayat.tanggal, CONCAT('$[', JSON_LENGTH(tanggal) - 1, ']'))) as tanggal_akhir")
+      ->join('kendaraan_kantor_daftar', 'id_kendaraan_kantor_daftar', 'LEFT')
+      ->join('user', 'kendaraan_kantor_riwayat.created_by=user.id_user', 'LEFT')
+      ->where('kendaraan_kantor_riwayat.id_kendaraan_kantor_riwayat', (int) $id)
+      ->orderBy('tanggal_akhir', 'desc')
+      ->first();
 
-    $tanggalArray = json_decode($data['getData']['tanggal'], true);
-
-    $this->kendaraanKantorRiwayatModel->like('tanggal', $tanggalArray[0]);
-    for ($i = 1; $i < count($tanggalArray); $i++) {
-      $this->kendaraanKantorRiwayatModel->orLike('tanggal', $tanggalArray[$i]);
+    if (!$row) {
+      session()->setFlashdata('error', 'Data riwayat peminjaman tidak ditemukan.');
+      return redirect()->to('/kendaraan_kantor/riwayat_peminjaman');
     }
-    $getDataPenumpang = $this->kendaraanKantorRiwayatModel->find();
+
+    $data['getData'] = $row;
+    $tanggalArray = json_decode((string) ($row['tanggal'] ?? '[]'), true);
+    if (!is_array($tanggalArray)) {
+      $tanggalArray = [];
+    }
+
     $arrayDataPenumpang = [];
-    foreach ($getDataPenumpang as $get) {
-      $arrayDataPenumpang += json_decode($get['penumpang'], true);
-    }
-    $penumpangDisertai = json_decode($data['getData']['penumpang'], true);
-    $penumpangDikecualikan = array_values(array_diff($arrayDataPenumpang, $penumpangDisertai));
+    if (!empty($tanggalArray)) {
+      $this->kendaraanKantorRiwayatModel->select('penumpang')->groupStart()->like('tanggal', $tanggalArray[0]);
+      for ($i = 1; $i < count($tanggalArray); $i++) {
+        $this->kendaraanKantorRiwayatModel->orLike('tanggal', $tanggalArray[$i]);
+      }
+      $this->kendaraanKantorRiwayatModel->groupEnd();
+      $getDataPenumpang = $this->kendaraanKantorRiwayatModel->find();
 
-    if ($penumpangDikecualikan) {
-      $this->dataPegawaiModel->where("id_data_pegawai !=", $penumpangDikecualikan[0]);
-      for ($i = 1; $i < count($penumpangDikecualikan); $i++) {
-        $this->dataPegawaiModel->where("id_data_pegawai !=", $penumpangDikecualikan[$i]);
+      foreach ($getDataPenumpang as $get) {
+        $decoded = json_decode((string) ($get['penumpang'] ?? '[]'), true);
+        if (is_array($decoded)) {
+          $arrayDataPenumpang = array_merge($arrayDataPenumpang, $decoded);
+        }
       }
     }
+
+    $penumpangDisertai = json_decode((string) ($row['penumpang'] ?? '[]'), true);
+    if (!is_array($penumpangDisertai)) {
+      $penumpangDisertai = [];
+    }
+
+    $penumpangDikecualikan = array_values(array_unique(array_diff($arrayDataPenumpang, $penumpangDisertai)));
+
+    if (!empty($penumpangDikecualikan)) {
+      $this->dataPegawaiModel->whereNotIn('id_data_pegawai', $penumpangDikecualikan);
+    }
+
     $data['getPegawai'] = $this->dataPegawaiModel
+      ->select('data_pegawai.id_data_pegawai, data_pegawai.nama, golongan.urutan')
       ->where('status_bekerja', 'Aktif')
-      ->join('golongan', 'id_golongan')
-      ->orderBy('urutan', 'desc')->findAll();
+      ->join('golongan', 'id_golongan', 'left')
+      ->orderBy('urutan', 'desc')
+      ->orderBy('data_pegawai.nama', 'asc')
+      ->findAll();
 
     return view("kendaraan_kantor/riwayat_peminjaman_form_update", $data);
   }
+
   public function update_daftar($id)
   {
-    $data['title'] = "Peminjaman Kendaraan | Daftar Kendaraan"; // kelola_data_cuti
+    $data['title'] = "Peminjaman Kendaraan | Daftar Kendaraan";
     $data['activeMenu'] = "daftar_kendaraan";
 
-    $data['getData'] = $this->kendaraanKantorDaftarModel->where('id_kendaraan_kantor_daftar', $id)->first();
+    $data['getData'] = $this->kendaraanKantorDaftarModel->where('id_kendaraan_kantor_daftar', (int) $id)->first();
+    if (!$data['getData']) {
+      session()->setFlashdata('error', 'Data kendaraan tidak ditemukan.');
+      return redirect()->to('/kendaraan_kantor/daftar_kendaraan');
+    }
 
     return view("kendaraan_kantor/daftar_kendaraan_form_update", $data);
   }
+
   public function tambah_daftar()
   {
     $data['title'] = "Peminjaman Kendaraan | Daftar Kendaraan";
@@ -122,6 +173,7 @@ class Data extends BaseController
 
     return view("kendaraan_kantor/daftar_kendaraan_form_tambah", $data);
   }
+
   public function pengaturan()
   {
     $data['title'] = "Kendaraan Kantor | Verifikator";
@@ -144,18 +196,17 @@ class Data extends BaseController
       }
     }
 
-
     $data['user'] = $this->dataPegawaiModel
       ->select('data_pegawai.nama, data_pegawai.id_data_pegawai, kendaraan_kantor_verifikator.pin, kendaraan_kantor_verifikator.id_kendaraan_kantor_verifikator')
       ->join('kendaraan_kantor_verifikator', 'kendaraan_kantor_verifikator.id_data_pegawai=data_pegawai.id_data_pegawai', 'LEFT')
       ->where("data_pegawai.status_bekerja", "Aktif")
       ->orderBy("data_pegawai.nama", "ASC")
       ->findAll();
-    // d($data['akses']);
-    // dd($data['user']);
+
     return view("kendaraan_kantor/setting", $data);
   }
-  public function monitoring_kendaraan() 
+
+  public function monitoring_kendaraan()
   {
     return view('monitoring/monitoring_kendaraan_kantor');
   }

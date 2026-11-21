@@ -274,49 +274,54 @@
             </div>
         </nav>
 
-        <div class="pemilihanTanggal visible d-flex justify-content-center align-items-center" style="min-height: 70vh;">
-            <div class="container">
-                <button type="button" class="btn btn-success float-end hidden btn-lanjutkan-page-2 getTheCar" data-id="0">Ajukan Peminjaman <i class="fas fa-angle-double-right"></i></button>
-                <h3>Kebutuhan untuk tanggal?</h3>
-                <div class="row">
-                    <div class="col-12">
-                        <div class="input-group col-12">
-                            <input type="text" class="form-control" id="dateRangePicker" placeholder="Pilih rentan tanggal" value="" autocomplete="off">
-                            <span class="input-group-text">
-                                <i class="fas fa-calendar-alt text-secondary"></i>
-                            </span>
+        <div class="pemilihanTanggal visible d-flex justify-content-center align-items-center" style="min-height: 72vh; border: none;">
+            <div class="container" style="max-width: 720px;">
+                <div style="background: rgba(255, 255, 255, 0.95); border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 18px; padding: 26px 28px; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14); backdrop-filter: blur(10px);">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                        <div>
+                            <h4 class="fw-bold mb-1" style="color: #0f172a;"><i class="fas fa-car-side me-2" style="color: #0d9488;"></i>Formulir Peminjaman Kendaraan</h4>
+                            <small class="text-muted">Pilih tanggal keberangkatan, penumpang, tujuan, dan kegiatan.</small>
+                        </div>
+                        <button type="button" class="btn btn-success fw-bold px-3 hidden btn-lanjutkan-page-2 getTheCar" style="border-radius: 10px;" data-id="0">
+                            Ajukan Peminjaman <i class="fas fa-angle-double-right ms-1"></i>
+                        </button>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <label class="form-label fw-bold small text-uppercase text-muted mb-1">Tanggal Kebutuhan</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="dateRangePicker" placeholder="Klik untuk memilih rentang tanggal..." value="" autocomplete="off">
+                                <span class="input-group-text bg-light">
+                                    <i class="fas fa-calendar-alt text-secondary"></i>
+                                </span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="form-tambahan-keberangkatan hidden">
-                    <div class="row mt-2">
-                        <div class="col"></div>
-                        <div class="col-sm-8">
-                            <div class="input-group">
-                                <label class="form-label">Penumpang PNS, PPPK atau PPNPN </label>
-                                <select multiple="multiple" name="penumpang[]" class="form-control select2" placeholder="pilih beberapa penumpang disini" style="width: 100%;" autocomplete="off">
+                    <div class="form-tambahan-keberangkatan hidden">
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <label class="form-label fw-bold small text-uppercase text-muted mb-1">Penumpang (PNS, PPPK, atau PPNPN)</label>
+                                <select multiple="multiple" name="penumpang[]" class="form-control select2" placeholder="Pilih beberapa penumpang di sini" style="width: 100%;" autocomplete="off">
                                     <?php foreach ($getPegawai as $data): ?>
                                         <option value="<?= $data['id_data_pegawai']; ?>" <?= $nip == $data['nip'] ? 'selected' : ''; ?> <?= $nip == $data['nip'] ? 'disabled data-id="true"' : ''; ?>><?= name_capitalize($data['nama']); ?> <?= $nip == $data['nip'] ? '- Harus diikutsertakan' : ''; ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
                         </div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col"></div>
-                        <div class="col-sm-8">
-                            <div class="form-group">
-                                <label class="form-label">Tujuan</label>
-                                <input type="text" name="tujuan" class="form-control" placeholder="masukan tujuan anda" required autocomplete="off" />
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div class="form-group">
+                                    <label class="form-label fw-bold small text-uppercase text-muted mb-1">Tujuan Perjalanan</label>
+                                    <input type="text" name="tujuan" class="form-control" placeholder="Masukkan tujuan perjalanan Anda..." required autocomplete="off" />
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col"></div>
-                        <div class="col-sm-8">
-                            <div class="form-group">
-                                <label class="form-label">Kegiatan</label>
-                                <textarea name="keterangan" class="form-control" placeholder="Deskripsikan secara singkat" rows="3" required autocomplete="off"></textarea>
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div class="form-group">
+                                    <label class="form-label fw-bold small text-uppercase text-muted mb-1">Rincian Kegiatan</label>
+                                    <textarea name="keterangan" class="form-control" placeholder="Deskripsikan kegiatan secara singkat..." rows="3" required autocomplete="off"></textarea>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -540,12 +545,6 @@
             autoUpdateInput: false,
             locale: {
                 cancelLabel: 'Clear'
-            },
-        });
-        $('#dateRangePicker').daterangepicker({
-            autoUpdateInput: false,
-            locale: {
-                cancelLabel: 'Clear'
             }
         });
 
@@ -562,27 +561,11 @@
                 method: 'post',
                 dataType: 'json',
                 beforeSend: function() {
-                    let timerInterval;
                     Swal.fire({
-                        title: "Pengecekan tanggal!",
-                        html: "Akan segera selesai <b></b> milliseconds.",
-                        timer: 50000,
-                        timerProgressBar: true,
+                        title: "Memeriksa Ketersediaan Tanggal...",
                         allowOutsideClick: false,
                         didOpen: () => {
                             Swal.showLoading();
-                            const timer = Swal.getPopup().querySelector("b");
-                            timerInterval = setInterval(() => {
-                                timer.textContent = `${Swal.getTimerLeft()}`;
-                            }, 100);
-                        },
-                        willClose: () => {
-                            clearInterval(timerInterval);
-                        }
-                    }).then((result) => {
-                        /* Read more about handling dismissals below */
-                        if (result.dismiss === Swal.DismissReason.timer) {
-                            console.log("I was closed by the timer");
                         }
                     });
                 },
@@ -742,27 +725,11 @@
                                 method: 'post',
                                 dataType: 'json',
                                 beforeSend: function() {
-                                    let timerInterval;
                                     Swal.fire({
-                                        title: "Pengecekan data!",
-                                        html: "Akan segera selesai <b></b> milliseconds.",
-                                        timer: 50000,
-                                        timerProgressBar: true,
+                                        title: "Menyimpan Pengajuan...",
                                         allowOutsideClick: false,
                                         didOpen: () => {
                                             Swal.showLoading();
-                                            const timer = Swal.getPopup().querySelector("b");
-                                            timerInterval = setInterval(() => {
-                                                timer.textContent = `${Swal.getTimerLeft()}`;
-                                            }, 100);
-                                        },
-                                        willClose: () => {
-                                            clearInterval(timerInterval);
-                                        }
-                                    }).then((result) => {
-                                        /* Read more about handling dismissals below */
-                                        if (result.dismiss === Swal.DismissReason.timer) {
-                                            console.log("I was closed by the timer");
                                         }
                                     });
                                 },

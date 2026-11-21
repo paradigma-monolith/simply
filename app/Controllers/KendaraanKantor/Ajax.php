@@ -7,9 +7,22 @@ use Config\Services;
 
 class Ajax extends BaseController
 {
+    private function getPegawaiNameMap(): array
+    {
+        $rows = $this->dataPegawaiModel->select('id_data_pegawai, nama')->findAll();
+        $map = [];
+        foreach ($rows as $r) {
+            $map[(int) $r['id_data_pegawai']] = name_capitalize((string) ($r['nama'] ?? ''));
+        }
+        return $map;
+    }
+
     public function get_kendaraan()
     {
         if ($this->request->isAJAX()) {
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
 
             $startDate = new \DateTime($this->request->getVar('start'));
             $endDate = new \DateTime($this->request->getVar('end'));
@@ -28,33 +41,40 @@ class Ajax extends BaseController
                 }
             }
 
-            $this->kendaraanKantorRiwayatModel->select('id_kendaraan_kantor_daftar')->like('tanggal', $tanggalArray[0]);
+            $this->kendaraanKantorRiwayatModel
+                ->select('id_kendaraan_kantor_daftar')
+                ->where('id_kendaraan_kantor_daftar >', 0)
+                ->groupStart()
+                ->like('tanggal', $tanggalArray[0]);
             for ($i = 1; $i < count($tanggalArray); $i++) {
                 $this->kendaraanKantorRiwayatModel->orLike('tanggal', $tanggalArray[$i]);
             }
+            $this->kendaraanKantorRiwayatModel->groupEnd();
             $cekKendaraan = $this->kendaraanKantorRiwayatModel->find();
 
-            if ($cekKendaraan) {
-                foreach ($cekKendaraan as $get) {
-                    $this->kendaraanKantorDaftarModel->orWhere('id_kendaraan_kantor_daftar', $get['id_kendaraan_kantor_daftar']);
-                }
-                $data['notData'] = $this->kendaraanKantorDaftarModel->find();
-            } else {
-                $data['notData'] = array();
-            }
-
-
+            $usedIds = [];
             foreach ($cekKendaraan as $get) {
-                $this->kendaraanKantorDaftarModel->where('id_kendaraan_kantor_daftar !=', $get['id_kendaraan_kantor_daftar']);
+                $kid = (int) ($get['id_kendaraan_kantor_daftar'] ?? 0);
+                if ($kid > 0) {
+                    $usedIds[] = $kid;
+                }
             }
-            $data['getData'] = $this->kendaraanKantorDaftarModel->find();
+            $usedIds = array_values(array_unique($usedIds));
 
+            $allCars = $this->kendaraanKantorDaftarModel->orderBy('nama_kendaraan', 'ASC')->findAll();
+            $data['getData'] = [];
+            $data['notData'] = [];
+            foreach ($allCars as $car) {
+                if (in_array((int) $car['id_kendaraan_kantor_daftar'], $usedIds, true)) {
+                    $data['notData'][] = $car;
+                } else {
+                    $data['getData'][] = $car;
+                }
+            }
 
-            $msg = [
+            return $this->response->setJSON([
                 'data' => view("kendaraan_kantor/kendaraan_tersedia", $data)
-            ];
-
-            echo json_encode($msg);
+            ]);
         }
     }
     public function set_form()
@@ -328,6 +348,9 @@ class Ajax extends BaseController
     {
         if ($this->request->isAJAX()) {
             $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
             $data['nip'] = $nip;
 
             $data['getData'] = $this->kendaraanKantorRiwayatModel
@@ -338,9 +361,9 @@ class Ajax extends BaseController
                 ->orderBy('tanggal', 'ASC')
                 ->findAll();
 
-            $msg = ['data' => view('kendaraan_kantor/get_riwayat', $data)];
+            $data['pegawaiMap'] = $this->getPegawaiNameMap();
 
-            echo json_encode($msg);
+            return $this->response->setJSON(['data' => view('kendaraan_kantor/get_riwayat', $data)]);
         }
     }
     public function monitoring_get_riwayat()
@@ -382,26 +405,37 @@ class Ajax extends BaseController
     public function get_penumpang()
     {
         if ($this->request->isAJAX()) {
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
             $id = $this->request->getVar("id");
 
-            $data_pegawai = $this->dataPegawaiModel->where('id_data_pegawai', $id)->first();
+            $data_pegawai = $this->dataPegawaiModel->select('nama')->where('id_data_pegawai', $id)->first();
             $msg = [];
             if ($data_pegawai) {
                 $msg = ['data' => name_capitalize($data_pegawai['nama'])];
             }
-            echo json_encode($msg);
+            return $this->response->setJSON($msg);
         }
     }
     public function get_pengajuan()
     {
         if ($this->request->isAJAX()) {
             $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
             $data['nip'] = $nip;
 
-            $cek = $this->dataPegawaiModel->where("nip", $nip)->first();
+            $cek = $nip !== '' ? $this->dataPegawaiModel->select('id_data_pegawai')->where("nip", $nip)->first() : null;
+            if (!$cek) {
+                $data['getData'] = [];
+                $data['pegawaiMap'] = [];
+                return $this->response->setJSON(['data' => view('kendaraan_kantor/get_riwayat_pengajuan', $data)]);
+            }
 
             $data['getData'] = $this->kendaraanKantorRiwayatModel
-                ->select('kendaraan_kantor_riwayat.kendaraan, kendaraan_kantor_riwayat.id_kendaraan_kantor_riwayat, data_pegawai.nip, kendaraan_kantor_daftar.gambar, kendaraan_kantor_daftar.nama_kendaraan, kendaraan_kantor_daftar.plat_nomor, kendaraan_kantor_riwayat.penumpang, kendaraan_kantor_riwayat.tujuan, kendaraan_kantor_riwayat.keterangan, data_pegawai.nama, kendaraan_kantor_riwayat.tanggal, DATE(kendaraan_kantor_riwayat.created_at) as date')
+                ->select('kendaraan_kantor_riwayat.kendaraan, kendaraan_kantor_riwayat.id_kendaraan_kantor_riwayat, kendaraan_kantor_riwayat.keterangan_verifikator, data_pegawai.nip, kendaraan_kantor_daftar.gambar, kendaraan_kantor_daftar.nama_kendaraan, kendaraan_kantor_daftar.plat_nomor, kendaraan_kantor_riwayat.penumpang, kendaraan_kantor_riwayat.tujuan, kendaraan_kantor_riwayat.keterangan, data_pegawai.nama, kendaraan_kantor_riwayat.tanggal, DATE(kendaraan_kantor_riwayat.created_at) as date')
                 ->groupStart()
                 ->where("JSON_UNQUOTE(JSON_EXTRACT(tanggal, CONCAT('$[', JSON_LENGTH(tanggal) - 1, ']'))) >= CURDATE()")
                 ->like("kendaraan_kantor_riwayat.penumpang", $cek['id_data_pegawai'])
@@ -411,9 +445,9 @@ class Ajax extends BaseController
                 ->orderBy('tanggal', 'ASC')
                 ->findAll();
 
-            $msg = ['data' => view('kendaraan_kantor/get_riwayat_pengajuan', $data)];
+            $data['pegawaiMap'] = $this->getPegawaiNameMap();
 
-            echo json_encode($msg);
+            return $this->response->setJSON(['data' => view('kendaraan_kantor/get_riwayat_pengajuan', $data)]);
         }
     }
     public function pin_verifikator()

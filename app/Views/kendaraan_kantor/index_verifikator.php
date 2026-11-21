@@ -475,70 +475,43 @@
                 }
             });
         });
-        $(".set-data-form").on("click", function() {
+        $(document).on("click", ".set-data-form", function() {
+            var tanggal = $(this).data("tanggal");
+            var penumpang = $(this).data("penumpang");
+            var tujuan = $(this).data("tujuan");
+            var keterangan = $(this).data("keterangan");
+            var id = $(this).data("id");
 
-            let timerInterval;
-            Swal.fire({
-                title: "Mengambil data!",
-                html: "Memproses data sekitar <b></b> millidetik.",
-                timer: 1000,
-                timerProgressBar: true,
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                    const timer = Swal.getPopup().querySelector("b");
-                    timerInterval = setInterval(() => {
-                        timer.textContent = `${Swal.getTimerLeft()}`;
-                    }, 100);
-                    // console.log("Console Proses");
+            $("#dateRangePicker").val(tanggal);
+            $('input[name="penumpang[]"]').val(penumpang);
+            $('input[name="tujuan"]').val(tujuan);
+            $('input[name="keterangan"]').val(keterangan);
+            $('input[name="id"]').val(id);
 
-                    var tanggal = $(this).data("tanggal");
-                    var penumpang = $(this).data("penumpang");
-                    var tujuan = $(this).data("tujuan");
-                    var keterangan = $(this).data("keterangan");
-                    var id = $(this).data("id");
+            let dates = String(tanggal || '').split(' - ');
+            let startDate = formatTanggal(dates[0]);
+            let endDate = formatTanggal(dates[1] || dates[0]);
 
-                    $("#dateRangePicker").val(tanggal);
-                    $('input[name="penumpang[]"]').val(penumpang);
-                    $('input[name="tujuan"]').val(tujuan);
-                    $('input[name="keterangan"]').val(keterangan);
-                    $('input[name="id"]').val(id);
+            if (startDate == endDate) {
+                $(".p-tanggal").text(endDate);
+            } else {
+                $(".p-tanggal").text(startDate + " - " + endDate);
+            }
+            $(".p-tujuan").text(tujuan);
+            $(".p-keterangan").text(keterangan);
+            $(".p-peminjam").text($(this).data("peminjam"));
+            $(".p-totalpenumpang").text($(this).data('totalpenumpang'));
+            kendaraanPilihan = "";
+            platPilihan = "";
 
-                    let dates = tanggal.split(' - ');
-                    let startDate = formatTanggal(dates[0]);
-                    let endDate = formatTanggal(dates[1]);
-
-                    if (startDate == endDate) {
-                        $(".p-tanggal").text(endDate);
-                    } else {
-                        $(".p-tanggal").text(startDate + " - " + endDate);
-                    }
-                    $(".p-tujuan").text(tujuan);
-                    $(".p-keterangan").text(keterangan);
-                    $(".p-peminjam").text($(this).data("peminjam"));
-                    $(".p-totalpenumpang").text($(this).data('totalpenumpang'));
-                    kendaraanPilihan = "";
-                    platPilihan = "";
-                },
-                willClose: () => {
-                    clearInterval(timerInterval);
-                }
-            }).then((result) => {
-                if (result.dismiss === Swal.DismissReason.timer) {
-                    if (!isOpenSticky) {
-                        getStickyNote();
-                    }
-                    console.log("Finish Console");
-                    getMenuButton($(".btn-page-3"));
-                    $(".pemilihanTanggal").removeClass('visible')
-                    $(".pemilihanTanggal").addClass('hidden')
-                    $(".menuUtamaPemilihan").removeClass('hidden')
-                    $(".menuUtamaPemilihan").addClass('visible')
-                    $(".menuUtamaRiwayat").removeClass('visible')
-                    $(".menuUtamaRiwayat").addClass('hidden')
-                    cekKendaraan()
-                }
-            });
+            if (!isOpenSticky) {
+                getStickyNote();
+            }
+            getMenuButton($(".btn-page-3"));
+            $(".pemilihanTanggal").removeClass('visible').addClass('hidden');
+            $(".menuUtamaPemilihan").removeClass('hidden').addClass('visible');
+            $(".menuUtamaRiwayat").removeClass('visible').addClass('hidden');
+            cekKendaraan();
         });
         // Event listener untuk btn-page-3 dengan pengecekan data
         $(".btn-page-3").on("click", function() {
@@ -729,27 +702,11 @@
                                 method: 'post',
                                 dataType: 'json',
                                 beforeSend: function() {
-                                    let timerInterval;
                                     Swal.fire({
-                                        title: "Pengecekan mobil!",
-                                        html: "Akan segera selesai <b></b> milliseconds.",
-                                        timer: 50000,
-                                        timerProgressBar: true,
+                                        title: "Menyimpan Pilihan Kendaraan...",
                                         allowOutsideClick: false,
                                         didOpen: () => {
                                             Swal.showLoading();
-                                            const timer = Swal.getPopup().querySelector("b");
-                                            timerInterval = setInterval(() => {
-                                                timer.textContent = `${Swal.getTimerLeft()}`;
-                                            }, 100);
-                                        },
-                                        willClose: () => {
-                                            clearInterval(timerInterval);
-                                        }
-                                    }).then((result) => {
-                                        /* Read more about handling dismissals below */
-                                        if (result.dismiss === Swal.DismissReason.timer) {
-                                            console.log("I was closed by the timer");
                                         }
                                     });
                                 },
@@ -913,61 +870,8 @@
 
         });
 
-        function loadPenumpang(index = 0) {
-            var $penumpangItem = $('#penumpang-list .get-penumpang').eq(index);
-
-            if ($penumpangItem.length === 0) {
-                // Semua data telah diproses
-                Swal.close()
-                return;
-            }
-
-            var formData = {
-                id: $penumpangItem.data('id')
-            };
-
-            $.ajax({
-                url: '/kendaraan_kantor/get_penumpang',
-                data: formData,
-                method: 'post',
-                dataType: 'json',
-                beforeSend: function() {
-                    Swal.fire({
-                        toast: true,
-                        position: 'top-end',
-                        icon: 'info',
-                        title: 'Memuat data...',
-                        showConfirmButton: false,
-                        timer: 3000,
-                        didOpen: (toast) => {
-                            toast.addEventListener('mouseenter', Swal.stopTimer);
-                            toast.addEventListener('mouseleave', Swal.resumeTimer);
-                        }
-                    });
-                    $("button.btn").attr('disabled', true);
-                },
-                success: function(response) {
-                    if (response.data) {
-                        $penumpangItem.html(response.data);
-                    } else {
-                        $penumpangItem.html('<span class="text-danger">Data tidak ditemukan</span>');
-                    }
-                },
-                complete: function() {
-                    $("button.btn").attr('disabled', false);
-                    loadPenumpang(index + 1);
-                },
-                error: function(xhr, ajaxOptions, thrownError) {
-                    alert(xhr.status + "\n" + xhr.responseText + "\n" + thrownError);
-                    errorLoopingGetPegawai++;
-                    if (errorLoopingGetPegawai > 3) {
-                        errorLoopingGetPegawai = 0;
-                        loadPenumpang(index + 1);
-                    } else {
-                        loadPenumpang(index);
-                    }
-                }
-            });
+        function loadPenumpang() {
+            // Nama penumpang kini sudah di-render langsung dari server (0 request AJAX berulang)
         }
     </script>
 
