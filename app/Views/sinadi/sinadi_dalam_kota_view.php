@@ -1,8 +1,6 @@
 <?php
 $rows = $perjalanan ?? [];
 $totalDocs = count($rows);
-$totalNominal = 0;
-$totalPesertaAll = 0;
 $statusCounts = [
   'Draft'            => 0,
   'Diajukan'         => 0,
@@ -17,60 +15,10 @@ foreach ($rows as $r) {
   if (isset($statusCounts[$st])) {
     $statusCounts[$st]++;
   }
-  $totalNominal += (float) ($r['total_perjalanan'] ?? 0);
-  $totalPesertaAll += (int) ($r['jumlah_peserta'] ?? 0);
 }
-
-$needActionCount = $statusCounts['Draft'] + $statusCounts['Perlu Revisi'];
-$inProcessCount = $statusCounts['Diajukan'] + $statusCounts['Dalam Verifikasi'];
-$approvedCount = $statusCounts['Disetujui'];
 ?>
 
 <style>
-  .sn-kpi-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    margin-bottom: 12px;
-  }
-  .sn-kpi-box {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 11px;
-    padding: 10px 13px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-  .sn-kpi-num {
-    font-size: 1.15rem;
-    font-weight: 800;
-    color: #0f172a;
-    line-height: 1.1;
-  }
-  .sn-kpi-label {
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: #64748b;
-  }
-  .sn-kpi-sub {
-    font-size: 0.69rem;
-    color: #0d9488;
-    font-weight: 700;
-    margin-top: 2px;
-  }
-  .sn-kpi-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.95rem;
-    flex-shrink: 0;
-  }
-
   /* Status Filter Pills */
   .sn-status-filters {
     display: flex;
@@ -182,60 +130,7 @@ $approvedCount = $statusCounts['Disetujui'];
     color: #047857;
     border: 1px solid #a7f3d0;
   }
-
-  @media (max-width: 991.98px) {
-    .sn-kpi-row {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-  @media (max-width: 575.98px) {
-    .sn-kpi-box {
-      padding: 8px 10px;
-    }
-    .sn-kpi-num {
-      font-size: 1rem;
-    }
-  }
 </style>
-
-<!-- 4 Live KPI Summary Cards -->
-<div class="sn-kpi-row">
-  <div class="sn-kpi-box">
-    <div>
-      <div class="sn-kpi-num"><?= $totalDocs; ?> <small class="text-muted font-weight-normal" style="font-size:0.72rem;">dokumen</small></div>
-      <div class="sn-kpi-label">Total Perjalanan</div>
-      <div class="sn-kpi-sub">Rp <?= number_format($totalNominal, 0, ',', '.'); ?></div>
-    </div>
-    <div class="sn-kpi-icon" style="background:#f0fdfa;color:#0d9488;"><i class="fas fa-Suitcase-rolling fa-briefcase"></i></div>
-  </div>
-
-  <div class="sn-kpi-box">
-    <div>
-      <div class="sn-kpi-num"><?= $needActionCount; ?></div>
-      <div class="sn-kpi-label">Draft &amp; Perlu Revisi</div>
-      <div class="sn-kpi-sub" style="color:#d97706;"><?= $totalPesertaAll; ?> total peserta</div>
-    </div>
-    <div class="sn-kpi-icon" style="background:#fffbeb;color:#d97706;"><i class="fas fa-pen-nib"></i></div>
-  </div>
-
-  <div class="sn-kpi-box">
-    <div>
-      <div class="sn-kpi-num"><?= $inProcessCount; ?></div>
-      <div class="sn-kpi-label">Proses Verifikasi</div>
-      <div class="sn-kpi-sub" style="color:#2563eb;">Diajukan &amp; Verifikasi</div>
-    </div>
-    <div class="sn-kpi-icon" style="background:#eff6ff;color:#2563eb;"><i class="fas fa-hourglass-half"></i></div>
-  </div>
-
-  <div class="sn-kpi-box">
-    <div>
-      <div class="sn-kpi-num"><?= $approvedCount; ?></div>
-      <div class="sn-kpi-label">Disetujui / Selesai</div>
-      <div class="sn-kpi-sub" style="color:#16a34a;">Siap unduh berkas</div>
-    </div>
-    <div class="sn-kpi-icon" style="background:#f0fdf4;color:#16a34a;"><i class="fas fa-check-double"></i></div>
-  </div>
-</div>
 
 <!-- Quick Status Filter Pills -->
 <div class="sn-status-filters" id="snStatusFilterBar">
