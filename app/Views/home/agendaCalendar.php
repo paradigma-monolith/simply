@@ -104,13 +104,104 @@ $monthlyCount = isset($monthlyRecurringCount) ? (int) $monthlyRecurringCount : 0
     }
 
     function convertUrlsToLinks(text) {
-      if (!text) return '<span class="text-muted font-italic">Tidak ada deskripsi.</span>';
-      var safeText = escapeHtml(text);
-      var urlRegex = /((?:https?:\/\/|www\.)(?:[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*)))|([a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}(?:\/[-a-zA-Z0-9()@:%_\+.~#?&//=]*)?)/g;
-      return safeText.replace(urlRegex, function(url) {
-        var href = /^https?:\/\//i.test(url) ? url : ('https://' + url);
-        return '<button type="button" class="btn btn-xs btn-primary link-button mx-1" data-url="' + escapeHtml(href) + '"><i class="fas fa-external-link-alt mr-1"></i>Buka Link</button>';
+      if (!text || !String(text).trim()) {
+        return '<span class="text-muted font-italic">Tidak ada deskripsi.</span>';
+      }
+      var rawHtml = String(text);
+      // Jika terdapat tag HTML yang ter-encode ganda (&lt;p&gt;, &lt;br&gt;, dll.), decode terlebih dahulu
+      if (/&lt;\s*\/?\s*(p|br|ul|ol|li|b|strong|i|em|u|span|div|a)\b/i.test(rawHtml)) {
+        var txtDecoder = document.createElement('textarea');
+        txtDecoder.innerHTML = rawHtml;
+        rawHtml = txtDecoder.value;
+      }
+
+      var parser = new DOMParser();
+      var doc = parser.parseFromString('<div>' + rawHtml + '</div>', 'text/html');
+      var root = doc.body.firstChild;
+      if (!root) {
+        return escapeHtml(rawHtml);
+      }
+
+      // 1. Hapus elemen berbahaya (proteksi XSS)
+      root.querySelectorAll('script, iframe, object, embed, form, input, button, style, link, meta').forEach(function(el) {
+        el.remove();
       });
+
+      // Hapus atribut event handler inline (on*)
+      root.querySelectorAll('*').forEach(function(el) {
+        Array.from(el.attributes).forEach(function(attr) {
+          if (attr.name.toLowerCase().indexOf('on') === 0) {
+            el.removeAttribute(attr.name);
+          }
+        });
+      });
+
+      // 2. Ubah tag <a href="..."> dari Summernote menjadi tombol Buka Link
+      root.querySelectorAll('a[href]').forEach(function(a) {
+        var rawHref = (a.getAttribute('href') || '').trim();
+        if (!rawHref || /^javascript:/i.test(rawHref)) {
+          a.replaceWith(doc.createTextNode(a.textContent || ''));
+          return;
+        }
+        var href = /^https?:\/\//i.test(rawHref) ? rawHref : ('https://' + rawHref);
+        var btn = doc.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-xs btn-primary link-button mx-1 my-1';
+        btn.setAttribute('data-url', href);
+        btn.innerHTML = '<i class="fas fa-external-link-alt mr-1"></i>Buka Link';
+        a.replaceWith(btn);
+      });
+
+      // 3. Ubah URL plain-text di dalam Text Node menjadi tombol Buka Link tanpa merusak tag HTML
+      var urlRegex = /((?:https?:\/\/|www\.)[^\s<>"')]+)|(\b[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.(?:go\.id|ac\.id|or\.id|co\.id|id|com|net|org|dev|io|gov|edu)(?:\/[^\s<>"')]*)?)/gi;
+      var walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+      var textNodes = [];
+      var curr;
+      while ((curr = walker.nextNode())) {
+        if (curr.parentNode && curr.parentNode.tagName !== 'BUTTON') {
+          textNodes.push(curr);
+        }
+      }
+
+      textNodes.forEach(function(node) {
+        var val = node.nodeValue;
+        if (!val || !urlRegex.test(val)) return;
+        urlRegex.lastIndex = 0;
+
+        var frag = doc.createDocumentFragment();
+        var lastIdx = 0;
+        var match;
+        while ((match = urlRegex.exec(val)) !== null) {
+          if (match.index > lastIdx) {
+            frag.appendChild(doc.createTextNode(val.slice(lastIdx, match.index)));
+          }
+          var cleanUrl = match[0].replace(/[.,;:!?]+$/, '');
+          var trailing = match[0].slice(cleanUrl.length);
+          var href = /^https?:\/\//i.test(cleanUrl) ? cleanUrl : ('https://' + cleanUrl);
+
+          var btn = doc.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn btn-xs btn-primary link-button mx-1 my-1';
+          btn.setAttribute('data-url', href);
+          btn.innerHTML = '<i class="fas fa-external-link-alt mr-1"></i>Buka Link';
+          frag.appendChild(btn);
+
+          if (trailing) {
+            frag.appendChild(doc.createTextNode(trailing));
+          }
+          lastIdx = urlRegex.lastIndex;
+        }
+        if (lastIdx < val.length) {
+          frag.appendChild(doc.createTextNode(val.slice(lastIdx)));
+        }
+        node.parentNode.replaceChild(frag, node);
+      });
+
+      if (!root.textContent.trim() && !root.querySelector('button')) {
+        return '<span class="text-muted font-italic">Tidak ada deskripsi.</span>';
+      }
+
+      return '<div class="sh-agenda-rich-desc">' + root.innerHTML + '</div>';
     }
 
     function openAgendaModal(titleText, bodyHtml) {
@@ -404,6 +495,14 @@ $monthlyCount = isset($monthlyRecurringCount) ? (int) $monthlyRecurringCount : 0
     border-radius: 8px;
     padding: 11px 13px;
     margin-bottom: 10px;
+  }
+  .sh-agenda-rich-desc p {
+    margin-bottom: 0.5rem;
+  }
+  .sh-agenda-rich-desc p:last-child,
+  .sh-agenda-rich-desc ul:last-child,
+  .sh-agenda-rich-desc ol:last-child {
+    margin-bottom: 0;
   }
 
   /* Modern FullCalendar Overrides */

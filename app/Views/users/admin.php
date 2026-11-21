@@ -1416,16 +1416,91 @@ if (!empty($absenHariIni)) {
     }
 
     function convertUrlsToLinksForAlert(text) {
-      if (!text) return '';
-      const safeText = escapeHtml(text);
-      const urlRegex = /((?:https?:\/\/|www\.)(?:[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*)))|([a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}(?:\/[-a-zA-Z0-9()@:%_\+.~#?&//=]*)?)/g;
-      return safeText.replace(urlRegex, function(url) {
-        let href = url;
-        if (!/^https?:\/\//i.test(href)) {
-          href = 'https://' + href;
-        }
-        return `<button type="button" class="btn btn-xs btn-primary link-button-alert mx-1" data-url="${escapeHtml(href)}"><i class="fas fa-external-link-alt mr-1"></i>Buka Link</button>`;
+      if (!text || !String(text).trim()) return '';
+      let rawHtml = String(text);
+      if (/&lt;\s*\/?\s*(p|br|ul|ol|li|b|strong|i|em|u|span|div|a)\b/i.test(rawHtml)) {
+        const txtDecoder = document.createElement('textarea');
+        txtDecoder.innerHTML = rawHtml;
+        rawHtml = txtDecoder.value;
+      }
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString('<div>' + rawHtml + '</div>', 'text/html');
+      const root = doc.body.firstChild;
+      if (!root) return escapeHtml(rawHtml);
+
+      root.querySelectorAll('script, iframe, object, embed, form, input, button, style, link, meta').forEach(function(el) {
+        el.remove();
       });
+
+      root.querySelectorAll('*').forEach(function(el) {
+        Array.from(el.attributes).forEach(function(attr) {
+          if (attr.name.toLowerCase().indexOf('on') === 0) {
+            el.removeAttribute(attr.name);
+          }
+        });
+      });
+
+      root.querySelectorAll('a[href]').forEach(function(a) {
+        const rawHref = (a.getAttribute('href') || '').trim();
+        if (!rawHref || /^javascript:/i.test(rawHref)) {
+          a.replaceWith(doc.createTextNode(a.textContent || ''));
+          return;
+        }
+        const href = /^https?:\/\//i.test(rawHref) ? rawHref : ('https://' + rawHref);
+        const btn = doc.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-xs btn-primary link-button-alert mx-1 my-1';
+        btn.setAttribute('data-url', href);
+        btn.innerHTML = '<i class="fas fa-external-link-alt mr-1"></i>Buka Link';
+        a.replaceWith(btn);
+      });
+
+      const urlRegex = /((?:https?:\/\/|www\.)[^\s<>"')]+)|(\b[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.(?:go\.id|ac\.id|or\.id|co\.id|id|com|net|org|dev|io|gov|edu)(?:\/[^\s<>"')]*)?)/gi;
+      const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+      const textNodes = [];
+      let curr;
+      while ((curr = walker.nextNode())) {
+        if (curr.parentNode && curr.parentNode.tagName !== 'BUTTON') {
+          textNodes.push(curr);
+        }
+      }
+
+      textNodes.forEach(function(node) {
+        const val = node.nodeValue;
+        if (!val || !urlRegex.test(val)) return;
+        urlRegex.lastIndex = 0;
+
+        const frag = doc.createDocumentFragment();
+        let lastIdx = 0;
+        let match;
+        while ((match = urlRegex.exec(val)) !== null) {
+          if (match.index > lastIdx) {
+            frag.appendChild(doc.createTextNode(val.slice(lastIdx, match.index)));
+          }
+          const cleanUrl = match[0].replace(/[.,;:!?]+$/, '');
+          const trailing = match[0].slice(cleanUrl.length);
+          const href = /^https?:\/\//i.test(cleanUrl) ? cleanUrl : ('https://' + cleanUrl);
+
+          const btn = doc.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn btn-xs btn-primary link-button-alert mx-1 my-1';
+          btn.setAttribute('data-url', href);
+          btn.innerHTML = '<i class="fas fa-external-link-alt mr-1"></i>Buka Link';
+          frag.appendChild(btn);
+
+          if (trailing) {
+            frag.appendChild(doc.createTextNode(trailing));
+          }
+          lastIdx = urlRegex.lastIndex;
+        }
+        if (lastIdx < val.length) {
+          frag.appendChild(doc.createTextNode(val.slice(lastIdx)));
+        }
+        node.parentNode.replaceChild(frag, node);
+      });
+
+      return root.innerHTML;
     }
 
     function getCallendarAgenda() {
