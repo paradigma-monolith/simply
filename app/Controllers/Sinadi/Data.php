@@ -444,37 +444,60 @@ class Data extends BaseController
       '000000000000000015',
       '000000000000000016'
     ];
-    $cekAkun = $this->userModel->where('username', session()->get('username'))
+    $cekAkun = $this->userModel
+      ->select('data_pegawai.nip')
+      ->where('user.username', session()->get('username'))
       ->join('data_pegawai', 'user.id_user=data_pegawai.id_user')
       ->first();
-    if ($cekAkun) {
-      if (in_array($cekAkun['nip'], $blockNip)) {
-        session()->setFlashdata('error', 'Akun anda dibatasi untuk penggunaan SINADI, coba untuk menggunakan akun pribadi!');
-        return redirect()->to('/sinadi/dinasDalamKota');
-      }
+    if ($cekAkun && in_array($cekAkun['nip'], $blockNip, true)) {
+      session()->setFlashdata('error', 'Akun anda dibatasi untuk penggunaan SINADI, coba untuk menggunakan akun pribadi!');
+      return redirect()->to('/sinadi/dinasDalamKota');
     }
-    $data['title'] = "Sinadi | Formulir Perjalanan Dinas <br/><small>(<small>Dalam Kota</small>)</small>"; // kelola_data_cuti
+
+    $data['title'] = "Sinadi | Formulir Perjalanan Dinas Dalam Kota";
     $data['activeMenu'] = "dinasDalamKota";
 
     $data['setting'] = $this->sinadiSettingModel->where('status', 'Aktif')->first();
-    $data['kota'] = $this->kotaKabupatenModel->findAll();
+    $data['kota'] = [];
     $data['pegawai'] = $this->dataPegawaiModel
+      ->select('data_pegawai.nip, data_pegawai.nama, golongan.golongan, jabatan.jabatan')
       ->join('golongan', 'golongan.id_golongan=data_pegawai.id_golongan')
       ->join('jabatan', 'jabatan.id_jabatan=data_pegawai.id_jabatan')
       ->where('status_bekerja', 'aktif')
       ->orderBy("golongan.golongan", "desc")
       ->findAll();
 
-    if ($id == null)
+    if ($id == null) {
       return view('crud/sinadi_tambah_perjalanan_dinas_dalam_kota', $data);
-    else {
-      $data['perjalanan'] = $this->sinadiPerjalananDinasModel->where('id_perjalanan', $id)->first();
-      $data['peserta'] = $this->sinadiPerjalananDinasPesertaModel
-        ->join('sinadi_perjalanan_dinas', 'sinadi_perjalanan_dinas.id_perjalanan=sinadi_perjalanan_dinas_peserta.id_perjalanan')
-        ->join('sinadi_setting', 'sinadi_perjalanan_dinas_peserta.id_sinadi_setting=sinadi_setting.id_sinadi_setting')
-        ->where('sinadi_perjalanan_dinas.id_perjalanan', $id)->findAll();
-      return view('crud/sinadi_ubah_perjalanan_dinas_dalam_kota', $data);
     }
+
+    $data['perjalanan'] = $this->sinadiPerjalananDinasModel
+      ->select('id_perjalanan, kategori, nama_kegiatan, tgl_pelaksanaan, tgl_pelaksanaan_akhir, tempat_perjalanan, mata_anggaran, sumber_anggaran, berkas, file, catatan_kegiatan, pic, pic_nip')
+      ->where('id_perjalanan', (int) $id)
+      ->first();
+    $data['peserta'] = $this->sinadiPerjalananDinasPesertaModel
+      ->select(
+        'sinadi_perjalanan_dinas_peserta.id_peserta, sinadi_perjalanan_dinas_peserta.id_perjalanan, '
+        . 'sinadi_perjalanan_dinas_peserta.nip_pegawai, sinadi_perjalanan_dinas_peserta.nama_pegawai, '
+        . 'sinadi_perjalanan_dinas_peserta.jabatan_pegawai, sinadi_perjalanan_dinas_peserta.golongan, '
+        . 'sinadi_perjalanan_dinas_peserta.tgl_pergi, sinadi_perjalanan_dinas_peserta.tgl_pulang, '
+        . 'sinadi_perjalanan_dinas_peserta.kota_asal, sinadi_perjalanan_dinas_peserta.kota, '
+        . 'sinadi_perjalanan_dinas_peserta.no_surat_tugas, sinadi_perjalanan_dinas_peserta.tgl_surat_tugas, '
+        . 'sinadi_perjalanan_dinas_peserta.no_sppd, sinadi_perjalanan_dinas_peserta.tgl_sppd, '
+        . 'sinadi_perjalanan_dinas_peserta.transportasi, sinadi_perjalanan_dinas_peserta.transport_hari, '
+        . 'sinadi_perjalanan_dinas_peserta.transport_nominal, sinadi_perjalanan_dinas_peserta.transport_jumlah, '
+        . 'sinadi_perjalanan_dinas_peserta.harian_hari, sinadi_perjalanan_dinas_peserta.harian_nominal, '
+        . 'sinadi_perjalanan_dinas_peserta.harian_jumlah, sinadi_perjalanan_dinas_peserta.penginapan_hari, '
+        . 'sinadi_perjalanan_dinas_peserta.penginapan_nominal, sinadi_perjalanan_dinas_peserta.penginapan_jumlah, '
+        . 'sinadi_perjalanan_dinas_peserta.jumlah_transfer, '
+        . 'sinadi_setting.alias_kantor, sinadi_setting.nama_kantor, sinadi_setting.kepala_kantor_nip, '
+        . 'sinadi_setting.ppk_nip, sinadi_setting.kasubag_adum_nip, sinadi_setting.bendahara_nip'
+      )
+      ->join('sinadi_setting', 'sinadi_perjalanan_dinas_peserta.id_sinadi_setting=sinadi_setting.id_sinadi_setting', 'left')
+      ->where('sinadi_perjalanan_dinas_peserta.id_perjalanan', (int) $id)
+      ->findAll();
+
+    return view('crud/sinadi_ubah_perjalanan_dinas_dalam_kota', $data);
   }
   public function formulirPerjalananDinasAntarKota($id = null)
   {
@@ -497,38 +520,63 @@ class Data extends BaseController
       '000000000000000015',
       '000000000000000016'
     ];
-    $cekAkun = $this->userModel->where('username', session()->get('username'))
+    $cekAkun = $this->userModel
+      ->select('data_pegawai.nip')
+      ->where('user.username', session()->get('username'))
       ->join('data_pegawai', 'user.id_user=data_pegawai.id_user')
       ->first();
-    if ($cekAkun) {
-      if (in_array($cekAkun['nip'], $blockNip)) {
-        session()->setFlashdata('error', 'Akun anda dibatasi untuk penggunaan SINADI, coba untuk menggunakan akun pribadi!');
-        return redirect()->to('/sinadi/dinasLuarKota');
-      }
+    if ($cekAkun && in_array($cekAkun['nip'], $blockNip, true)) {
+      session()->setFlashdata('error', 'Akun anda dibatasi untuk penggunaan SINADI, coba untuk menggunakan akun pribadi!');
+      return redirect()->to('/sinadi/dinasLuarKota');
     }
 
-    $data['title'] = "Sinadi | Formulir Perjalanan Dinas <br/><small>(<small>Antar Kota</small>)</small>"; // kelola_data_cuti
+    $data['title'] = "Sinadi | Formulir Perjalanan Dinas Luar Kota";
     $data['activeMenu'] = "dinasLuarKota";
 
     $data['setting'] = $this->sinadiSettingModel->where('status', 'Aktif')->first();
-    $data['kota'] = $this->kotaKabupatenModel->findAll();
+    $data['kota'] = $this->kotaKabupatenModel
+      ->select('nama_kota_kabupaten')
+      ->orderBy('nama_kota_kabupaten', 'ASC')
+      ->findAll();
     $data['pegawai'] = $this->dataPegawaiModel
+      ->select('data_pegawai.nip, data_pegawai.nama, golongan.golongan, jabatan.jabatan')
       ->join('golongan', 'golongan.id_golongan=data_pegawai.id_golongan')
       ->join('jabatan', 'jabatan.id_jabatan=data_pegawai.id_jabatan')
       ->where('status_bekerja', 'aktif')
       ->orderBy("golongan.golongan", "desc")
       ->findAll();
 
-    if ($id == null)
+    if ($id == null) {
       return view('crud/sinadi_tambah_perjalanan_dinas_antar_kota', $data);
-    else {
-      $data['perjalanan'] = $this->sinadiPerjalananDinasModel->where('id_perjalanan', $id)->first();
-      $data['peserta'] = $this->sinadiPerjalananDinasPesertaModel
-        ->join('sinadi_perjalanan_dinas', 'sinadi_perjalanan_dinas.id_perjalanan=sinadi_perjalanan_dinas_peserta.id_perjalanan')
-        ->join('sinadi_setting', 'sinadi_perjalanan_dinas_peserta.id_sinadi_setting=sinadi_setting.id_sinadi_setting')
-        ->where('sinadi_perjalanan_dinas.id_perjalanan', $id)->findAll();
-      return view('crud/sinadi_ubah_perjalanan_dinas_antar_kota', $data);
     }
+
+    $data['perjalanan'] = $this->sinadiPerjalananDinasModel
+      ->select('id_perjalanan, kategori, nama_kegiatan, tgl_pelaksanaan, tgl_pelaksanaan_akhir, tempat_perjalanan, mata_anggaran, sumber_anggaran, berkas, file, catatan_kegiatan, pic, pic_nip')
+      ->where('id_perjalanan', (int) $id)
+      ->first();
+    $data['peserta'] = $this->sinadiPerjalananDinasPesertaModel
+      ->select(
+        'sinadi_perjalanan_dinas_peserta.id_peserta, sinadi_perjalanan_dinas_peserta.id_perjalanan, '
+        . 'sinadi_perjalanan_dinas_peserta.nip_pegawai, sinadi_perjalanan_dinas_peserta.nama_pegawai, '
+        . 'sinadi_perjalanan_dinas_peserta.jabatan_pegawai, sinadi_perjalanan_dinas_peserta.golongan, '
+        . 'sinadi_perjalanan_dinas_peserta.tgl_pergi, sinadi_perjalanan_dinas_peserta.tgl_pulang, '
+        . 'sinadi_perjalanan_dinas_peserta.kota_asal, sinadi_perjalanan_dinas_peserta.kota, '
+        . 'sinadi_perjalanan_dinas_peserta.no_surat_tugas, sinadi_perjalanan_dinas_peserta.tgl_surat_tugas, '
+        . 'sinadi_perjalanan_dinas_peserta.no_sppd, sinadi_perjalanan_dinas_peserta.tgl_sppd, '
+        . 'sinadi_perjalanan_dinas_peserta.transportasi, sinadi_perjalanan_dinas_peserta.transport_hari, '
+        . 'sinadi_perjalanan_dinas_peserta.transport_nominal, sinadi_perjalanan_dinas_peserta.transport_jumlah, '
+        . 'sinadi_perjalanan_dinas_peserta.harian_hari, sinadi_perjalanan_dinas_peserta.harian_nominal, '
+        . 'sinadi_perjalanan_dinas_peserta.harian_jumlah, sinadi_perjalanan_dinas_peserta.penginapan_hari, '
+        . 'sinadi_perjalanan_dinas_peserta.penginapan_nominal, sinadi_perjalanan_dinas_peserta.penginapan_jumlah, '
+        . 'sinadi_perjalanan_dinas_peserta.jumlah_transfer, '
+        . 'sinadi_setting.alias_kantor, sinadi_setting.nama_kantor, sinadi_setting.kepala_kantor_nip, '
+        . 'sinadi_setting.ppk_nip, sinadi_setting.kasubag_adum_nip, sinadi_setting.bendahara_nip'
+      )
+      ->join('sinadi_setting', 'sinadi_perjalanan_dinas_peserta.id_sinadi_setting=sinadi_setting.id_sinadi_setting', 'left')
+      ->where('sinadi_perjalanan_dinas_peserta.id_perjalanan', (int) $id)
+      ->findAll();
+
+    return view('crud/sinadi_ubah_perjalanan_dinas_antar_kota', $data);
   }
   public function perjalananSaya()
   {

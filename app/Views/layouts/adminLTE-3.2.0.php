@@ -1451,9 +1451,6 @@
   <?= in_array($activeMenu, ['skema_titimangsa']) ? '<script src="/js/skema_titimangsa.js"></script>' : ''; ?>
   <?= in_array($activeMenu, ['kelola_data_cuti', 'kelola_data_permohonan']) ? '<script src="/js/kelola_data_cuti.js"></script>' : ''; ?>
   <?= in_array($activeMenu, ['sinadiSaya']) ? '<script src="/js/sinadi.js?v=' . (@filemtime(FCPATH . 'js/sinadi.js') ?: '2') . '"></script>' : ''; ?>
-  <?php if (in_array($activeMenu, ['dinasDalamKota', 'dinasLuarKota'])): ?>
-    <script src="/js/formulirPerjalananDinas3.js?v=<?= time(); ?>"></script>
-  <?php endif; ?>
   <?= in_array($activeMenu, ['sinadiBlockir']) ? '<script src="/js/sinadiBlockir.js"></script>' : ""; ?>
   <?= in_array($activeMenu, ['Dashboard']) ? '<script src="/js/dashboard(1).js?v=' . filemtime(FCPATH . 'js/dashboard(1).js') . '"></script>' : ""; ?>
   <?= in_array($activeMenu, ['sipeditArsipSaya']) ? '<script src="/js/sipedit1.js"></script>' : ""; ?>
