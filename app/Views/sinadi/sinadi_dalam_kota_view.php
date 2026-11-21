@@ -62,6 +62,41 @@ foreach ($rows as $r) {
     background: rgba(255, 255, 255, 0.25);
     color: #ffffff;
   }
+  .sn-search-wrap {
+    position: relative;
+    min-width: 220px;
+    max-width: 290px;
+    flex: 1 1 220px;
+  }
+  .sn-search-icon {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 0.76rem;
+    pointer-events: none;
+  }
+  .sn-search-input {
+    width: 100%;
+    height: 30px;
+    padding: 4px 12px 4px 30px;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    font-size: 0.77rem;
+    color: #1e293b;
+    background: #f8fafc;
+    transition: all 0.15s ease;
+    outline: none;
+  }
+  .sn-search-input:focus {
+    background: #ffffff;
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+  }
+  #example11_wrapper .dataTables_filter {
+    display: none !important;
+  }
 
   /* Modern Table Overrides */
   #example11 thead th {
@@ -157,9 +192,10 @@ foreach ($rows as $r) {
       Ditolak <span class="sn-pill-cnt"><?= $statusCounts['Ditolak']; ?></span>
     </button>
   <?php endif; ?>
-  <small class="text-muted ml-auto d-none d-md-inline" style="font-size: 0.72rem;">
-    <i class="far fa-hand-pointer mr-1"></i>Klik baris untuk melihat rincian peserta &amp; biaya
-  </small>
+  <div class="sn-search-wrap ml-auto">
+    <i class="fas fa-search sn-search-icon"></i>
+    <input type="search" id="snTableSearch" class="sn-search-input" placeholder="Cari kegiatan, tujuan, MAK, pembuat..." autocomplete="off">
+  </div>
 </div>
 
 <div class="table-responsive">
@@ -369,9 +405,11 @@ foreach ($rows as $r) {
     }
 
     var table = $('#example11').DataTable({
+      dom: "t<'row mt-2 align-items-center'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
       paging: true,
       pageLength: 20,
       lengthChange: false,
+      searching: true,
       info: true,
       autoWidth: false,
       deferRender: true,
@@ -396,12 +434,17 @@ foreach ($rows as $r) {
         info: 'Menampilkan _START_–_END_ dari _TOTAL_ dokumen',
         infoEmpty: 'Tidak ada dokumen perjalanan dinas',
         infoFiltered: '(disaring dari _MAX_ total dokumen)',
-        zeroRecords: 'Tidak ada dokumen perjalanan dinas pada status ini',
+        zeroRecords: 'Tidak ada dokumen perjalanan dinas yang cocok',
         paginate: {
           previous: '&laquo;',
           next: '&raquo;'
         }
       }
+    });
+
+    // Input pencarian terintegrasi di bar filter status
+    $('#snTableSearch').off('input keyup search').on('input keyup search', function() {
+      table.search(this.value).draw();
     });
 
     // Filter cepat berdasarkan pill status surat
