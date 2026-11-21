@@ -50,8 +50,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
   <!-- Theme style -->
   <link rel="stylesheet" href="/dist/css/adminlte.min.css">
-  <link rel="stylesheet" href="/css/customLayout.css">
-  <link rel="stylesheet" href="/css/customLayout-v2.css">
+  <link rel="stylesheet" href="/css/customLayout-v2.css?v=<?= @filemtime(FCPATH . 'css/customLayout-v2.css') ?: '1'; ?>">
   
   <!-- Feedback Highlight Styles -->
   <style>
@@ -420,208 +419,136 @@
     <?= $this->include('layouts/modal'); ?>
 
     <!-- Navbar -->
+    <?php
+    $navAccessMenu = session()->get('accessMenu');
+    if (!is_array($navAccessMenu)) {
+      $navAccessMenu = [];
+    }
+    $navPicture = trim((string) session()->get('picture'));
+    $navAvatarSrc = $navPicture !== '' ? '/dist/img/avatar/' . esc($navPicture, 'attr') : '/dist/img/boxed-bg.jpg';
+    $navNama = trim((string) session()->get('nama'));
+    $navRole = trim((string) session()->get('role'));
+    $navActiveMenu = isset($activeMenu) ? (string) $activeMenu : '';
+    ?>
     <nav class="main-header navbar navbar-expand navbar-white navbar-light">
       <!-- Left navbar links -->
       <ul class="navbar-nav">
         <li class="nav-item">
-          <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
+          <a class="nav-link topbar-icon-btn" data-widget="pushmenu" href="#" role="button" title="Toggle Menu Sidebar">
+            <i class="fas fa-bars"></i>
+          </a>
+        </li>
+        <li class="nav-item d-none d-sm-inline-block">
+          <a href="/home" class="nav-link topbar-quick-link <?= $navActiveMenu === '' ? 'is-active' : ''; ?>">
+            <i class="fas fa-home"></i>
+            <span>Beranda</span>
+          </a>
+        </li>
+        <?php if (in_array('Dashboard', $navAccessMenu)) : ?>
+          <li class="nav-item d-none d-md-inline-block">
+            <a href="/home/dashboard" class="nav-link topbar-quick-link <?= $navActiveMenu === 'Dashboard' ? 'is-active' : ''; ?>">
+              <i class="fas fa-chart-pie"></i>
+              <span>Dashboard</span>
+            </a>
+          </li>
+        <?php endif; ?>
+        <li class="nav-item d-none d-lg-inline-block">
+          <a href="/absensi" class="nav-link topbar-quick-link">
+            <i class="fas fa-fingerprint"></i>
+            <span>Absensi</span>
+          </a>
         </li>
       </ul>
 
       <!-- Right navbar links -->
       <ul class="navbar-nav ml-auto">
-        <!-- Navbar Search -->
-        <!-- <li class="nav-item">
-          <a class="nav-link" data-widget="navbar-search" href="#" role="button">
-            <i class="fas fa-search"></i>
-          </a>
-          <div class="navbar-search-block">
-            <form class="form-inline">
-              <div class="input-group input-group-sm">
-                <input class="form-control form-control-navbar" type="search" placeholder="Search" aria-label="Search">
-                <div class="input-group-append">
-                  <button class="btn btn-navbar" type="submit">
-                    <i class="fas fa-search"></i>
-                  </button>
-                  <button class="btn btn-navbar" type="button" data-widget="navbar-search">
-                    <i class="fas fa-times"></i>
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </li> -->
-
-        <!-- Messages Dropdown Menu -->
-        <!-- <li class="nav-item dropdown">
-          <a class="nav-link" data-toggle="dropdown" href="#">
-            <i class="far fa-comments"></i>
-            <span class="badge badge-danger navbar-badge">3</span>
-          </a>
-          <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-            <a href="#" class="dropdown-item">
-              Message Start
-              <div class="media">
-                <img src="/dist/img/user1-128x128.jpg" alt="User Avatar" class="img-size-50 mr-3 img-circle">
-                <div class="media-body">
-                  <h3 class="dropdown-item-title">
-                    Brad Diesel
-                    <span class="float-right text-sm text-danger"><i class="fas fa-star"></i></span>
-                  </h3>
-                  <p class="text-sm">Call me whenever you can...</p>
-                  <p class="text-sm text-muted"><i class="far fa-clock mr-1"></i> 4 Hours Ago</p>
-                </div>
-              </div>
-              Message End
-            </a>
-            <div class="dropdown-divider"></div>
-            <a href="#" class="dropdown-item">
-              Message Start
-              <div class="media">
-                <img src="/dist/img/user8-128x128.jpg" alt="User Avatar" class="img-size-50 img-circle mr-3">
-                <div class="media-body">
-                  <h3 class="dropdown-item-title">
-                    John Pierce
-                    <span class="float-right text-sm text-muted"><i class="fas fa-star"></i></span>
-                  </h3>
-                  <p class="text-sm">I got your message bro</p>
-                  <p class="text-sm text-muted"><i class="far fa-clock mr-1"></i> 4 Hours Ago</p>
-                </div>
-              </div>
-              Message End
-            </a>
-            <div class="dropdown-divider"></div>
-            <a href="#" class="dropdown-item">
-              Message Start
-              <div class="media">
-                <img src="/dist/img/user3-128x128.jpg" alt="User Avatar" class="img-size-50 img-circle mr-3">
-                <div class="media-body">
-                  <h3 class="dropdown-item-title">
-                    Nora Silvester
-                    <span class="float-right text-sm text-warning"><i class="fas fa-star"></i></span>
-                  </h3>
-                  <p class="text-sm">The subject goes here</p>
-                  <p class="text-sm text-muted"><i class="far fa-clock mr-1"></i> 4 Hours Ago</p>
-                </div>
-              </div>
-              Message End
-            </a>
-            <div class="dropdown-divider"></div>
-            <a href="#" class="dropdown-item dropdown-footer">See All Messages</a>
-          </div>
-        </li> -->
-        <!-- Notifications Dropdown Menu -->
-        <!-- <li class="nav-item dropdown">
-          <a class="nav-link" data-toggle="dropdown" href="#">
-            <i class="far fa-bell"></i>
-            <span class="badge badge-warning navbar-badge">15</span>
-          </a>
-          <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-            <span class="dropdown-item dropdown-header">15 Notifications</span>
-            <div class="dropdown-divider"></div>
-            <a href="#" class="dropdown-item">
-              <i class="fas fa-envelope mr-2"></i> 4 new messages
-              <span class="float-right text-muted text-sm">3 mins</span>
-            </a>
-            <div class="dropdown-divider"></div>
-            <a href="#" class="dropdown-item">
-              <i class="fas fa-users mr-2"></i> 8 friend requests
-              <span class="float-right text-muted text-sm">12 hours</span>
-            </a>
-            <div class="dropdown-divider"></div>
-            <a href="#" class="dropdown-item">
-              <i class="fas fa-file mr-2"></i> 3 new reports
-              <span class="float-right text-muted text-sm">2 days</span>
-            </a>
-            <div class="dropdown-divider"></div>
-            <a href="#" class="dropdown-item dropdown-footer">See All Notifications</a>
-          </div>
-        </li> -->
-        <?php if(session()->get('role') == 'Admin'): ?>
+        <?php if ($navRole === 'Admin'): ?>
         <li class="nav-item dropdown">
-          <a class="nav-link" data-toggle="dropdown" href="#">
+          <a class="nav-link topbar-icon-btn" data-toggle="dropdown" href="#" title="Pengaturan Administrator">
             <i class="fas fa-sliders-h"></i>
           </a>
-          <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-            <span class="dropdown-item dropdown-header">Pengaturan Administrator</span>
-            <div class="dropdown-divider"></div>
-            <a href="javascript:void(0)" onclick="toggleVaksinasi()" class="dropdown-item">
-              <i class="fas fa-stethoscope mr-2"></i>Pengalihan Vaksinasi di SISOVI
-              <span id="toggle-on" class="float-right text-success text-sm" style="display: none;"><i class="fas fa-toggle-on"></i></span>
-              <span id="toggle-off" class="float-right text-muted text-sm"><i class="fas fa-toggle-off"></i></span>
+          <div class="dropdown-menu dropdown-menu-right">
+            <span class="dropdown-header">Pengaturan Administrator</span>
+            <a href="javascript:void(0)" onclick="toggleVaksinasi()" class="dropdown-item justify-content-between">
+              <span><i class="fas fa-stethoscope mr-2"></i>Pengalihan Vaksinasi SISOVI</span>
+              <span id="toggle-on" class="text-success" style="display: none;"><i class="fas fa-toggle-on fa-lg"></i></span>
+              <span id="toggle-off" class="text-muted"><i class="fas fa-toggle-off fa-lg"></i></span>
             </a>
-            <div class="dropdown-divider"></div>
           </div>
         </li>
         <?php endif; ?>
-        <li class="nav-item dropdown">
-          <a class="nav-link" target="_blank" href="/manualBooks">
+
+        <li class="nav-item">
+          <a class="nav-link topbar-icon-btn" target="_blank" rel="noopener noreferrer" href="/manualBooks" title="Manual Books">
             <i class="fas fa-book"></i>
           </a>
         </li>
+
         <li class="nav-item dropdown">
-          <a class="nav-link" data-toggle="dropdown" href="#">
+          <a class="nav-link topbar-icon-btn" data-toggle="dropdown" href="#" title="Notifikasi">
             <i class="far fa-bell"></i>
             <span class="badge badge-danger navbar-badge notifikasi-pesan-sistem-number"></span>
           </a>
-          <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right notifikasi-pesan-sistem">
+          <div class="dropdown-menu dropdown-menu-right notifikasi-pesan-sistem">
+            <div class="text-center text-muted small py-3 px-3">
+              <i class="fas fa-spinner fa-spin mr-1"></i> Memuat notifikasi...
+            </div>
           </div>
         </li>
-        <li class="nav-item dropdown">
-          <a class="nav-link" href="/home/agenda">
-            <i class="fas fa-calendar"></i>
+
+        <li class="nav-item">
+          <a class="nav-link topbar-icon-btn" href="/home/agenda" title="Agenda Saya">
+            <i class="far fa-calendar-alt"></i>
           </a>
         </li>
-        <li class="nav-item dropdown">
-            <a class="nav-link" data-toggle="dropdown" href="#">
-                <i class="fas fa-ellipsis-h"></i>
-            </a>
-            <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-                <a href="/home/profil" class="dropdown-item">
-                    <i class="fas fa-user-circle mr2"></i> Akun saya
-                </a>
-                <div class="dropdown-divider"></div>
-                <a href="#" disabled class="dropdown-item">
-                    <i class="fas fa-envelope mr-2"></i> Pesan Baru
-                    <span class="float-right text-muted text-sm"><small>Perkembangan</small></span>
-                </a>
-                <div class="dropdown-divider"></div>
-                <div class="dropdown">
-            		<button class="btn dropdown-toggle" type="button" id="newDrop_Linimasa" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                		<i class="fas fa-history mr2"></i> Linimasa
-            		</button>
-            		<div class="dropdown-menu dropdown-menu-right" aria-labelledby="newDrop_Linimasa">
-                		<a class="dropdown-item" href="/home/history/login">
-                    		<i class="fas fa-sign-in-alt"></i> Login
-        		        </a>
-                		<a class="dropdown-item" href="/home/history/infografis">
-                    		<i class="fas fa-file-alt"></i> Infografis Kapal/Pesawat/Vaksin
-                		</a>
-                		<a class="dropdown-item" href="#">
-                    		<i class="fas fa-laptop-house"></i> Sicute
-                    		<span class="float-right text-muted text-sm"><small>Perkembangan</small></span>
-                		</a>
-                		<a class="dropdown-item" href="#">
-                    		<i class="fas fa-copy"></i> Sipepes
-                    		<span class="float-right text-muted text-sm"><small>Perkembangan</small></span>
-                		</a>
-                		<a class="dropdown-item" href="#">
-                    		<i class="fas fa-book"></i> Sipedit
-                    		<span class="float-right text-muted text-sm"><small>Perkembangan</small></span>
-                		</a>
-            		</div>
-        		</div>
-            </div>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" data-widget="fullscreen" href="#" role="button">
+
+        <li class="nav-item d-none d-sm-inline-block">
+          <a class="nav-link topbar-icon-btn" data-widget="fullscreen" href="#" role="button" title="Layar Penuh">
             <i class="fas fa-expand-arrows-alt"></i>
           </a>
         </li>
+
         <li class="nav-item" onclick="positionRightMessage()">
-          <a class="nav-link" data-widget="control-sidebar" data-controlsidebar-slide="true" href="#" role="button">
-            <i class="fas fa-th-large"></i>
+          <a class="nav-link topbar-icon-btn" data-widget="control-sidebar" data-controlsidebar-slide="true" href="#" role="button" title="Direktori Pegawai">
+            <i class="fas fa-address-book"></i>
           </a>
+        </li>
+
+        <li class="nav-item d-none d-sm-flex align-items-center">
+          <span class="topbar-divider"></span>
+        </li>
+
+        <!-- User Account Dropdown -->
+        <li class="nav-item dropdown">
+          <a class="nav-link topbar-user-btn" data-toggle="dropdown" href="#" title="<?= esc($navNama, 'attr'); ?>">
+            <img src="<?= $navAvatarSrc; ?>" onerror="this.onerror=null;this.src='/dist/img/boxed-bg.jpg';" class="topbar-user-avatar" alt="Avatar" decoding="async">
+            <span class="topbar-user-name"><?= esc($navNama); ?></span>
+            <i class="fas fa-chevron-down d-none d-md-inline" style="font-size: 0.65rem; color: #94a3b8;"></i>
+          </a>
+          <div class="dropdown-menu dropdown-menu-right">
+            <div class="px-3 py-2 border-bottom mb-1">
+              <div class="font-weight-bold text-dark" style="font-size: 0.85rem; line-height: 1.25;"><?= esc($navNama); ?></div>
+              <small class="text-muted"><?= esc($navRole ?: 'Pegawai'); ?></small>
+            </div>
+            <a href="/home/profil" class="dropdown-item">
+              <i class="fas fa-user-circle"></i>
+              <span>Akun Saya</span>
+            </a>
+            <span class="dropdown-header mt-1">Linimasa Aktivitas</span>
+            <a class="dropdown-item" href="/home/history/login">
+              <i class="fas fa-sign-in-alt"></i>
+              <span>Riwayat Login</span>
+            </a>
+            <a class="dropdown-item" href="/home/history/infografis">
+              <i class="fas fa-file-alt"></i>
+              <span>Infografis Kapal / Pesawat / Vaksin</span>
+            </a>
+            <div class="dropdown-divider"></div>
+            <a href="javascript:void(0)" data-location="/auth/logout" onclick="logoutSweetAlert(this)" class="dropdown-item text-danger">
+              <i class="fas fa-sign-out-alt"></i>
+              <span>Keluar</span>
+            </a>
+          </div>
         </li>
       </ul>
     </nav>
@@ -630,51 +557,81 @@
     <!-- Main Sidebar Container -->
     <aside class="main-sidebar sidebar-dark-primary elevation-4">
       <!-- Brand Logo -->
-      <a href="/admin" class="brand-link">
-        <img src="/dist/img/LOGO_KARANTINA.png" alt="AdminLTE Logo" class="brand-image img-circle elevation-3" style="opacity: .8">
-        <span class="brand-text font-weight-light">Balai Karkes Bandung</span>
+      <a href="/home" class="brand-link">
+        <img src="/dist/img/LOGO_KARANTINA.png" alt="Logo Balai Karkes Bandung" class="brand-image" decoding="async">
+        <span class="brand-text-wrap">
+          <span class="brand-title-main">Balai Karkes Bandung</span>
+          <span class="brand-title-sub">SIMPLY System</span>
+        </span>
       </a>
 
       <!-- Sidebar -->
       <div class="sidebar">
-        <!-- Sidebar user panel (optional) -->
-        <div class="user-panel mt-3 pb-3 mb-3 d-flex">
+        <!-- Sidebar user panel -->
+        <div class="user-panel d-flex">
           <div class="image">
-            <img src="/dist/img/avatar/<?= session()->get('picture'); ?>" class="profile-picture img-circle elevation-2" alt="User Image">
+            <img src="<?= $navAvatarSrc; ?>" onerror="this.onerror=null;this.src='/dist/img/boxed-bg.jpg';" class="profile-picture img-circle elevation-2" alt="User Image" decoding="async">
           </div>
           <div class="info">
-            <a href="#" class="d-block font-weight-bold" style="white-space: normal; color: #ffffff; letter-spacing: 0.3px; margin-bottom: 3px;"><?= session()->get('nama'); ?></a>
+            <a href="/home/profil" class="sidebar-user-name"><?= esc($navNama); ?></a>
             <?php
-            if (!array_key_exists('pegawaiInfo', get_defined_vars())) {
-              $db = \Config\Database::connect();
-              $pegawaiInfo = $db->table('data_pegawai')
-                ->select('jabatan.jabatan, golongan.golongan, tim_kerja.nama_tim_kerja')
-                ->join('jabatan', 'jabatan.id_jabatan = data_pegawai.id_jabatan', 'left')
-                ->join('golongan', 'golongan.id_golongan = data_pegawai.id_golongan', 'left')
-                ->join('tim_kerja', 'tim_kerja.id_tim_kerja = data_pegawai.id_tim_kerja', 'left')
-                ->where('data_pegawai.id_user', session()->get('id_user'))
-                ->get()->getRowArray();
+            $sidebarUid = (int) session()->get('id_user');
+            $sidebarCacheTtl = 180;
+            $sidebarMetaCache = session()->get('_sidebar_pegawai_cache');
+
+            if (array_key_exists('pegawaiInfo', get_defined_vars())) {
+              // Segarkan cache session saat controller sudah mengambil data terbaru (mis. Home::index)
+              if ($sidebarUid > 0) {
+                session()->set('_sidebar_pegawai_cache', [
+                  'uid'  => $sidebarUid,
+                  'ts'   => time(),
+                  'data' => $pegawaiInfo,
+                ]);
+              }
+            } elseif (
+              is_array($sidebarMetaCache)
+              && (int) ($sidebarMetaCache['uid'] ?? 0) === $sidebarUid
+              && (time() - (int) ($sidebarMetaCache['ts'] ?? 0)) < $sidebarCacheTtl
+            ) {
+              $pegawaiInfo = $sidebarMetaCache['data'] ?? null;
+            } else {
+              $pegawaiInfo = null;
+              if ($sidebarUid > 0) {
+                $db = \Config\Database::connect();
+                $pegawaiInfo = $db->table('data_pegawai')
+                  ->select('jabatan.jabatan, golongan.golongan, tim_kerja.nama_tim_kerja')
+                  ->join('jabatan', 'jabatan.id_jabatan = data_pegawai.id_jabatan', 'left')
+                  ->join('golongan', 'golongan.id_golongan = data_pegawai.id_golongan', 'left')
+                  ->join('tim_kerja', 'tim_kerja.id_tim_kerja = data_pegawai.id_tim_kerja', 'left')
+                  ->where('data_pegawai.id_user', $sidebarUid)
+                  ->get()->getRowArray();
+                session()->set('_sidebar_pegawai_cache', [
+                  'uid'  => $sidebarUid,
+                  'ts'   => time(),
+                  'data' => $pegawaiInfo,
+                ]);
+              }
             }
 
             if ($pegawaiInfo):
             ?>
-            <div style="color: #ffffff; line-height: 1.3;">
-                <?php if(!empty($pegawaiInfo['jabatan'])): ?>
-                    <div style="font-size: 12px; opacity: 0.95; margin-bottom: 3px;"><?= esc($pegawaiInfo['jabatan']) ?></div>
+            <div>
+                <?php if (!empty($pegawaiInfo['jabatan'])): ?>
+                    <div class="sidebar-user-jabatan"><?= esc($pegawaiInfo['jabatan']); ?></div>
                 <?php endif; ?>
-                
-                <?php if(!empty($pegawaiInfo['golongan']) || !empty($pegawaiInfo['nama_tim_kerja'])): ?>
-                    <div style="font-size: 11px; opacity: 0.75;">
-                        <?php 
+
+                <?php if (!empty($pegawaiInfo['golongan']) || !empty($pegawaiInfo['nama_tim_kerja'])): ?>
+                    <div class="sidebar-user-meta">
+                        <?php
                         $details = [];
-                        if(!empty($pegawaiInfo['golongan'])) $details[] = esc($pegawaiInfo['golongan']);
-                        if(!empty($pegawaiInfo['nama_tim_kerja'])) $details[] = esc($pegawaiInfo['nama_tim_kerja']);
+                        if (!empty($pegawaiInfo['golongan'])) $details[] = esc($pegawaiInfo['golongan']);
+                        if (!empty($pegawaiInfo['nama_tim_kerja'])) $details[] = esc($pegawaiInfo['nama_tim_kerja']);
                         echo implode(' &bull; ', $details);
                         ?>
                     </div>
                 <?php endif; ?>
-                <div style="margin-top: 5px;">
-                    <a href="/home/profil" class="btn btn-xs btn-outline-light"><i class="fas fa-edit"></i> Edit Profil</a>
+                <div>
+                    <a href="/home/profil" class="sidebar-user-edit-btn"><i class="fas fa-pen"></i> Edit Profil</a>
                 </div>
             </div>
             <?php endif; ?>
@@ -682,11 +639,11 @@
         </div>
 
         <!-- SidebarSearch Form -->
-        <div class="form-inline">
+        <div class="sidebar-search-wrap">
           <div class="input-group" data-widget="sidebar-search">
-            <input class="form-control form-control-sidebar" type="search" placeholder="Search" aria-label="Search">
+            <input class="form-control form-control-sidebar" type="search" placeholder="Cari menu..." aria-label="Cari menu">
             <div class="input-group-append">
-              <button class="btn btn-sidebar">
+              <button class="btn btn-sidebar" type="button" aria-label="Cari">
                 <i class="fas fa-search fa-fw"></i>
               </button>
             </div>
@@ -764,8 +721,11 @@
     </footer>
 
     <!-- Control Sidebar -->
-    <aside id="side-right-user" class="control-sidebar control-sidebar-light" style="overflow-y: scroll; width: 250px;">
-      <!-- Control sidebar content goes here -->
+    <aside id="side-right-user" class="control-sidebar control-sidebar-light" style="overflow-y: auto;">
+      <div class="text-center text-muted small py-5 px-3">
+        <i class="fas fa-users d-block mb-2" style="font-size: 1.5rem; opacity: 0.45;"></i>
+        Klik untuk memuat direktori pegawai
+      </div>
     </aside>
     <aside class="positionRightMessage position-fixed" style="bottom: 0; right: 0; width: 550px; z-index: 1;"></aside>
     <!-- /.control-sidebar -->
@@ -947,7 +907,7 @@
 
   <!--<script src="/js/wbk.js"></script>-->
   <script src="/js/validation_data_cuti.js?v=<?= @filemtime(FCPATH . 'js/validation_data_cuti.js') ?: '1'; ?>"></script>
-  <script src="/js/sweetEmail.js"></script>
+  <script src="/js/sweetEmail.js?v=<?= @filemtime(FCPATH . 'js/sweetEmail.js') ?: '1'; ?>"></script>
   <?= in_array($activeMenu, ['tambah_dokumen', 'utama', 'pendukung', 'lainnya', 'daftar_sop']) ? '<script src="/js/viewSopUtama.js"></script>' : ""; ?>
   <!--<script src="/js/inspectElement.js"></script>-->
   <?php if(session()->get('role') != "Admin"): ?>

@@ -101,7 +101,7 @@
             </a>
           </li>
           <li class="nav-item">
-            <hr style="margin: 0;border-style: inset;border-width: 1px;" />
+            <hr class="nav-divider-line" />
           </li>
           <li class="nav-item">
             <a href="/absen/pengaturan_absen" class="nav-link <?= in_array($activeMenu, ['pengaturanAbsen']) ? "active" : ""; ?> pengaturan-absen-menu">
@@ -160,14 +160,23 @@
     
     <!-- APLIKASI ABS -->
     <?php
-    // Cek role verifikator Rawat Kendaraan sekali saja (hindari 4 query duplikat di sidebar)
+    // Cache role verifikator Rawat Kendaraan di session (180 dtk) agar tidak query DB di setiap perpindahan halaman
     $countRawatKendaraanPending = 0;
     $isAdmin = session()->get('role') == 'Admin';
     $isVerifikator1 = false;
     $isVerifikator2 = false;
-    try {
-        $userId = session()->get('id_user');
-        if ($userId) {
+    $userId = (int) session()->get('id_user');
+    $rawatCache = session()->get('_sidebar_rawat_cache');
+    $rawatCacheValid = is_array($rawatCache)
+        && (int) ($rawatCache['uid'] ?? 0) === $userId
+        && (time() - (int) ($rawatCache['ts'] ?? 0)) < 180;
+
+    if ($rawatCacheValid) {
+        $isVerifikator1 = !empty($rawatCache['v1']);
+        $isVerifikator2 = !empty($rawatCache['v2']);
+        $countRawatKendaraanPending = (int) ($rawatCache['pending'] ?? 0);
+    } elseif ($userId > 0) {
+        try {
             $rawatVerifikatorModel = new \App\Models\Abs\RawatVerifikatorModel();
             $verifRoles = $rawatVerifikatorModel
                 ->select('role')
@@ -190,9 +199,17 @@
                 if ($isVerifikator2) $statuses[] = 'verifikasi_2';
                 $countRawatKendaraanPending = (int) $rawatKendaraanModel->whereIn('status', $statuses)->countAllResults();
             }
+        } catch (\Throwable $th) {
+            // Silent error jika tabel belum tersedia
         }
-    } catch (\Throwable $th) {
-        // Silent error jika tabel belum tersedia
+
+        session()->set('_sidebar_rawat_cache', [
+            'uid'     => $userId,
+            'ts'      => time(),
+            'v1'      => $isVerifikator1,
+            'v2'      => $isVerifikator2,
+            'pending' => $countRawatKendaraanPending,
+        ]);
     }
     ?>
     <li id="abs" class="nav-item <?= in_array($activeMenu, ['abs_pengajuan','abs_gambar', 'managemen_qr_code', 'abs_verifikasi', 'bangunan', 'lokasi', 'abs_rawat_dashboard', 'abs_rawat_pengajuan', 'abs_rawat_kendaraan', 'abs_rawat_pengaturan', 'abs_rawat_verifikasi']) ? "menu-open" : ""; ?>">
@@ -348,7 +365,7 @@
         <div class="setValidationCuti-Permohonan">
         </div>
         <li class="nav-item">
-          <hr style="margin: 0;border-style: inset;border-width: 1px;" />
+          <hr class="nav-divider-line" />
         </li>
         <li class="nav-item setValidationCuti">
           <a href="/cuti/validation_cuti" class="nav-link  <?= in_array($activeMenu, ['validation_data_cuti']) ? "active" : ""; ?>">
@@ -440,11 +457,26 @@
           </a>
         </li>
         <?php
-        $userModel = new \App\Models\Master\UserModel();
-        $sinadiAkses = $userModel->select('sinadi_akses.status')
-          ->join('sinadi_akses', 'sinadi_akses.id_user=user.id_user')
-          ->where("user.username", session()->get('username'))
-          ->first();
+        $sinadiCache = session()->get('_sidebar_sinadi_cache');
+        $sinadiUsername = (string) session()->get('username');
+        if (
+          is_array($sinadiCache)
+          && ($sinadiCache['u'] ?? '') === $sinadiUsername
+          && (time() - (int) ($sinadiCache['ts'] ?? 0)) < 180
+        ) {
+          $sinadiAkses = $sinadiCache['data'] ?? null;
+        } else {
+          $userModel = new \App\Models\Master\UserModel();
+          $sinadiAkses = $userModel->select('sinadi_akses.status')
+            ->join('sinadi_akses', 'sinadi_akses.id_user=user.id_user')
+            ->where("user.username", $sinadiUsername)
+            ->first();
+          session()->set('_sidebar_sinadi_cache', [
+            'u'    => $sinadiUsername,
+            'ts'   => time(),
+            'data' => $sinadiAkses,
+          ]);
+        }
         ?>
         <?php if ($sinadiAkses && $sinadiAkses['status'] == "Akses Diterima") : ?>
           <li class="nav-item">
@@ -455,7 +487,7 @@
           </li>
         <?php endif; ?>
         <li class="nav-item">
-          <hr style="margin: 0;border-style: inset;border-width: 1px;" />
+          <hr class="nav-divider-line" />
         </li>
         <li class="nav-item">
           <a href="/sinadi/pengaturan" class="nav-link  <?= in_array($activeMenu, ['sinadiPengaturan']) ? "active" : ""; ?>">
@@ -521,8 +553,9 @@
             </a>
           </li>
           <li class="nav-item">
-            <hr style="margin: 0;border-style: inset;border-width: 1px;" />
-      
+            <hr class="nav-divider-line" />
+          </li>
+
           <li class="nav-item">
             <a href="/anggaran/dashboard" class="nav-link <?= in_array($activeMenu, ['anggaran_dashboard']) ? "active" : ""; ?>">
               <i class="far fa-circle nav-icon"></i>
@@ -543,7 +576,7 @@
           </li>
       
           <li class="nav-item">
-            <hr style="margin: 0;border-style: inset;border-width: 1px;" />
+            <hr class="nav-divider-line" />
           </li>
           <li class="nav-item">
             <a href="/relaxtime/pengaturan" class="nav-link  <?= in_array($activeMenu, ['relaxtimePengaturan']) ? "active" : ""; ?>">
@@ -600,7 +633,7 @@
         <!--    <p>SEMULMEN</p>-->
         <!--  </a>-->
         <!--</li>-->
-        <li id="kendaraanKantor" class="nav-item">
+        <li id="monevCaputRpd" class="nav-item">
             <a href="#" class="nav-link">
                 <i class="fas fa-circle nav-icon"></i>
                 <p>
@@ -677,7 +710,7 @@
           </a>
         </li>
         <li class="nav-item">
-          <hr style="margin: 0;border-style: inset;border-width: 1px;" />
+          <hr class="nav-divider-line" />
         </li>
         <li class="nav-item">
           <a href="/kendaraan_kantor/pengaturan" class="nav-link  <?= in_array($activeMenu, ['kendaraanKantorPengaturan']) ? "active" : ""; ?>">
@@ -690,7 +723,7 @@
     
     <li class="nav-header">Aplikasi Substansi</li>
     <!-- APLIKASI PELATUK -->
-    <li id="sipedit" class="nav-item <?= in_array($activeMenu, ['uklwFarmasi', 'uklwObat', 'uklwReport', 'uklwPenjamahMakanan', 'uklwLaboratorium', 'uklwPasien', 'uklwPemkes', 'uklwSkriningTBC', 'uklwSkriningHIV', 'pengukuranKebugaran']) ? "menu-open" : ""; ?>">
+    <li id="pelatuk" class="nav-item <?= in_array($activeMenu, ['uklwFarmasi', 'uklwObat', 'uklwReport', 'uklwPenjamahMakanan', 'uklwLaboratorium', 'uklwPasien', 'uklwPemkes', 'uklwSkriningTBC', 'uklwSkriningHIV', 'pengukuranKebugaran']) ? "menu-open" : ""; ?>">
       <a href="#" class="nav-link <?= in_array($activeMenu, ['uklwFarmasi', 'uklwObat', 'uklwReport', 'uklwPenjamahMakanan', 'uklwLaboratorium', 'uklwPasien', 'uklwPemkes', 'uklwSkriningTBC', 'uklwSkriningHIV', 'pengukuranKebugaran']) ? "active" : ""; ?>">
         <i class="nav-icon fas fa-heartbeat"></i>
         <p>
@@ -868,7 +901,7 @@
           </a>
         </li>
         <li class="nav-item">
-            <hr style="margin: 0;border-style: inset;border-width: 1px;" />
+            <hr class="nav-divider-line" />
           </li>
         <li class="nav-item">
           <a href="/pengawasan_kapal_akses" class="nav-link  <?= in_array($activeMenu, ['pengawasanKapalAkses']) ? "active" : ""; ?>">
@@ -995,7 +1028,7 @@
           </a>
         </li>
         <li class="nav-header">
-          <hr style="margin: 0;border-style: inset;border-width: 1px;" />
+          <hr class="nav-divider-line" />
         </li>
         <li class="nav-item">
           <a href="/sipepes/sop" class="nav-link  <?= in_array($activeMenu, ['daftar_sop']) ? "active" : ""; ?>">
@@ -1083,7 +1116,7 @@
     <!-- APLIKASI ARKAB -->
 
     <li class="nav-header">Link External</li>
-    <li id="wbk" class="nav-item <?= in_array($activeMenu, ['portalLinkSet']) ? "menu-open" : ""; ?> <?= (isset($segmentNow) && $segmentNow != "") ? "menu-open" : ""; ?>">
+    <li id="portalLink" class="nav-item <?= in_array($activeMenu, ['portalLinkSet']) ? "menu-open" : ""; ?>">
       <a href="#" class="nav-link <?= in_array($activeMenu, ['portalLinkSet']) ? "active" : ""; ?>">
         <i class="nav-icon fas fa-link"></i>
         <p>
@@ -1100,14 +1133,14 @@
           </a>
         </li>
         <li class="nav-item">
-          <hr style="margin: 0;border-style: inset;border-width: 1px;" />
+          <hr class="nav-divider-line" />
         </li>
         <div class="portal-link-get-menu">
-          <i class='fas fa-sync-alt fa-spin'></i> <span class='text-bold pt-2'>Loading...</span>
+          <div class="nav-loading-row"><i class="fas fa-sync-alt fa-spin mr-1"></i> Memuat link...</div>
         </div>
       </ul>
     </li>
-    <li id="wbk" class="nav-item <?= in_array($activeMenu, ['iframeSetLink']) ? "menu-open" : ""; ?> <?= (isset($segmentNow) && $segmentNow != "") ? "menu-open" : ""; ?>">
+    <li id="kontenTersemat" class="nav-item <?= in_array($activeMenu, ['iframeSetLink']) ? "menu-open" : ""; ?> <?= (isset($segmentNow) && $segmentNow != "") ? "menu-open" : ""; ?>">
       <a href="#" class="nav-link <?= in_array($activeMenu, ['iframeSetLink']) ? "active" : ""; ?> <?= (isset($segmentNow) && $segmentNow != "") ? "active" : ""; ?>">
         <i class="nav-icon fas fa-external-link-alt"></i>
         <p>
@@ -1124,16 +1157,16 @@
           </a>
         </li>
         <li class="nav-item">
-          <hr style="margin: 0;border-style: inset;border-width: 1px;" />
+          <hr class="nav-divider-line" />
         </li>
         <div class="iframe-get-menu">
-          <i class='fas fa-sync-alt fa-spin'></i> <span class='text-bold pt-2'>Loading...</span>
+          <div class="nav-loading-row"><i class="fas fa-sync-alt fa-spin mr-1"></i> Memuat konten...</div>
         </div>
       </ul>
     </li>
-    
-    <li class="nav-header">
-      <hr style="margin: 0;border-style: inset;border-width: 1px;" />
+
+    <li class="nav-item">
+      <hr class="nav-divider-line" />
     </li>
     
     <!-- MENU ADMIN -->

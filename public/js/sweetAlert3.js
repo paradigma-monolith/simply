@@ -373,14 +373,9 @@ function callAllUser() {
     url: `/home/ajax/getUser`,
     dataType: "json",
     beforeSend: function() {
-      // Menampilkan animasi loading pada elemen dengan class 'loader'      
       $('#side-right-user').html(
-        '<img class="animation__shake" src="/dist/img/logo.png" alt="AdminLTELogo" height="140" width="200">'
+        '<div class="text-center text-muted small py-5 px-3"><i class="fas fa-spinner fa-spin mr-1"></i> Memuat direktori pegawai...</div>'
       );
-      $('#side-right-user img').css({
-        display: 'block',
-        margin: '0 auto'
-      });
     },
     success: function(response) {
       if (response.data) {

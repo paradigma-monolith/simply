@@ -16,7 +16,7 @@ function positionRightMessage () {
       });
     } else {
         asideElement.css({
-          'right': '250px',
+          'right': '280px',
           'transition': 'right 0.2s ease'
       });
     }
