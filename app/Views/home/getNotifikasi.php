@@ -24,4 +24,5 @@
   <?php endif; ?>
 <?php endforeach; ?>
 <div class="dropdown-divider"></div>
-<a href="/home/profil" class="dropdown-item dropdown-footer">Lihat Semua Notif <span class="badge badge-danger"><?= (count($belumDibaca) - 4) > 0 ? (count($belumDibaca) - 4) : ''; ?></span></a>
+<?php $unreadTotal = isset($belumDibacaCount) ? (int) $belumDibacaCount : (isset($belumDibaca) && is_array($belumDibaca) ? count($belumDibaca) : 0); ?>
+<a href="/home/profil" class="dropdown-item dropdown-footer">Lihat Semua Notif <span class="badge badge-danger"><?= ($unreadTotal - 4) > 0 ? ($unreadTotal - 4) : ''; ?></span></a>

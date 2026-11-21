@@ -227,34 +227,46 @@ class Ajax extends BaseController
   public function getNotifikasi()
   {
     if ($this->request->isAJAX()) {
-      $by = $this->userModel->where('username', session()->get('username'))->first();
-
-      $data['belumDibaca'] = $this->notifikasiModel
-        ->select('user_penerima.nama AS nama_pa, user_pengirim.nama AS nama_pm, notifikasi.*')
-        ->join('user AS user_penerima', 'user_penerima.id_user = notifikasi.nama_penerima')
-        ->join('user AS user_pengirim', 'user_pengirim.id_user = notifikasi.nama_pengirim')
-        ->where('nama_penerima', $by['id_user'])
-        ->where('status', 'Belum Dibaca') // Menambahkan kondisi untuk status
-        ->orderBy('notifikasi.created_at', 'desc')
-        ->findAll();
-      $number = '';
-      if (count($data['belumDibaca']) > 0) {
-        $number = count($data['belumDibaca']);
+      $username = (string) session()->get('username');
+      if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
       }
 
+      if ($username === '') {
+        return $this->response->setJSON(['number' => '', 'data' => '']);
+      }
+
+      $by = $this->userModel
+        ->select('id_user')
+        ->where('username', $username)
+        ->first();
+
+      if (!$by || empty($by['id_user'])) {
+        return $this->response->setJSON(['number' => '', 'data' => '']);
+      }
+
+      $idUser = (int) $by['id_user'];
+
+      // Hitung jumlah belum dibaca dengan COUNT(*) ringan (memakai index nama_penerima + status)
+      $unreadCount = (int) $this->notifikasiModel
+        ->where('nama_penerima', $idUser)
+        ->where('status', 'Belum Dibaca')
+        ->countAllResults();
+
+      // View home/getNotifikasi hanya merender maksimal 5 notifikasi terbaru
+      $data['belumDibacaCount'] = $unreadCount;
       $data['notifikasi'] = $this->notifikasiModel
-        ->select('user_penerima.nama AS nama_pa, user_pengirim.nama AS nama_pm, notifikasi.*')
+        ->select('user_penerima.nama AS nama_pa, user_pengirim.nama AS nama_pm, notifikasi.id_notifikasi, notifikasi.pesan, notifikasi.status, notifikasi.created_at')
         ->join('user AS user_penerima', 'user_penerima.id_user = notifikasi.nama_penerima')
         ->join('user AS user_pengirim', 'user_pengirim.id_user = notifikasi.nama_pengirim')
-        ->where('nama_penerima', $by['id_user'])
+        ->where('notifikasi.nama_penerima', $idUser)
         ->orderBy('notifikasi.created_at', 'desc')
-        ->findAll();
+        ->findAll(5);
 
-      $msg = [
-        'number' => $number,
-        'data' => view('home/getNotifikasi', $data),
-      ];
-      echo json_encode($msg);
+      return $this->response->setJSON([
+        'number' => $unreadCount > 0 ? $unreadCount : '',
+        'data'   => view('home/getNotifikasi', $data),
+      ]);
     }
   }
   public function readNotif($id)
