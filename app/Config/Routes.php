@@ -746,6 +746,7 @@ $routes->post('/lhkpn_spt/export', 'Export\Excel::export_lhkpn_spt');
 
 //
 $routes->post('/getLinimasa/absensi', 'Absen\Ajax::getLinimasaData');
+$routes->post('/absensi/syncNipToken', 'Absen\Ajax::syncNipToken');
 $routes->post('/absensi/getLatestDLPhoto', 'Absen\Ajax::getLatestDLPhoto');
 $routes->get('/absen_get/users', 'Absen\Ajax::getDataAbsen');
 $routes->get('/absen_get/users_tanggal', 'Absen\Ajax::getDataAbsenTanggal');

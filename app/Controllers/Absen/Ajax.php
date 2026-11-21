@@ -966,45 +966,86 @@ class Ajax extends BaseController
       }
   }
 
+  public function syncNipToken() {
+      if ($this->request->isAJAX()) {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+          session_write_close();
+        }
+
+        $token = trim((string) ($this->request->getPost('token') ?? ''));
+        if ($token === '') {
+          $token = \App\Libraries\AbsenNipPersistence::getValidCookieToken($this->request);
+        }
+
+        $nip = \App\Libraries\AbsenNipPersistence::resolveByToken($token, $this->request, $this->response, true);
+        if ($nip !== '') {
+          $exists = $this->dataPegawaiModel
+            ->select('nip')
+            ->where('nip', $nip)
+            ->first();
+
+          if ($exists) {
+            return $this->response->setJSON([
+              'status'           => 'ok',
+              'nip'              => $nip,
+              'persistent_token' => $token,
+            ]);
+          }
+        }
+
+        return $this->response->setJSON([
+          'status' => 'invalid',
+        ]);
+      }
+
+      return $this->response->setStatusCode(403)->setJSON(['status' => 'forbidden']);
+  }
+
   public function getLinimasaData() {
       if ($this->request->isAJAX()) {
         if (session_status() === PHP_SESSION_ACTIVE) {
           session_write_close();
         }
         $msg = [];
-        
-        $cache = Services::cache();
-    
-        $persistentToken = $this->request->getCookie('persistent_token');
-        if ($persistentToken) {
-          $cacheKey = 'user_nip_token_' . $persistentToken;
-          $nip = $cache->get($cacheKey);
-    
-          if ($nip) {
-            $get = $this->absenModel
-                ->select('absen.jam_masuk, absen.jam_pulang, absen.status_masuk, absen.status_pulang, data_pegawai.nama')
-                ->join('data_pegawai', 'id_data_pegawai')
-                ->where('data_pegawai.nip', $nip)
-                ->orderBy('absen.jam_masuk', 'desc')
-                ->limit(5)
-                ->find();
-            
-            // Tambahkan perhitungan jam kerja untuk setiap record
-            foreach ($get as &$record) {
-                if (!empty($record['jam_masuk']) && !empty($record['jam_pulang'])) {
-                    $record['jam_kerja'] = hitungJamKerja($record['jam_masuk'], $record['jam_pulang']);
-                } else {
-                    $record['jam_kerja'] = '-';
-                }
-            }
-            
-            $msg = [
-                'data' => $get
-            ];
+
+        $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
+        if ($nip === '') {
+          $postToken = trim((string) ($this->request->getPost('token') ?? ''));
+          if ($postToken !== '') {
+            $nip = \App\Libraries\AbsenNipPersistence::resolveByToken($postToken, $this->request, $this->response, true);
           }
         }
-        
-        echo json_encode($msg);
+        if ($nip === '') {
+          $postNip = trim((string) ($this->request->getPost('nip') ?? ''));
+          if ($postNip !== '' && preg_match('/^[0-9]{4,32}$/', $postNip) === 1) {
+            $nip = $postNip;
+          }
+        }
+
+        if ($nip !== '') {
+          $get = $this->absenModel
+              ->select('absen.jam_masuk, absen.jam_pulang, absen.status_masuk, absen.status_pulang, data_pegawai.nama')
+              ->join('data_pegawai', 'id_data_pegawai')
+              ->where('data_pegawai.nip', $nip)
+              ->orderBy('absen.jam_masuk', 'desc')
+              ->limit(5)
+              ->find();
+
+          // Tambahkan perhitungan jam kerja untuk setiap record
+          foreach ($get as &$record) {
+              if (!empty($record['jam_masuk']) && !empty($record['jam_pulang'])) {
+                  $record['jam_kerja'] = hitungJamKerja($record['jam_masuk'], $record['jam_pulang']);
+              } else {
+                  $record['jam_kerja'] = '-';
+              }
+          }
+
+          $msg = [
+              'data' => $get
+          ];
+        }
+
+        return $this->response->setJSON($msg);
       }
   }
 }

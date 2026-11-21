@@ -9,19 +9,8 @@ class Data extends BaseController
 {
   public function index()
   {
-    $cache = Services::cache();
-    $data['nip'] = "";
-
-    // Cek token persisten di cookie
-    $persistentToken = $this->request->getCookie('persistent_token');
-    if ($persistentToken) {
-      $cacheKey = 'user_nip_token_' . $persistentToken;
-      $nip = $cache->get($cacheKey);
-
-      if ($nip) {
-        $data['nip'] = $nip;
-      }
-    }
+    $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
+    $data['nip'] = $nip;
 
     $data['getPegawai'] = $this->dataPegawaiModel->joinAll(
       $select   = '*',
@@ -38,19 +27,8 @@ class Data extends BaseController
   }
   public function verifikator()
   {
-    $cache = Services::cache();
-    $data['nip'] = "";
-
-    // Cek token persisten di cookie
-    $persistentToken = $this->request->getCookie('persistent_token');
-    if ($persistentToken) {
-      $cacheKey = 'user_nip_token_' . $persistentToken;
-      $nip = $cache->get($cacheKey);
-
-      if ($nip) {
-        $data['nip'] = $nip;
-      }
-    }
+    $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
+    $data['nip'] = $nip;
 
     $cek = $this->dataPegawaiModel->where("nip", $nip)->first();
 

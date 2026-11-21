@@ -14,18 +14,9 @@ class Data extends BaseController
   public function index()
   {
     $cache = Services::cache();
-    $data['nip'] = "";
-
-    // Cek token persisten di cookie
-    $persistentToken = $this->request->getCookie('persistent_token');
-    if ($persistentToken) {
-      $cacheKey = 'user_nip_token_' . $persistentToken;
-      $nip = $cache->get($cacheKey);
-
-      if ($nip) {
-        $data['nip'] = $nip;
-      }
-    }
+    $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
+    $data['nip'] = $nip;
+    $data['persistent_token'] = ($nip !== '') ? \App\Libraries\AbsenNipPersistence::getValidCookieToken($this->request) : '';
 
     $absenSetting = $cache->get('absen_setting_v1');
     if (!is_array($absenSetting)) {
@@ -77,18 +68,9 @@ class Data extends BaseController
     }
       
     $cache = Services::cache();
-    $data['nip'] = "";
-
-    // Cek token persisten di cookie
-    $persistentToken = $this->request->getCookie('persistent_token');
-    if ($persistentToken) {
-      $cacheKey = 'user_nip_token_' . $persistentToken;
-      $nip = $cache->get($cacheKey);
-
-      if ($nip) {
-        $data['nip'] = $nip;
-      }
-    }
+    $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
+    $data['nip'] = $nip;
+    $data['persistent_token'] = ($nip !== '') ? \App\Libraries\AbsenNipPersistence::getValidCookieToken($this->request) : '';
 
     $absenSetting = $cache->get('absen_setting_v1');
     if (!is_array($absenSetting)) {

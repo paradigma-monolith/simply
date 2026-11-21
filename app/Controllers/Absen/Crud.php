@@ -370,10 +370,10 @@ class Crud extends BaseController
               ];
             }
 
-            // Buat/perbarui token persisten hanya bila NIP valid
-            $persistentToken = bin2hex(random_bytes(16));
-            $cache->save('user_nip_token_' . $persistentToken, $nip, 2592000);
-            $this->response->setCookie('persistent_token', $persistentToken, 2592000);
+            // Buat/perbarui token persisten (database + cache + cookie 365 hari) hanya bila NIP valid
+            $persistentToken = \App\Libraries\AbsenNipPersistence::persistNip($this->request, $this->response, $nip);
+            $msg['saved_nip'] = $nip;
+            $msg['persistent_token'] = $persistentToken;
           } else {
             $msg = [
               'data'  => 'error',
@@ -485,6 +485,11 @@ class Crud extends BaseController
               }
 
               $this->absenModel->save($updateData);
+
+              // Perbarui token persisten saat absen pulang berhasil agar NIP tetap tersimpan
+              $persistentToken = \App\Libraries\AbsenNipPersistence::persistNip($this->request, $this->response, $nip);
+              $msg['saved_nip'] = $nip;
+              $msg['persistent_token'] = $persistentToken;
             } else {
               $msg = [
                 'data'  => 'error',

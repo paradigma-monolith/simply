@@ -491,21 +491,19 @@
         <button class="absen-type-btn <?= !$showWfo && !$showWfa ? 'active' : '' ?>" data-type="DL" onclick="setAbsenType('DL')">DL</button>
         <?php endif; ?>
       </div>
-      <?php if ($nip != ""): ?>
-        <button class="linimasa-absen" title="Riwayat Absensi">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <polyline points="12 6 12 12 16 14"></polyline>
-          </svg>
-        </button>
-        <button class="linimasa-absen" id="btnDownloadDL" title="Download Foto DL Terakhir" style="display:none;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-        </button>
-      <?php endif; ?>
+      <button class="linimasa-absen" id="btnRiwayatAbsen" title="Riwayat Absensi" style="<?= $nip != '' ? '' : 'display:none;'; ?>">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+      </button>
+      <button class="linimasa-absen" id="btnDownloadDL" title="Download Foto DL Terakhir" style="display:none;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+      </button>
     </div>
     
     <div class="w-100">
@@ -942,6 +940,7 @@
         success: function(response) {
           if (response && response.data) {
             if (response.data == 'sukses') {
+              saveNipPersistence(response.saved_nip || nip, response.persistent_token || '');
               if (statusAbsen === 'DL') {
                 var link = document.createElement('a');
                 link.download = 'DL_Masuk_' + nip + '_' + new Date().getTime() + '.jpg';
@@ -1135,6 +1134,7 @@
         success: function(response) {
           if (response && response.data) {
             if (response.data == 'sukses') {
+              saveNipPersistence(response.saved_nip || nip, response.persistent_token || '');
               if (statusAbsen === 'DL') {
                 var link = document.createElement('a');
                 link.download = 'DL_Pulang_' + nip + '_' + new Date().getTime() + '.jpg';
@@ -1689,6 +1689,94 @@
       });
     }
 
+    const STORAGE_NIP_KEY = 'simply_saved_nip';
+    const STORAGE_TOKEN_KEY = 'simply_persistent_token';
+    const SERVER_RESOLVED_NIP = <?= json_encode((string) ($nip ?? '')); ?>;
+    const SERVER_RESOLVED_TOKEN = <?= json_encode((string) ($persistent_token ?? '')); ?>;
+
+    function readLocalStorageSafe(key) {
+      try {
+        return $.trim(window.localStorage.getItem(key) || '');
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function writeLocalStorageSafe(key, value) {
+      try {
+        if (value) {
+          window.localStorage.setItem(key, value);
+        } else {
+          window.localStorage.removeItem(key);
+        }
+      } catch (e) {}
+    }
+
+    function updateNipActionButtons(hasNip) {
+      if (hasNip) {
+        $('#btnRiwayatAbsen').css('display', 'flex');
+      }
+    }
+
+    function saveNipPersistence(nipVal, tokenVal) {
+      var cleanNip = $.trim(String(nipVal || ''));
+      var cleanToken = $.trim(String(tokenVal || ''));
+      if (cleanNip !== '') {
+        writeLocalStorageSafe(STORAGE_NIP_KEY, cleanNip);
+        updateNipActionButtons(true);
+      }
+      if (cleanToken !== '') {
+        writeLocalStorageSafe(STORAGE_TOKEN_KEY, cleanToken);
+      }
+    }
+
+    function syncTokenWithServer(tokenVal) {
+      if (!tokenVal) return;
+      $.ajax({
+        url: '/absensi/syncNipToken',
+        method: 'POST',
+        dataType: 'json',
+        data: { token: tokenVal },
+        success: function(res) {
+          if (res && res.status === 'ok' && res.nip) {
+            var prevSavedNip = readLocalStorageSafe(STORAGE_NIP_KEY);
+            saveNipPersistence(res.nip, res.persistent_token || tokenVal);
+            var $nipInput = $('input[name="nip"]');
+            var currentVal = $.trim($nipInput.val() || '');
+            if (currentVal === '' || currentVal === prevSavedNip) {
+              if (currentVal !== res.nip) {
+                $nipInput.val(res.nip);
+                getTargetPolygons();
+              }
+            }
+          } else if (res && res.status === 'invalid') {
+            writeLocalStorageSafe(STORAGE_TOKEN_KEY, '');
+          }
+        }
+      });
+    }
+
+    (function initPersistedNip() {
+      var $nipInput = $('input[name="nip"]');
+      var currentVal = $.trim($nipInput.val() || '');
+      if (SERVER_RESOLVED_NIP !== '') {
+        saveNipPersistence(SERVER_RESOLVED_NIP, SERVER_RESOLVED_TOKEN);
+        if (currentVal === '') {
+          $nipInput.val(SERVER_RESOLVED_NIP);
+        }
+      } else {
+        var savedNip = readLocalStorageSafe(STORAGE_NIP_KEY);
+        var savedToken = readLocalStorageSafe(STORAGE_TOKEN_KEY);
+        if (savedNip !== '' && currentVal === '') {
+          $nipInput.val(savedNip);
+          updateNipActionButtons(true);
+        }
+        if (savedToken !== '') {
+          syncTokenWithServer(savedToken);
+        }
+      }
+    })();
+
     getTargetPolygons();
 
     $(document).on('input', 'input[name="nip"]', function() {
@@ -1745,6 +1833,10 @@
           url: "/getLinimasa/absensi",
           method: 'post',
           dataType: 'json',
+          data: {
+            nip: $.trim($('input[name="nip"]').val() || ''),
+            token: readLocalStorageSafe(STORAGE_TOKEN_KEY)
+          },
           beforeSend: function() {
             Swal.fire({
                 title: 'Loading...',

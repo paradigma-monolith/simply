@@ -875,20 +875,9 @@ class Auth extends BaseController
         return view('absen/update_apk');
     }
 
-    $cache = Services::cache();
-    $data['nip'] = "";
-
-    // Cek token persisten di cookie
-    $persistentToken = $this->request->getCookie('persistent_token');
-    $nip = "";
-    if ($persistentToken) {
-      $cacheKey = 'user_nip_token_' . $persistentToken;
-      $nip = $cache->get($cacheKey);
-
-      if ($nip) {
-        $data['nip'] = $nip;
-      }
-    }
+    $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
+    $data['nip'] = $nip;
+    $data['persistent_token'] = ($nip !== '') ? \App\Libraries\AbsenNipPersistence::getValidCookieToken($this->request) : '';
 
     $cek = false;
     $verifikatorKendaraan = $this->kendaraankantorVerifikatorModel
@@ -945,20 +934,9 @@ class Auth extends BaseController
         return view('absen/update_apk');
     }
 
-    $cache = Services::cache();
-    $data['nip'] = "";
-
-    // Cek token persisten di cookie
-    $persistentToken = $this->request->getCookie('persistent_token');
-    $nip = "";
-    if ($persistentToken) {
-      $cacheKey = 'user_nip_token_' . $persistentToken;
-      $nip = $cache->get($cacheKey);
-
-      if ($nip) {
-        $data['nip'] = $nip;
-      }
-    }
+    $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
+    $data['nip'] = $nip;
+    $data['persistent_token'] = ($nip !== '') ? \App\Libraries\AbsenNipPersistence::getValidCookieToken($this->request) : '';
 
     $cek = false;
     $verifikatorKendaraan = $this->kendaraankantorVerifikatorModel

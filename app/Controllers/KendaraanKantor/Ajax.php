@@ -96,21 +96,13 @@ class Ajax extends BaseController
                     $penumpang = [];
                 }
 
-                $cache = Services::cache();
                 $cacheCek = true;
                 $cek = array();
 
-                $persistentToken = $this->request->getCookie('persistent_token');
-                if ($persistentToken) {
-                    $cacheKey = 'user_nip_token_' . $persistentToken;
-                    $nip = $cache->get($cacheKey);
-
-                    if ($nip) {
-                        $cek = $this->dataPegawaiModel->where("nip", $nip)->first();
-                        array_unshift($penumpang, $cek['id_data_pegawai']);
-                    } else {
-                        $cacheCek = false;
-                    }
+                $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
+                if ($nip !== '') {
+                    $cek = $this->dataPegawaiModel->where("nip", $nip)->first();
+                    array_unshift($penumpang, $cek['id_data_pegawai']);
                 } else {
                     $cacheCek = false;
                 }
@@ -209,20 +201,12 @@ class Ajax extends BaseController
                     $penumpang = [];
                 }
 
-                $cache = Services::cache();
                 $cacheCek = true;
 
-                $persistentToken = $this->request->getCookie('persistent_token');
-                if ($persistentToken) {
-                    $cacheKey = 'user_nip_token_' . $persistentToken;
-                    $nip = $cache->get($cacheKey);
-
-                    if ($nip) {
-                        $cek = $this->dataPegawaiModel->where("nip", $nip)->first();
-                        array_unshift($penumpang, $cek['id_data_pegawai']);
-                    } else {
-                        $cacheCek = false;
-                    }
+                $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
+                if ($nip !== '') {
+                    $cek = $this->dataPegawaiModel->where("nip", $nip)->first();
+                    array_unshift($penumpang, $cek['id_data_pegawai']);
                 } else {
                     $cacheCek = false;
                 }
@@ -274,22 +258,14 @@ class Ajax extends BaseController
     {
         if ($this->request->isAJAX()) {
             $msg = [];
-            $cache = Services::cache();
             $cacheCek = true;
 
-            $persistentToken = $this->request->getCookie('persistent_token');
-            if ($persistentToken) {
-                $cacheKey = 'user_nip_token_' . $persistentToken;
-                $nip = $cache->get($cacheKey);
+            $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
+            if ($nip !== '') {
+                $cek = $this->dataPegawaiModel->where("nip", $nip)->first();
 
-                if ($nip) {
-                    $cek = $this->dataPegawaiModel->where("nip", $nip)->first();
-
-                    $start = $this->request->getVar("start");
-                    $end = $this->request->getVar("end");
-                } else {
-                    $cacheCek = false;
-                }
+                $start = $this->request->getVar("start");
+                $end = $this->request->getVar("end");
             } else {
                 $cacheCek = false;
             }
@@ -351,19 +327,8 @@ class Ajax extends BaseController
     public function get_riwayat()
     {
         if ($this->request->isAJAX()) {
-            $cache = Services::cache();
-            $data['nip'] = "";
-
-            // Cek token persisten di cookie
-            $persistentToken = $this->request->getCookie('persistent_token');
-            if ($persistentToken) {
-                $cacheKey = 'user_nip_token_' . $persistentToken;
-                $nip = $cache->get($cacheKey);
-
-                if ($nip) {
-                    $data['nip'] = $nip;
-                }
-            }
+            $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
+            $data['nip'] = $nip;
 
             $data['getData'] = $this->kendaraanKantorRiwayatModel
                 ->select('kendaraan_kantor_riwayat.id_kendaraan_kantor_riwayat, data_pegawai.nip, kendaraan_kantor_daftar.gambar, kendaraan_kantor_daftar.nama_kendaraan, kendaraan_kantor_daftar.plat_nomor, kendaraan_kantor_riwayat.penumpang, kendaraan_kantor_riwayat.tujuan, kendaraan_kantor_riwayat.keterangan, data_pegawai.nama, kendaraan_kantor_riwayat.tanggal, DATE(kendaraan_kantor_riwayat.created_at) as date')
@@ -381,19 +346,8 @@ class Ajax extends BaseController
     public function monitoring_get_riwayat()
     {
         if ($this->request->isAJAX()) {
-            $cache = Services::cache();
-            $data['nip'] = "";
-
-            // Cek token persisten di cookie
-            $persistentToken = $this->request->getCookie('persistent_token');
-            if ($persistentToken) {
-                $cacheKey = 'user_nip_token_' . $persistentToken;
-                $nip = $cache->get($cacheKey);
-
-                if ($nip) {
-                    $data['nip'] = $nip;
-                }
-            }
+            $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
+            $data['nip'] = $nip;
 
             $data['getData'] = $this->kendaraanKantorRiwayatModel
                 ->select('kendaraan_kantor_riwayat.id_kendaraan_kantor_riwayat, data_pegawai.nip, kendaraan_kantor_daftar.gambar, kendaraan_kantor_daftar.nama_kendaraan, kendaraan_kantor_daftar.plat_nomor, kendaraan_kantor_riwayat.penumpang, kendaraan_kantor_riwayat.tujuan, kendaraan_kantor_riwayat.keterangan, data_pegawai.nama, kendaraan_kantor_riwayat.tanggal, DATE(kendaraan_kantor_riwayat.created_at) as date')
@@ -441,19 +395,8 @@ class Ajax extends BaseController
     public function get_pengajuan()
     {
         if ($this->request->isAJAX()) {
-            $cache = Services::cache();
-            $data['nip'] = "";
-
-            // Cek token persisten di cookie
-            $persistentToken = $this->request->getCookie('persistent_token');
-            if ($persistentToken) {
-                $cacheKey = 'user_nip_token_' . $persistentToken;
-                $nip = $cache->get($cacheKey);
-
-                if ($nip) {
-                    $data['nip'] = $nip;
-                }
-            }
+            $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
+            $data['nip'] = $nip;
 
             $cek = $this->dataPegawaiModel->where("nip", $nip)->first();
 
@@ -483,15 +426,7 @@ class Ajax extends BaseController
             $pin = $this->request->getVar("pin");
 
             // ====================================
-            $cache = Services::cache();
-            $nip = "";
-
-            // Cek token persisten di cookie
-            $persistentToken = $this->request->getCookie('persistent_token');
-            if ($persistentToken) {
-                $cacheKey = 'user_nip_token_' . $persistentToken;
-                $nip = $cache->get($cacheKey);
-            }
+            $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
             // ====================================
 
             $cekData = $this->dataPegawaiModel->join('kendaraan_kantor_verifikator', 'id_data_pegawai')
@@ -580,12 +515,8 @@ class Ajax extends BaseController
     {
         if ($this->request->isAJAX()) {
             $msg = [];
-            $cache = Services::cache();
-
-            $persistentToken = $this->request->getCookie('persistent_token');
-            if ($persistentToken) {
-                $cacheKey = 'user_nip_token_' . $persistentToken;
-                $nip = $cache->get($cacheKey);
+            $nip = \App\Libraries\AbsenNipPersistence::resolveNip($this->request, $this->response);
+            if ($nip !== '') {
                 $by = $this->dataPegawaiModel
                     ->where('nip', $nip)
                     ->first();

@@ -569,11 +569,52 @@
   </script>
   
   <script>
+    (function syncMenuNipToken() {
+      var serverNip = <?= json_encode((string) ($nip ?? '')); ?>;
+      var serverToken = <?= json_encode((string) ($persistent_token ?? '')); ?>;
+      try {
+        if (serverNip) {
+          window.localStorage.setItem('simply_saved_nip', serverNip);
+          if (serverToken) {
+            window.localStorage.setItem('simply_persistent_token', serverToken);
+          }
+          window.sessionStorage.removeItem('simply_menu_nip_synced');
+        } else {
+          var savedToken = $.trim(window.localStorage.getItem('simply_persistent_token') || '');
+          if (savedToken && !window.sessionStorage.getItem('simply_menu_nip_synced')) {
+            window.sessionStorage.setItem('simply_menu_nip_synced', '1');
+            $.ajax({
+              url: '/absensi/syncNipToken',
+              method: 'POST',
+              dataType: 'json',
+              data: { token: savedToken },
+              success: function(res) {
+                if (res && res.status === 'ok' && res.nip) {
+                  window.localStorage.setItem('simply_saved_nip', res.nip);
+                  if (res.persistent_token) {
+                    window.localStorage.setItem('simply_persistent_token', res.persistent_token);
+                  }
+                  window.location.reload();
+                } else if (res && res.status === 'invalid') {
+                  window.localStorage.removeItem('simply_persistent_token');
+                }
+              }
+            });
+          }
+        }
+      } catch (e) {}
+    })();
+  </script>
+
+  <script>
       $(".linimasa-absen").click(function() {
+        var savedToken = '';
+        try { savedToken = $.trim(window.localStorage.getItem('simply_persistent_token') || ''); } catch (e) {}
         $.ajax({
           url: "/getLinimasa/absensi",
           method: 'post',
           dataType: 'json',
+          data: { token: savedToken },
           beforeSend: function() {
             Swal.fire({
                 title: 'Loading...',
