@@ -4,9 +4,19 @@ namespace Config;
 
 use CodeIgniter\Config\BaseConfig;
 use CodeIgniter\Session\Handlers\FileHandler;
+use CodeIgniter\Session\Handlers\RedisHandler;
 
 class App extends BaseConfig
 {
+  public function __construct()
+  {
+    parent::__construct();
+
+    if (ENVIRONMENT === 'production' && extension_loaded('redis') && $this->sessionDriver === FileHandler::class) {
+      $this->sessionDriver   = RedisHandler::class;
+      $this->sessionSavePath = 'tcp://127.0.0.1:6379';
+    }
+  }
   /**
    * --------------------------------------------------------------------------
    * Base Site URL
