@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AIRCRAFT SANITATION INSPECTION CHECK LIST</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="<?= base_url('dist/css/adminlte.min.css') ?>">
     <link rel="stylesheet" href="<?= base_url('plugins/fontawesome-free/css/all.min.css') ?>">
     <style>
         body { font-size: 14px; background-color: #fff; }
@@ -49,11 +49,20 @@
     </style>
 </head>
 <body>
-<div class="container-fluid mt-4 mb-5 doc-container" style="max-width: 1000px;">
+<div class="container-fluid mt-3 mb-5 doc-container" style="max-width: 1000px;">
     <?php if(!empty($is_print)): ?>
     <div class="text-right mb-3 d-print-none">
-        <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">
+        <button type="button" class="btn btn-primary btn-sm font-weight-bold" onclick="window.print()">
             <i class="fas fa-print mr-1"></i> Cetak / Simpan PDF
+        </button>
+    </div>
+    <?php else: ?>
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 d-print-none" style="gap: 8px;">
+        <a href="/travelconsent/index" class="btn btn-sm btn-light border font-weight-bold">
+            <i class="fas fa-arrow-left mr-1"></i> Kembali ke Daftar Travel Consent
+        </a>
+        <button type="button" class="btn btn-sm btn-info font-weight-bold" onclick="fillAllAircraftGood()" style="background:#0d9488;border-color:#0d9488;">
+            <i class="fas fa-check-double mr-1"></i> Isi Cepat: Semua Kondisi Baik (Good)
         </button>
     </div>
     <?php endif; ?>
@@ -434,8 +443,15 @@
     </form>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+<script src="<?= base_url('dist/js/signature_pad2.3.2.min.js') ?>"></script>
 <script>
+    function fillAllAircraftGood() {
+        document.querySelectorAll('input[type="radio"][value="baik"]').forEach(function(r) { r.checked = true; });
+        document.querySelectorAll('input[type="radio"][name="pembuangan_kotoran"][value="ya"]').forEach(function(r) { r.checked = true; });
+        document.querySelectorAll('input[type="radio"][name="penanganan_air[petugas]"][value="ya"]').forEach(function(r) { r.checked = true; });
+        document.querySelectorAll('input[type="radio"][name="surat_sanitasi"][value="ada"]').forEach(function(r) { r.checked = true; });
+        document.querySelectorAll('input[type="radio"][name="kesimpulan"][value="layak"]').forEach(function(r) { r.checked = true; });
+    }
     if(document.getElementById('pad_kabin')) {
         var padKabin = new SignaturePad(document.getElementById('pad_kabin'));
     }

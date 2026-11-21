@@ -14,13 +14,67 @@ class TravelConsent extends BaseController
     protected $alatModel;
     protected $obatModel;
     protected $sanitasiModel;
+    private static bool $schemaChecked = false;
 
     public function __construct()
     {
+        self::ensureSchema();
         $this->aircraftModel = new \App\Models\AircraftSanitationModel();
         $this->alatModel = new \App\Models\AlatKesehatanModel();
         $this->obatModel = new \App\Models\ObatModel();
         $this->sanitasiModel = new \App\Models\SanitasiKapalModel();
+    }
+
+    public static function ensureSchema(): void
+    {
+        if (self::$schemaChecked) {
+            return;
+        }
+        self::$schemaChecked = true;
+
+        $flagFile = WRITEPATH . 'cache/travel_consent_schema_v1.flag';
+        if (is_file($flagFile)) {
+            return;
+        }
+
+        try {
+            $db = \Config\Database::connect();
+            $tables = [
+                'tc_aircraft_sanitation' => ['tanggal', 'created_at'],
+                'tc_alat_kesehatan'      => ['nomor_kloter', 'created_at'],
+                'tc_obat'                => ['nomor_kloter', 'created_at'],
+                'tc_sanitasi_kapal'      => ['tanggal', 'created_at'],
+            ];
+
+            foreach ($tables as $table => $indexCols) {
+                $colRes = $db->query("SHOW COLUMNS FROM `{$table}` LIKE 'foto_geotagging'");
+                if ($colRes && count($colRes->getResultArray()) === 0) {
+                    $db->query("ALTER TABLE `{$table}` ADD COLUMN `foto_geotagging` VARCHAR(255) NULL DEFAULT NULL");
+                }
+
+                $existingIdx = [];
+                $idxRes = $db->query("SHOW INDEX FROM `{$table}`");
+                if ($idxRes) {
+                    foreach ($idxRes->getResultArray() as $row) {
+                        $existingIdx[$row['Key_name']] = true;
+                    }
+                }
+
+                foreach ($indexCols as $col) {
+                    $idxName = "idx_{$table}_{$col}";
+                    if (!isset($existingIdx[$idxName])) {
+                        $db->query("ALTER TABLE `{$table}` ADD INDEX `{$idxName}` (`{$col}`)");
+                    }
+                }
+            }
+
+            if (!is_dir(WRITEPATH . 'cache')) {
+                @mkdir(WRITEPATH . 'cache', 0775, true);
+            }
+            @file_put_contents($flagFile, (string) time());
+        } catch (\Throwable $e) {
+            // Abaikan bila user DB tidak memiliki privilege ALTER
+        }
     }
 
     /**
@@ -190,12 +244,24 @@ class TravelConsent extends BaseController
     public function index()
     {
         $data = [
-            'title' => 'Travel Consent Form',
+            'title'      => 'Travel Consent Form',
             'activeMenu' => 'travel_consent',
-            'aircrafts' => $this->aircraftModel->findAll(),
-            'alats' => $this->alatModel->findAll(),
-            'obats' => $this->obatModel->findAll(),
-            'sanitasis' => $this->sanitasiModel->findAll(),
+            'aircrafts'  => $this->aircraftModel
+                ->select('id, pemilik, tanda_kebangsaan, tanggal, waktu, surat_sanitasi, kesimpulan, tindakan, petugas_kabin_nama, petugas_bkk_nama, foto_geotagging, created_at')
+                ->orderBy('id', 'DESC')
+                ->findAll(),
+            'alats'      => $this->alatModel
+                ->select('id, penerbangan_haji_h, penerbangan_haji_m, embarkasi, nomor_kloter, no_kontak, crew_nama, pelapor_nama, foto_geotagging, created_at')
+                ->orderBy('id', 'DESC')
+                ->findAll(),
+            'obats'      => $this->obatModel
+                ->select('id, penerbangan_haji_h, penerbangan_haji_m, embarkasi, nomor_kloter, no_kontak, crew_nama, pelapor_nama, foto_geotagging, created_at')
+                ->orderBy('id', 'DESC')
+                ->findAll(),
+            'sanitasis'  => $this->sanitasiModel
+                ->select('id, pelabuhan, tanggal, sertifikat_mencatat, imo_no, jenis_kapal, detail_jenis_kapal, nama_kapal, bendera, berat_gt, nama_pemeriksa, pejabat_penerbit, foto_geotagging, created_at')
+                ->orderBy('id', 'DESC')
+                ->findAll(),
         ];
         return view('travel_consent/admin/index', $data);
     }

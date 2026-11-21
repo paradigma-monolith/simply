@@ -78,7 +78,6 @@
                                 <div class="col-md-6 form-group">
                                     <label>Balai Karkes</label>
                                     <input type="text" class="form-control" value="Bandung / Bandung" disabled readonly>
-                                    <input type="hidden" name="pelabuhan" value="Bandung / Bandung">
                                 </div>
                                 <div class="col-md-6 form-group">
                                     <label>Nama Pelabuhan <span class="text-danger">*</span></label>

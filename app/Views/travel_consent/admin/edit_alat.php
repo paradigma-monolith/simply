@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DAFTAR PEMAKAIAN ALAT KESEHATAN KOTAK P3K DAN EMERGENSI</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="<?= base_url('dist/css/adminlte.min.css') ?>">
     <link rel="stylesheet" href="<?= base_url('plugins/fontawesome-free/css/all.min.css') ?>">
     <style>
         body { font-size: 14px; background-color: #fff; }
@@ -39,12 +39,18 @@
     </style>
 </head>
 <body>
-<div class="container mt-4 mb-5 doc-container">
+<div class="container mt-3 mb-5 doc-container">
     <?php if(!empty($is_print)): ?>
     <div class="text-right mb-3 d-print-none">
-        <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">
+        <button type="button" class="btn btn-primary btn-sm font-weight-bold" onclick="window.print()">
             <i class="fas fa-print mr-1"></i> Cetak / Simpan PDF
         </button>
+    </div>
+    <?php else: ?>
+    <div class="mb-3 d-print-none">
+        <a href="/travelconsent/index" class="btn btn-sm btn-light border font-weight-bold">
+            <i class="fas fa-arrow-left mr-1"></i> Kembali ke Daftar Travel Consent
+        </a>
     </div>
     <?php endif; ?>
     <div class="kop-surat">
@@ -299,7 +305,7 @@
     </form>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+<script src="<?= base_url('dist/js/signature_pad2.3.2.min.js') ?>"></script>
 <script>
     if(document.getElementById('pad_crew')) {
         var padCrew = new SignaturePad(document.getElementById('pad_crew'));

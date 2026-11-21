@@ -176,6 +176,13 @@ if (is_array($areas)) {
         
         <!-- HEADER (Shared) -->
         <div class="container-fluid">
+            <?php if(empty($is_print)): ?>
+            <div class="pt-3 d-print-none" style="max-width: 1400px; margin: 0 auto;">
+                <a href="/travelconsent/index" class="btn btn-sm btn-light border font-weight-bold">
+                    <i class="fas fa-arrow-left mr-1"></i> Kembali ke Daftar Travel Consent
+                </a>
+            </div>
+            <?php endif; ?>
             <div class="kop-surat mt-3">
                 <img src="<?= base_url('dist/img/Kop_BKK_bandung.png') ?>" alt="Kop Surat" style="max-width: 100%; height: auto;">
                 <h4 class="font-weight-bold mt-2">SERTIFIKAT PENGENDALIAN SANITASI KAPAL</h4>

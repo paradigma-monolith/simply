@@ -2,10 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DAFTAR PEMAKAIAN OBAT KOTAK P3K DAN EMERGENSI</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="<?= base_url('dist/css/adminlte.min.css') ?>">
     <link rel="stylesheet" href="<?= base_url('plugins/fontawesome-free/css/all.min.css') ?>">
     <style>
+        body { background-color: #f8fafc; font-size: 14px; }
+        .tc-doc-box { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04); }
         .kop-surat { text-align: center; margin-bottom: 20px; }
         .kop-surat img { max-width: 100%; height: auto; }
         .table th, .table td { vertical-align: middle; }
@@ -13,7 +16,15 @@
 </head>
 <body>
 <?php $is_pdf = $is_pdf ?? false; ?>
-<div class="container mt-5 mb-5">
+<div class="container mt-3 mb-5">
+    <?php if(!$is_pdf): ?>
+    <div class="mb-3 d-print-none">
+        <a href="<?= base_url('travelconsent/home') ?>" class="btn btn-sm btn-light border font-weight-bold">
+            <i class="fas fa-arrow-left mr-1"></i> Kembali ke Portal Form
+        </a>
+    </div>
+    <?php endif; ?>
+    <div class="tc-doc-box">
     <div class="kop-surat">
         <img src="/dist/img/Kop_BKK_bandung.png" alt="Kop Surat" onerror="this.onerror=null;this.src='/dist/img/Kop_BKK_bandung.jpg';">
     </div>
@@ -225,9 +236,10 @@
         </div>
 
         <div class="text-center mt-5">
-            <?php if(!$is_pdf): ?><button type="submit" class="btn btn-primary btn-lg d-print-none">Submit Form</button><?php endif; ?>
+            <?php if(!$is_pdf): ?><button type="submit" class="btn btn-primary btn-lg font-weight-bold px-5 d-print-none" style="background:#0d9488;border-color:#0d9488;"><i class="fas fa-paper-plane mr-1"></i> Submit Form</button><?php endif; ?>
         </div>
     <?php if(!$is_pdf): ?></form><?php endif; ?>
+    </div>
 </div>
 
 <?php if(!$is_pdf && session()->getFlashdata('doc_link')): ?>
@@ -270,7 +282,7 @@
 <?php if(!$is_pdf): ?>
 <script src="<?= base_url('plugins/jquery/jquery.min.js') ?>"></script>
 <script src="<?= base_url('plugins/bootstrap/js/bootstrap.bundle.min.js') ?>"></script>
-<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+<script src="<?= base_url('dist/js/signature_pad2.3.2.min.js') ?>"></script>
 <script>
     <?php if(session()->getFlashdata('doc_link')): ?>
     $(document).ready(function() {
