@@ -2,6 +2,7 @@
 
 namespace App\Controllers\Absen;
 
+use App\Libraries\AbsenMediaStorage;
 use CodeIgniter\Controller;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
@@ -53,7 +54,7 @@ class Foto extends Controller
         )->getRowArray();
 
         $raw = isset($row['img_data']) ? trim((string) $row['img_data']) : '';
-        if ($raw === '') {
+        if (AbsenMediaStorage::isEmptyValue($raw)) {
             return $this->response->setStatusCode(404);
         }
 
@@ -73,41 +74,93 @@ class Foto extends Controller
                 ->setHeader('ETag', $etag);
         }
 
-        $mime = 'image/jpeg';
-        $binary = null;
-
-        if (preg_match('/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/s', $raw, $matches)) {
-            $mime = $matches[1];
-            $binary = base64_decode($matches[2], true);
-        } elseif (strpos($raw, '/') === 0 || strpos($raw, 'dist/') === 0) {
-            $relPath = ltrim($raw, '/');
-            $fullPath = FCPATH . $relPath;
-            if (is_file($fullPath)) {
-                $binary = file_get_contents($fullPath);
-                $ext = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
-                $mimeMap = [
-                    'jpg'  => 'image/jpeg',
-                    'jpeg' => 'image/jpeg',
-                    'png'  => 'image/png',
-                    'webp' => 'image/webp',
-                    'gif'  => 'image/gif',
-                ];
-                $mime = $mimeMap[$ext] ?? 'image/jpeg';
-            }
-        } else {
-            $decoded = base64_decode($raw, true);
-            if ($decoded !== false && strlen($decoded) > 16) {
-                $binary = $decoded;
-            }
-        }
-
-        if ($binary === null || $binary === false || $binary === '') {
+        $storage = new AbsenMediaStorage();
+        $resolved = $storage->resolveToBinary($raw);
+        if ($resolved === null || $resolved['binary'] === '') {
             return $this->response->setStatusCode(404);
         }
 
         return $this->response
             ->setStatusCode(200)
-            ->setHeader('Content-Type', $mime)
+            ->setHeader('Content-Type', $resolved['mime'])
+            ->setHeader('Content-Length', (string) strlen($resolved['binary']))
+            ->setHeader('Cache-Control', 'private, max-age=86400')
+            ->setHeader('ETag', $etag)
+            ->setBody($resolved['binary']);
+    }
+
+    /**
+     * Ambil nama/path foto pada indeks tertentu dari JSON `rekam_absen`.
+     */
+    public static function extractRekamFotoRef(?string $rekamJson, int $index): ?string
+    {
+        if ($index < 0 || $rekamJson === null || trim($rekamJson) === '') {
+            return null;
+        }
+        $decoded = json_decode($rekamJson, true);
+        if (!is_array($decoded) || !isset($decoded[$index]) || !is_array($decoded[$index])) {
+            return null;
+        }
+        $foto = $decoded[$index]['foto'] ?? null;
+        if (!is_string($foto) || trim($foto) === '') {
+            return null;
+        }
+        return trim($foto);
+    }
+
+    /**
+     * Stream foto rekaman absensi (`rekam_absen`) lewat route privat tanpa ekstensi file
+     * agar tidak terkena aturan Cache-Control publik `.htaccess` untuk *.jpg/*.png.
+     */
+    public function rekamFoto($idAbsen, $index)
+    {
+        $id  = (int) $idAbsen;
+        $idx = (int) $index;
+        if ($id <= 0 || $idx < 0) {
+            return $this->response->setStatusCode(404);
+        }
+
+        $db = \Config\Database::connect();
+        $row = $db->query(
+            "SELECT `rekam_absen`, `updated_at` FROM `absen` WHERE `id_absen` = ? LIMIT 1",
+            [$id]
+        )->getRowArray();
+
+        $fotoRef = self::extractRekamFotoRef($row['rekam_absen'] ?? null, $idx);
+        if ($fotoRef === null) {
+            return $this->response->setStatusCode(404);
+        }
+
+        $storage = new AbsenMediaStorage();
+        $resolved = $storage->resolveRekamFotoPath($fotoRef);
+        if ($resolved === null) {
+            return $this->response->setStatusCode(404);
+        }
+
+        header_remove('Cache-Control');
+        header_remove('Pragma');
+        header_remove('Expires');
+        $this->response->removeHeader('Cache-Control');
+        $this->response->removeHeader('Pragma');
+        $this->response->removeHeader('Expires');
+
+        $mtime = (int) @filemtime($resolved['path']);
+        $etag  = '"' . md5("rekam|{$id}|{$idx}|{$fotoRef}|{$mtime}") . '"';
+        if (trim($this->request->getHeaderLine('If-None-Match')) === $etag) {
+            return $this->response
+                ->setStatusCode(304)
+                ->setHeader('Cache-Control', 'private, max-age=86400')
+                ->setHeader('ETag', $etag);
+        }
+
+        $binary = @file_get_contents($resolved['path']);
+        if (!is_string($binary) || $binary === '') {
+            return $this->response->setStatusCode(404);
+        }
+
+        return $this->response
+            ->setStatusCode(200)
+            ->setHeader('Content-Type', $resolved['mime'])
             ->setHeader('Content-Length', (string) strlen($binary))
             ->setHeader('Cache-Control', 'private, max-age=86400')
             ->setHeader('ETag', $etag)
@@ -130,7 +183,7 @@ class Foto extends Controller
 
         $db = \Config\Database::connect();
         $row = $db->query(
-            "SELECT (`{$column}` IS NOT NULL AND `{$column}` != '') AS has_second, `updated_at` FROM `absen` WHERE `id_absen` = ? LIMIT 1",
+            "SELECT (`{$column}` IS NOT NULL AND `{$column}` != '' AND `{$column}` != 'data:,') AS has_second, `updated_at` FROM `absen` WHERE `id_absen` = ? LIMIT 1",
             [$id]
         )->getRowArray();
 

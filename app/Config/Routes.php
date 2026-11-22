@@ -775,6 +775,7 @@ $routes->get('/absen/getSecondImage/(:num)', 'Absen\Ajax::getSecondImage/$1');
 $routes->post('/absen/getImage', 'Absen\Ajax::getImage');
 $routes->get('/absen/foto/(:num)/(:alphanum)', 'Absen\Foto::show/$1/$2');
 $routes->get('/absen/foto-check/(:num)/(:alpha)', 'Absen\Foto::checkSecond/$1/$2');
+$routes->get('/absen/rekam-foto/(:num)/(:num)', 'Absen\Foto::rekamFoto/$1/$2');
 
 $routes->post('/absen/addKeterangan', 'Absen\Crud::addKeterangan');
 $routes->get('/absen/getPegawai', 'Absen\Ajax::getPegawai');

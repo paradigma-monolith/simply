@@ -123,8 +123,8 @@
         </td>
 
         <td>
-          <?php if ($data['image_masuk_1'] != null && $data['image_masuk_1'] != '') : ?>
-            <img src="/dist/img/boxed-bg.jpg" data-src="<?= $data['image_masuk_1']; ?>" data-idabsen="<?= $data['id_absen']; ?>" data-ket="masuk" class="lazy galleryAction" alt="Foto Masuk" style="width: 100%; aspect-ratio: 9 / 16; object-fit: contain;" />
+          <?php if (!empty($data['image_masuk_1']) && $data['image_masuk_1'] !== 'data:,') : ?>
+            <img src="/dist/img/boxed-bg.jpg" data-src="/absen/foto/<?= (int) $data['id_absen']; ?>/masuk" data-idabsen="<?= (int) $data['id_absen']; ?>" data-ket="masuk" class="lazy galleryAction" alt="Foto Masuk" style="width: 100%; aspect-ratio: 9 / 16; object-fit: contain;" />
           <?php endif; ?>
         </td>
         <td class="class-absen-alamat-pulang <?= $data['validation_pulang'] == "Default" ? (in_array($data['alamat_pulang'], $zona) ? 'table-success' : ($data['keterangan'] != "" ? 'table-success' : 'table-danger')) : ($data['validation_pulang'] == "Validasi" ? 'table-success' : 'table-danger'); ?>">
@@ -168,8 +168,8 @@
         </td>
 
         <td>
-          <?php if ($data['image_pulang_1'] != null && $data['image_pulang_1'] != '') : ?>
-            <img src="/dist/img/boxed-bg.jpg" data-src="<?= $data['image_pulang_1']; ?>" data-idabsen="<?= $data['id_absen']; ?>" data-ket="pulang" class="lazy galleryAction" alt="Foto Pulang" style="width: 100%; aspect-ratio: 9 / 16; object-fit: contain;" />
+          <?php if (!empty($data['image_pulang_1']) && $data['image_pulang_1'] !== 'data:,') : ?>
+            <img src="/dist/img/boxed-bg.jpg" data-src="/absen/foto/<?= (int) $data['id_absen']; ?>/pulang" data-idabsen="<?= (int) $data['id_absen']; ?>" data-ket="pulang" class="lazy galleryAction" alt="Foto Pulang" style="width: 100%; aspect-ratio: 9 / 16; object-fit: contain;" />
           <?php endif; ?>
         </td>
         <td>

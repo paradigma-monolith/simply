@@ -1,8 +1,9 @@
 <div class="container">
-    <?php foreach($getData as $data): ?>
+    <?php foreach($getData as $idx => $data): ?>
+        <?php $rekamUrl = '/absen/rekam-foto/' . (int) $id_absen . '/' . (int) $idx; ?>
         <div class="media">
-            <span class="d-none"><?= $id_absen; ?></span>
-            <img src="/dist/foto_absen/<?= $data['foto']; ?>" data-src="/dist/foto_absen/<?= $data['foto']; ?>" style="width: 89px;" class="mr-3 gallery setAbsenImage" alt="..." />
+            <span class="d-none"><?= (int) $id_absen; ?></span>
+            <img src="<?= $rekamUrl; ?>" data-src="<?= $rekamUrl; ?>" style="width: 89px;" class="mr-3 gallery setAbsenImage" alt="..." />
             <div class="media-body">
                 <h5 class="mt-0 setAbsenRekam"><?= $data['tombol']; ?></h5>
                 <p class="mb-2 setAbsenAlamat"><?= $data['alamat_terdekat']; ?></p>
