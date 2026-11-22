@@ -135,6 +135,7 @@ tes/
 
 
 writable/*
+writable/absen_media/
 !writable/cache/index.html
 !writable/logs/index.html
 !writable/session/index.html
