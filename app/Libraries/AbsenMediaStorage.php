@@ -20,7 +20,7 @@ class AbsenMediaStorage
     private const ALLOWED_CATEGORIES = ['foto', 'ttd'];
 
     private const ALLOWED_EXTS = [
-        'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'tiff', 'svg', 'ico',
+        'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'tiff', 'ico',
     ];
 
     private const MIME_MAP = [
@@ -31,7 +31,6 @@ class AbsenMediaStorage
         'bmp'  => 'image/bmp',
         'webp' => 'image/webp',
         'tiff' => 'image/tiff',
-        'svg'  => 'image/svg+xml',
         'ico'  => 'image/x-icon',
     ];
 
@@ -205,7 +204,12 @@ class AbsenMediaStorage
             return null;
         }
 
-        return $this->saveBinary($binary, $ext, $category, $dateStr);
+        $detected = $this->detectImageType($binary, null);
+        if ($detected === null) {
+            return null;
+        }
+
+        return $this->saveBinary($binary, $detected['ext'], $category, $dateStr);
     }
 
     /**
@@ -640,9 +644,6 @@ class AbsenMediaStorage
         }
         if (strncmp($binary, "II*\x00", 4) === 0 || strncmp($binary, "MM\x00*", 4) === 0) {
             return ['mime' => 'image/tiff', 'ext' => 'tiff'];
-        }
-        if ($declaredMime === 'image/svg+xml' && stripos(ltrim($binary), '<svg') !== false) {
-            return ['mime' => 'image/svg+xml', 'ext' => 'svg'];
         }
 
         return null;

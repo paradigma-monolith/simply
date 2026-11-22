@@ -3935,16 +3935,23 @@ public function cuti()
       }
       $resolvedFile = $mediaStorage->resolveToFile($rawVal);
       if ($resolvedFile !== null) {
-        return $resolvedFile['path'];
+        return self::isSupportedDrawingImage($resolvedFile['path']) ? $resolvedFile['path'] : null;
       }
       $resolvedBin = $mediaStorage->resolveToBinary($rawVal);
       if ($resolvedBin !== null && $resolvedBin['binary'] !== '') {
-        $ext = ($resolvedBin['mime'] === 'image/jpeg') ? 'jpg' : 'png';
+        $extMap = [
+          'image/jpeg' => 'jpg',
+          'image/png'  => 'png',
+          'image/gif'  => 'gif',
+          'image/bmp'  => 'bmp',
+        ];
+        $ext = $extMap[$resolvedBin['mime']] ?? 'png';
         $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . uniqid($prefix, true) . '.' . $ext;
-        if (@file_put_contents($tmp, $resolvedBin['binary']) !== false && is_file($tmp) && filesize($tmp) > 0) {
+        if (@file_put_contents($tmp, $resolvedBin['binary']) !== false && self::isSupportedDrawingImage($tmp)) {
           $tempTtdFiles[] = $tmp;
           return $tmp;
         }
+        @unlink($tmp);
       }
       return null;
     };
@@ -4010,11 +4017,27 @@ public function cuti()
     header('Content-Disposition: attachment;filename=' . $namaFile);
     header('Cache-Control: max-age=0');
 
-    $writer->save('php://output');
-    foreach ($tempTtdFiles as $tmpFile) {
-      @unlink($tmpFile);
+    try {
+      $writer->save('php://output');
+    } finally {
+      foreach ($tempTtdFiles as $tmpFile) {
+        @unlink($tmpFile);
+      }
     }
     exit();
+  }
+
+  public static function isSupportedDrawingImage(string $path): bool
+  {
+    if (!is_file($path) || filesize($path) <= 0) {
+      return false;
+    }
+    $info = @getimagesize($path);
+    if (!is_array($info) || ($info[0] ?? 0) <= 0 || ($info[1] ?? 0) <= 0) {
+      return false;
+    }
+    $allowedTypes = [IMAGETYPE_PNG, IMAGETYPE_JPEG, IMAGETYPE_GIF, IMAGETYPE_BMP];
+    return in_array((int) ($info[2] ?? 0), $allowedTypes, true);
   }
 
   public function rekamAbsen()

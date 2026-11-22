@@ -223,4 +223,26 @@ class AbsenMediaStorageTest extends TestCase
 
         $this->assertNull($storage->saveBase64($dataUri, 'foto', '2026-11-22'));
     }
+
+    public function testSvgPayloadIsRejectedToPreventStoredXssAndDisguisedUploadIsRejected(): void
+    {
+        $storage = new AbsenMediaStorage($this->baseDir, $this->legacyDir);
+        $svgXss  = '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>' . str_repeat(' ', 64);
+        $svgUri  = 'data:image/svg+xml;base64,' . base64_encode($svgXss);
+
+        $this->assertNull($storage->decodeBase64Tolerant($svgUri));
+        $this->assertNull($storage->saveBase64($svgUri, 'foto', '2026-11-22'));
+
+        // Disguised non-image file claiming to be .jpg must fail saveUploadedFile()
+        $fakeTmp = $this->tempRoot . DIRECTORY_SEPARATOR . 'fake.jpg';
+        file_put_contents($fakeTmp, '<?php echo "not an image"; ?>' . str_repeat('A', 64));
+        $fakeUpload = new class($fakeTmp, 'evil.jpg', 'image/jpeg', (int) filesize($fakeTmp), UPLOAD_ERR_OK) extends \CodeIgniter\HTTP\Files\UploadedFile {
+            public function isValid(): bool
+            {
+                return true;
+            }
+        };
+
+        $this->assertNull($storage->saveUploadedFile($fakeUpload, 'foto', '2026-11-22'));
+    }
 }

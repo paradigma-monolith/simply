@@ -84,6 +84,7 @@ class Foto extends Controller
             ->setStatusCode(200)
             ->setHeader('Content-Type', $resolved['mime'])
             ->setHeader('Content-Length', (string) strlen($resolved['binary']))
+            ->setHeader('X-Content-Type-Options', 'nosniff')
             ->setHeader('Cache-Control', 'private, max-age=86400')
             ->setHeader('ETag', $etag)
             ->setBody($resolved['binary']);
@@ -162,6 +163,7 @@ class Foto extends Controller
             ->setStatusCode(200)
             ->setHeader('Content-Type', $resolved['mime'])
             ->setHeader('Content-Length', (string) strlen($binary))
+            ->setHeader('X-Content-Type-Options', 'nosniff')
             ->setHeader('Cache-Control', 'private, max-age=86400')
             ->setHeader('ETag', $etag)
             ->setBody($binary);

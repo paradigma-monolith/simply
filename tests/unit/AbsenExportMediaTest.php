@@ -103,4 +103,17 @@ class AbsenExportMediaTest extends TestCase
         $this->assertSame('image/png', $binRes['mime']);
         $this->assertStringStartsWith("\x89PNG", $binRes['binary']);
     }
+
+    public function testExcelSupportedDrawingGuardAcceptsRealPngAndRejectsCorruptFile(): void
+    {
+        $storage = new AbsenMediaStorage($this->baseDir);
+        $saved   = $storage->saveBase64($this->samplePngDataUri(), 'ttd', '2026-11-22');
+        $this->assertIsArray($saved);
+
+        $this->assertTrue(\App\Controllers\Export\Excel::isSupportedDrawingImage($saved['fullPath']));
+
+        $corrupt = $this->tempRoot . DIRECTORY_SEPARATOR . 'corrupt.png';
+        file_put_contents($corrupt, 'not-a-real-image-bytes');
+        $this->assertFalse(\App\Controllers\Export\Excel::isSupportedDrawingImage($corrupt));
+    }
 }

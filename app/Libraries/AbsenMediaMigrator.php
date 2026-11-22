@@ -25,7 +25,7 @@ class AbsenMediaMigrator
     ];
 
     private AbsenMediaStorage $storage;
-    /** @var callable(): int */
+    /** @var callable(): ?int */
     private $historyLenProvider;
     /** @var callable(int): void */
     private $sleepCallback;
@@ -36,7 +36,7 @@ class AbsenMediaMigrator
         ?callable $sleepCallback = null
     ) {
         $this->storage = $storage;
-        $this->historyLenProvider = $historyLenProvider ?? static fn (): int => 0;
+        $this->historyLenProvider = $historyLenProvider ?? static fn (): ?int => 0;
         $this->sleepCallback = $sleepCallback ?? static function (int $ms): void {
             if ($ms > 0) {
                 usleep($ms * 1000);
@@ -184,25 +184,36 @@ class AbsenMediaMigrator
 
     /**
      * Tunggu sampai InnoDB History list length <= $maxHistory agar ibdata1 tidak membengkak.
+     * Jika metrik tidak dapat dibaca (null, misalnya user DB tanpa privilege PROCESS),
+     * lakukan jeda konservatif 200ms dan kembalikan null agar CLI bisa memperingatkan operator.
      */
-    public function waitForPurgeLag(int $maxHistory, int $maxWaitSec = 60): int
+    public function waitForPurgeLag(int $maxHistory, int $maxWaitSec = 60): ?int
     {
         $maxHistory = max(1, $maxHistory);
         $deadline = microtime(true) + max(1, $maxWaitSec);
-        $len = (int) ($this->historyLenProvider)();
+        $len = ($this->historyLenProvider)();
+
+        if ($len === null) {
+            ($this->sleepCallback)(200);
+            return null;
+        }
 
         while ($len > $maxHistory && microtime(true) < $deadline) {
             ($this->sleepCallback)(500);
-            $len = (int) ($this->historyLenProvider)();
+            $len = ($this->historyLenProvider)();
+            if ($len === null) {
+                return null;
+            }
         }
 
-        return $len;
+        return (int) $len;
     }
 
     /**
      * Baca InnoDB History list length aktual dari MariaDB/MySQL.
+     * Mengembalikan null jika metrik tidak tersedia atau user DB tidak punya privilege PROCESS.
      */
-    public static function readInnoDbHistoryLength(BaseConnection $db): int
+    public static function readInnoDbHistoryLength(BaseConnection $db): ?int
     {
         try {
             $row = $db->query(
@@ -222,10 +233,10 @@ class AbsenMediaMigrator
                 return (int) $m[1];
             }
         } catch (\Throwable $e) {
-            return 0;
+            return null;
         }
 
-        return 0;
+        return null;
     }
 
     private function needsMigration(string $val): bool

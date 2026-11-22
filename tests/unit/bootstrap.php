@@ -46,13 +46,19 @@ if (!function_exists('log_message')) {
 }
 
 spl_autoload_register(static function (string $class): void {
-    $prefix = 'App\\';
-    if (strncmp($class, $prefix, strlen($prefix)) !== 0) {
+    $prefixes = [
+        'App\\'    => APPPATH,
+        'Config\\' => APPPATH . 'Config' . DIRECTORY_SEPARATOR,
+    ];
+    foreach ($prefixes as $prefix => $baseDir) {
+        if (strncmp($class, $prefix, strlen($prefix)) !== 0) {
+            continue;
+        }
+        $rel  = substr($class, strlen($prefix));
+        $file = $baseDir . str_replace('\\', DIRECTORY_SEPARATOR, $rel) . '.php';
+        if (is_file($file)) {
+            require_once $file;
+        }
         return;
-    }
-    $rel  = substr($class, strlen($prefix));
-    $file = APPPATH . str_replace('\\', DIRECTORY_SEPARATOR, $rel) . '.php';
-    if (is_file($file)) {
-        require_once $file;
     }
 });

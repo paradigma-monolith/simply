@@ -57,4 +57,10 @@ class AbsenFotoControllerTest extends TestCase
         $this->assertStringNotContainsString('/dist/foto_absen/', $html);
         $this->assertStringNotContainsString('.jpg', $html);
     }
+
+    public function testFotoControllerSetsNoSniffHeaderOnImageResponses(): void
+    {
+        $src = (string) file_get_contents(APPPATH . 'Controllers' . DIRECTORY_SEPARATOR . 'Absen' . DIRECTORY_SEPARATOR . 'Foto.php');
+        $this->assertGreaterThanOrEqual(2, substr_count($src, "setHeader('X-Content-Type-Options', 'nosniff')"));
+    }
 }
