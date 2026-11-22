@@ -5,7 +5,7 @@
     <title>Rekam Absen Dinas Luar</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: Helvetica, Arial, sans-serif;
             font-size: 10px;
         }
         h2, h4 {
@@ -16,12 +16,17 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: 15px;
+            table-layout: fixed;
+        }
+        thead {
+            display: table-header-group;
         }
         th, td {
             border: 1px solid #000;
-            padding: 8px;
+            padding: 6px;
             text-align: center;
             vertical-align: middle;
+            word-wrap: break-word;
         }
         th {
             background-color: #f2f2f2;
@@ -30,9 +35,8 @@
             text-align: left;
         }
         img {
-            max-width: 100px;
-            max-height: 80px;
-            object-fit: contain;
+            max-width: 95px;
+            max-height: 75px;
         }
     </style>
 </head>
@@ -68,6 +72,16 @@
                     $ttdStorage = (isset($mediaStorage) && $mediaStorage instanceof \App\Libraries\AbsenMediaStorage)
                         ? $mediaStorage
                         : new \App\Libraries\AbsenMediaStorage();
+                    $preferFilePath = !empty($useFilePathForPdf);
+                    $resolveTtdSrc = static function (?string $rawVal) use ($ttdStorage, $preferFilePath): ?string {
+                        if ($preferFilePath) {
+                            $thumb = $ttdStorage->getOrCreateExportThumbnail($rawVal, 220, 120);
+                            if ($thumb !== null) {
+                                return $thumb;
+                            }
+                        }
+                        return $ttdStorage->resolveToDataUri($rawVal);
+                    };
                     $no = 1;
                 ?>
                 <?php foreach ($absen as $data): ?>
@@ -79,18 +93,18 @@
                     <td class="text-left"><?= $data['alamat_masuk'] ?></td>
                     <td><?= $data['jam_masuk'] ?></td>
                     <td>
-                        <?php $ttd = $ttdStorage->resolveToDataUri($data['ttd_masuk'] ?? null); ?>
+                        <?php $ttd = $resolveTtdSrc($data['ttd_masuk'] ?? null); ?>
                         <?php if ($ttd !== null): ?>
-                            <img src="<?= $ttd ?>" alt="TTD">
+                            <img src="<?= $ttd ?>" width="90" alt="TTD">
                         <?php endif; ?>
                     </td>
                     <td><?= $data['status_pulang'] ?></td>
                     <td class="text-left"><?= $data['alamat_pulang'] ?></td>
                     <td><?= $data['jam_pulang'] ?></td>
                     <td>
-                        <?php $ttdPulang = $ttdStorage->resolveToDataUri($data['ttd_pulang'] ?? null); ?>
+                        <?php $ttdPulang = $resolveTtdSrc($data['ttd_pulang'] ?? null); ?>
                         <?php if ($ttdPulang !== null): ?>
-                            <img src="<?= $ttdPulang ?>" alt="TTD Pulang">
+                            <img src="<?= $ttdPulang ?>" width="90" alt="TTD Pulang">
                         <?php endif; ?>
                     </td>
                     <td><?= strip_tags(selisi_waktu($data['jam_masuk'], $data['jam_pulang'])) ?></td>

@@ -3839,24 +3839,25 @@ public function cuti()
   
   public function rekamAbsenDL()
   {
+    if (session_status() === PHP_SESSION_ACTIVE) {
+      session_write_close();
+    }
+
     $spreadsheet = new Spreadsheet();
     $sheet = $spreadsheet->getActiveSheet();
 
     $tanggalInput = $this->request->getVar("tanggal");
     $filterLokasi = $this->request->getVar("filter_lokasi");
-    if (empty($tanggalInput)) {
-        $tanggalInput = date('Y-m-d') . " - " . date('Y-m-d');
-    }
-    $tanggal = explode(" - ", $tanggalInput);
-    $tglAwal = $tanggal[0];
-    $tglAkhir = isset($tanggal[1]) ? $tanggal[1] : $tanggal[0];
+    $bounds = \App\Libraries\AbsenMediaStorage::parseDateRangeBounds(is_string($tanggalInput) ? $tanggalInput : null);
+    $tglAwal = $bounds['tglAwal'];
+    $tglAkhir = $bounds['tglAkhir'];
 
     $builder = $this->absenModel
       ->select('id_absen, absen.id_data_pegawai, status_masuk, status_pulang, alamat_masuk, alamat_pulang, jam_masuk, jam_pulang, ttd_masuk, ttd_pulang, nip, nama')
       ->join('data_pegawai', 'data_pegawai.id_data_pegawai = absen.id_data_pegawai')
       ->join('golongan', 'data_pegawai.id_golongan = golongan.id_golongan')
-      ->where('DATE(jam_masuk) >=', $tglAwal)
-      ->where('DATE(jam_masuk) <=', $tglAkhir)
+      ->where('jam_masuk >=', $bounds['startDt'])
+      ->where('jam_masuk <=', $bounds['endDt'])
       ->groupStart()
         ->where('status_masuk', 'DL')
         ->orWhere('status_pulang', 'DL')
@@ -3907,10 +3908,10 @@ public function cuti()
     $sheet->setCellValue('K1', 'TTD Pulang');
     $sheet->setCellValue('L1', 'Jam Kerja');
 
-    foreach (range('A', 'L') as $col) {
-      $sheet->getStyle($col . '1')->getFont()->setBold(true);
-      $sheet->getStyle($col . '1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-    }
+    $sheet->getStyle('A1:L1')->applyFromArray([
+      'font'      => ['bold' => true],
+      'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+    ]);
 
     $sheet->getColumnDimension('A')->setWidth(5);
     $sheet->getColumnDimension('B')->setWidth(20);
@@ -3932,6 +3933,11 @@ public function cuti()
     $resolveTtdPathForExcel = static function (?string $rawVal, string $prefix) use ($mediaStorage, &$tempTtdFiles): ?string {
       if (\App\Libraries\AbsenMediaStorage::isEmptyValue($rawVal)) {
         return null;
+      }
+      // Gunakan thumbnail JPEG datar ter-cache (220x120) untuk ukuran .xlsx jauh lebih ringkas & cepat
+      $thumbPath = $mediaStorage->getOrCreateExportThumbnail($rawVal, 220, 120);
+      if ($thumbPath !== null && self::isSupportedDrawingImage($thumbPath)) {
+        return $thumbPath;
       }
       $resolvedFile = $mediaStorage->resolveToFile($rawVal);
       if ($resolvedFile !== null) {
@@ -3959,7 +3965,7 @@ public function cuti()
     foreach ($getAbsen as $key => $data) {
       $row = $key + 2;
       $sheet->setCellValue('A' . $row, $key + 1);
-      $sheet->getCell('B' . $row)->setValueExplicit($data['nip'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+      $sheet->getCell('B' . $row)->setValueExplicit((string) $data['nip'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
       $sheet->setCellValue('C' . $row, $data['nama']);
       $sheet->setCellValue('D' . $row, $data['status_masuk']);
       $sheet->setCellValue('E' . $row, $data['alamat_masuk']);
@@ -3972,9 +3978,7 @@ public function cuti()
       $jamKerja = selisi_waktu($data['jam_masuk'], $data['jam_pulang']);
       $sheet->setCellValue('L' . $row, strip_tags($jamKerja));
       
-      $sheet->getRowDimension($row)->setRowHeight(115);
-      $sheet->getStyle('A'.$row.':L'.$row)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
-      $sheet->getStyle('A'.$row.':L'.$row)->getAlignment()->setWrapText(true);
+      $sheet->getRowDimension($row)->setRowHeight(95);
 
       // Render TTD Masuk
       $ttdMasukPath = $resolveTtdPathForExcel($data['ttd_masuk'] ?? null, 'ttd_dl_masuk_');
@@ -3984,9 +3988,9 @@ public function cuti()
           $drawingTtd->setDescription('TTD Masuk');
           $drawingTtd->setPath($ttdMasukPath);
           $drawingTtd->setCoordinates('G' . $row);
-          $drawingTtd->setHeight(80);
+          $drawingTtd->setHeight(75);
           $drawingTtd->setOffsetX(15);
-          $drawingTtd->setOffsetY(15);
+          $drawingTtd->setOffsetY(10);
           $drawingTtd->setWorksheet($sheet);
       }
       
@@ -3998,21 +4002,31 @@ public function cuti()
           $drawingTtdPulang->setDescription('TTD Pulang');
           $drawingTtdPulang->setPath($ttdPulangPath);
           $drawingTtdPulang->setCoordinates('K' . $row);
-          $drawingTtdPulang->setHeight(80);
+          $drawingTtdPulang->setHeight(75);
           $drawingTtdPulang->setOffsetX(15);
-          $drawingTtdPulang->setOffsetY(15);
+          $drawingTtdPulang->setOffsetY(10);
           $drawingTtdPulang->setWorksheet($sheet);
       }
     }
 
     $lastRow = count($getAbsen) + 1;
+    if ($lastRow >= 2) {
+      $sheet->getStyle('A2:L' . $lastRow)->applyFromArray([
+        'alignment' => [
+          'vertical' => Alignment::VERTICAL_CENTER,
+          'wrapText' => true,
+        ],
+      ]);
+    }
     $sheet->getStyle('A1:L' . $lastRow)->applyFromArray($borderStyle);
 
     $namaFile = 'Rekam_Absen_Dinas_Luar_' . $tglAwal . '_sd_' . $tglAkhir . '.xlsx';
 
     $writer = new Xlsx($spreadsheet);
 
-    ob_end_clean(); // Menghapus buffer sebelumnya untuk mencegah korup
+    if (ob_get_level() > 0) {
+      ob_end_clean(); // Menghapus buffer sebelumnya untuk mencegah korup
+    }
     header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     header('Content-Disposition: attachment;filename=' . $namaFile);
     header('Cache-Control: max-age=0');

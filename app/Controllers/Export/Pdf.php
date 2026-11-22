@@ -73,21 +73,22 @@ class Pdf extends BaseController
   }
   public function rekamAbsenDL()
   {
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+
     $tanggalInput = $this->request->getVar("tanggal");
     $filterLokasi = $this->request->getVar("filter_lokasi");
-    if (empty($tanggalInput)) {
-        $tanggalInput = date('Y-m-d') . " - " . date('Y-m-d');
-    }
-    $tanggal = explode(" - ", $tanggalInput);
-    $tglAwal = $tanggal[0];
-    $tglAkhir = isset($tanggal[1]) ? $tanggal[1] : $tanggal[0];
+    $bounds = \App\Libraries\AbsenMediaStorage::parseDateRangeBounds(is_string($tanggalInput) ? $tanggalInput : null);
+    $tglAwal = $bounds['tglAwal'];
+    $tglAkhir = $bounds['tglAkhir'];
 
     $builder = $this->absenModel
       ->select('id_absen, absen.id_data_pegawai, status_masuk, status_pulang, alamat_masuk, alamat_pulang, jam_masuk, jam_pulang, ttd_masuk, ttd_pulang, nip, nama')
       ->join('data_pegawai', 'data_pegawai.id_data_pegawai = absen.id_data_pegawai')
       ->join('golongan', 'data_pegawai.id_golongan = golongan.id_golongan')
-      ->where('DATE(jam_masuk) >=', $tglAwal)
-      ->where('DATE(jam_masuk) <=', $tglAkhir)
+      ->where('jam_masuk >=', $bounds['startDt'])
+      ->where('jam_masuk <=', $bounds['endDt'])
       ->groupStart()
         ->where('status_masuk', 'DL')
         ->orWhere('status_pulang', 'DL')
@@ -116,18 +117,31 @@ class Pdf extends BaseController
     $getAbsen = $builder->orderBy('DATE(jam_masuk), golongan.urutan', 'desc')->findAll();
 
     helper('tanggal');
+    $mediaStorage = new \App\Libraries\AbsenMediaStorage();
+    $thumbDir = $mediaStorage->getExportThumbDir();
+    if (!is_dir($thumbDir)) {
+        @mkdir($thumbDir, 0755, true);
+    }
 
     $data = [
-        'absen' => $getAbsen,
-        'tglAwal' => $tglAwal,
-        'tglAkhir' => $tglAkhir
+        'absen'             => $getAbsen,
+        'tglAwal'           => $tglAwal,
+        'tglAkhir'          => $tglAkhir,
+        'mediaStorage'      => $mediaStorage,
+        'useFilePathForPdf' => true,
     ];
 
+    $chrootDirs = array_values(array_filter([
+        realpath(FCPATH) ?: null,
+        realpath($thumbDir) ?: null,
+        realpath($mediaStorage->getBaseDir()) ?: null,
+    ]));
+
     $options = new Options();
-    $options->set('isRemoteEnabled', true);
+    $options->set('isRemoteEnabled', false);
     $options->set('isHtml5ParserEnabled', true);
-    $options->set('isFontSubsettingEnabled', true);
-    $options->set('chroot', realpath(FCPATH));
+    $options->set('isFontSubsettingEnabled', false);
+    $options->set('chroot', $chrootDirs);
     
     $dompdf = new Dompdf($options);
     $dompdf->loadHtml(view('absen/pdf_rekam_absen_dl', $data));
@@ -135,7 +149,9 @@ class Pdf extends BaseController
     $dompdf->render();
 
     $filename = 'Rekam_Absen_Dinas_Luar_' . $tglAwal . '_sd_' . $tglAkhir . '.pdf';
-    ob_end_clean(); // Menghapus buffer
+    if (ob_get_level() > 0) {
+        ob_end_clean();
+    }
     $dompdf->stream($filename, array("Attachment" => true));
   }
 

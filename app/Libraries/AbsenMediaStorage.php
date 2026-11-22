@@ -59,6 +59,157 @@ class AbsenMediaStorage
         return $this->legacyPublicDir;
     }
 
+    public function getExportThumbDir(): string
+    {
+        return $this->baseDir . DIRECTORY_SEPARATOR . 'ttd_thumbs';
+    }
+
+    /**
+     * Parse rentang tanggal form ("YYYY-MM-DD - YYYY-MM-DD" atau "YYYY-MM-DD") menjadi
+     * batas timestamp sargable agar MariaDB memakai indeks `idx_absen_jam_masuk`.
+     *
+     * @return array{tglAwal: string, tglAkhir: string, startDt: string, endDt: string}
+     */
+    public static function parseDateRangeBounds(?string $tanggalInput): array
+    {
+        $today = date('Y-m-d');
+        $raw = trim((string) ($tanggalInput ?? ''));
+        if ($raw === '') {
+            return [
+                'tglAwal'  => $today,
+                'tglAkhir' => $today,
+                'startDt'  => $today . ' 00:00:00',
+                'endDt'    => $today . ' 23:59:59',
+            ];
+        }
+
+        $parts = explode(' - ', $raw, 2);
+        $awal  = trim($parts[0]);
+        $akhir = isset($parts[1]) ? trim($parts[1]) : $awal;
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $awal)) {
+            $awal = $today;
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $akhir)) {
+            $akhir = $awal;
+        }
+
+        return [
+            'tglAwal'  => $awal,
+            'tglAkhir' => $akhir,
+            'startDt'  => $awal . ' 00:00:00',
+            'endDt'    => $akhir . ' 23:59:59',
+        ];
+    }
+
+    /**
+     * Buat / ambil thumbnail JPEG datar (latar putih, tanpa alpha channel) untuk ekspor PDF/Excel
+     * agar Dompdf tidak menjalankan loop alpha-splitting per-piksel PHP dan ukuran file .xlsx/.pdf jauh lebih kecil.
+     */
+    public function getOrCreateExportThumbnail(
+        ?string $raw,
+        int $maxW = 220,
+        int $maxH = 120,
+        int $quality = 85
+    ): ?string {
+        if (self::isEmptyValue($raw)) {
+            return null;
+        }
+        if (!function_exists('imagecreatefromstring') || !function_exists('imagecreatetruecolor') || !function_exists('imagejpeg')) {
+            return null;
+        }
+
+        $sourceBytes = null;
+        $cacheSeed   = null;
+
+        $resolvedFile = $this->resolveToFile($raw);
+        if ($resolvedFile !== null) {
+            $mtime = (int) @filemtime($resolvedFile['path']);
+            $cacheSeed = $resolvedFile['path'] . '|' . $mtime . "|{$maxW}x{$maxH}q{$quality}";
+        } else {
+            $resolvedBin = $this->resolveToBinary($raw);
+            if ($resolvedBin === null || $resolvedBin['binary'] === '') {
+                return null;
+            }
+            $sourceBytes = $resolvedBin['binary'];
+            $cacheSeed = sha1($sourceBytes) . "|{$maxW}x{$maxH}q{$quality}";
+        }
+
+        $thumbDir = $this->getExportThumbDir();
+        $dstPath  = $thumbDir . DIRECTORY_SEPARATOR . md5($cacheSeed) . '.jpg';
+
+        if (is_file($dstPath) && filesize($dstPath) > 0) {
+            $real = realpath($dstPath);
+            return ($real !== false) ? $real : $dstPath;
+        }
+
+        if (is_file($this->baseDir)) {
+            return null;
+        }
+        if (!is_dir($thumbDir) && !@mkdir($thumbDir, 0755, true) && !is_dir($thumbDir)) {
+            return null;
+        }
+
+        if ($sourceBytes === null && $resolvedFile !== null) {
+            $read = @file_get_contents($resolvedFile['path']);
+            if (!is_string($read) || $read === '') {
+                return null;
+            }
+            $sourceBytes = $read;
+        }
+
+        $srcImg = @imagecreatefromstring((string) $sourceBytes);
+        if ($srcImg === false) {
+            return null;
+        }
+
+        $w = imagesx($srcImg);
+        $h = imagesy($srcImg);
+        if ($w <= 0 || $h <= 0) {
+            imagedestroy($srcImg);
+            return null;
+        }
+
+        $scale = min($maxW / $w, $maxH / $h, 1.0);
+        $nw = max(1, (int) round($w * $scale));
+        $nh = max(1, (int) round($h * $scale));
+
+        $canvas = imagecreatetruecolor($nw, $nh);
+        if ($canvas === false) {
+            imagedestroy($srcImg);
+            return null;
+        }
+
+        $white = imagecolorallocate($canvas, 255, 255, 255);
+        imagefilledrectangle($canvas, 0, 0, $nw, $nh, $white);
+        imagecopyresampled($canvas, $srcImg, 0, 0, 0, 0, $nw, $nh, $w, $h);
+
+        $tmpFile = $thumbDir . DIRECTORY_SEPARATOR . '.tmp_' . uniqid('', true) . '.jpg';
+        $ok = @imagejpeg($canvas, $tmpFile, max(40, min(95, $quality)));
+        imagedestroy($srcImg);
+        imagedestroy($canvas);
+
+        if (!$ok || !is_file($tmpFile) || filesize($tmpFile) <= 0) {
+            @unlink($tmpFile);
+            return null;
+        }
+
+        if (!@rename($tmpFile, $dstPath)) {
+            @unlink($tmpFile);
+            if (is_file($dstPath) && filesize($dstPath) > 0) {
+                return realpath($dstPath) ?: $dstPath;
+            }
+            return null;
+        }
+
+        clearstatcache(true, $dstPath);
+        if (!is_file($dstPath) || filesize($dstPath) <= 0) {
+            return null;
+        }
+
+        return realpath($dstPath) ?: $dstPath;
+    }
+
     public static function isEmptyValue(?string $raw): bool
     {
         if ($raw === null) {
