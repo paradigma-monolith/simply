@@ -403,18 +403,23 @@ class Ajax extends BaseController
     $orderDir = is_array($orderParam) && isset($orderParam[0]['dir']) && strtolower((string) $orderParam[0]['dir']) === 'asc' ? 'ASC' : 'DESC';
     $orderColumn = $orderColumnMap[$orderColIdx] ?? 'sinadi_perjalanan_dinas_peserta.tgl_pulang';
 
+    $useStraightJoin = $hasFullAccess
+      && $search === ''
+      && $orderColumn === 'sinadi_perjalanan_dinas_peserta.tgl_pulang';
+
+    $selectFields = ($useStraightJoin ? 'STRAIGHT_JOIN ' : '')
+      . '`sinadi_perjalanan_dinas_peserta`.`id_peserta`, '
+      . '`sinadi_perjalanan_dinas_peserta`.`nip_pegawai`, '
+      . '`sinadi_perjalanan_dinas_peserta`.`nama_pegawai`, '
+      . '`sinadi_perjalanan_dinas_peserta`.`tgl_pergi`, '
+      . '`sinadi_perjalanan_dinas_peserta`.`tgl_pulang`, '
+      . '`sinadi_perjalanan_dinas_peserta`.`no_surat_tugas`, '
+      . '`sinadi_perjalanan_dinas_peserta`.`file`, '
+      . '`sinadi_perjalanan_dinas`.`nama_kegiatan`, '
+      . '`sinadi_perjalanan_dinas`.`tempat_perjalanan`';
+
     $builder
-      ->select(
-        'sinadi_perjalanan_dinas_peserta.id_peserta, '
-        . 'sinadi_perjalanan_dinas_peserta.nip_pegawai, '
-        . 'sinadi_perjalanan_dinas_peserta.nama_pegawai, '
-        . 'sinadi_perjalanan_dinas_peserta.tgl_pergi, '
-        . 'sinadi_perjalanan_dinas_peserta.tgl_pulang, '
-        . 'sinadi_perjalanan_dinas_peserta.no_surat_tugas, '
-        . 'sinadi_perjalanan_dinas_peserta.file, '
-        . 'sinadi_perjalanan_dinas.nama_kegiatan, '
-        . 'sinadi_perjalanan_dinas.tempat_perjalanan'
-      )
+      ->select($selectFields, false)
       ->orderBy($orderColumn, $orderDir)
       ->orderBy('sinadi_perjalanan_dinas_peserta.id_peserta', $orderDir)
       ->limit($length, $start);
