@@ -168,56 +168,43 @@ class Crud extends BaseController
   }
 
   /**
-   * Validasi dan simpan foto base64 ke public/dist/foto_absen dengan aman (anti-crash saat kamera belum siap).
+   * Validasi dan simpan foto base64 ke writable/absen_media/foto/YYYY/MM dengan aman (anti-crash saat kamera belum siap).
    */
   private function parseAndSaveFotoAbsen(?string $imageData): array
   {
     $img = trim((string) $imageData);
     if ($img === '' || $img === 'data:,' || in_array($img, $this->getBlackImage(), true)) {
-      return ['valid' => false, 'filename' => null];
+      return ['valid' => false, 'filename' => null, 'mediaRef' => null];
     }
     if (strpos($img, 'data:image/') !== 0 || strpos($img, ';base64,') === false) {
-      return ['valid' => false, 'filename' => null];
+      return ['valid' => false, 'filename' => null, 'mediaRef' => null];
     }
 
     $parts = explode(';base64,', $img, 2);
     if (count($parts) !== 2 || $parts[1] === '') {
-      return ['valid' => false, 'filename' => null];
+      return ['valid' => false, 'filename' => null, 'mediaRef' => null];
     }
 
-    $type = $parts[0];
     $decodedData = base64_decode($parts[1], true);
     if ($decodedData === false || strlen($decodedData) < 256) {
-      return ['valid' => false, 'filename' => null];
+      return ['valid' => false, 'filename' => null, 'mediaRef' => null];
     }
 
-    if (strpos($type, 'jpeg') !== false) {
-      $extension = 'jpg';
-    } elseif (strpos($type, 'png') !== false) {
-      $extension = 'png';
-    } elseif (strpos($type, 'gif') !== false) {
-      $extension = 'gif';
-    } elseif (strpos($type, 'bmp') !== false) {
-      $extension = 'bmp';
-    } elseif (strpos($type, 'webp') !== false) {
-      $extension = 'webp';
-    } elseif (strpos($type, 'tiff') !== false) {
-      $extension = 'tiff';
-    } else {
-      $extension = 'jpg';
+    $storage = new \App\Libraries\AbsenMediaStorage();
+    $saved = $storage->saveBase64($img, 'foto');
+    if ($saved === null) {
+      log_message('error', 'AbsenMediaStorage: gagal menyimpan foto absen ke disk, fallback sementara ke DB base64.');
+      return [
+        'valid'    => true,
+        'filename' => null,
+        'mediaRef' => null,
+      ];
     }
 
-    $newName = uniqid('abs_', true) . '.' . $extension;
-    $dir = rtrim(FCPATH, '/\\') . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . 'foto_absen';
-    if (!is_dir($dir)) {
-      @mkdir($dir, 0775, true);
-    }
-
-    $filePath = $dir . DIRECTORY_SEPARATOR . $newName;
-    $saved = @file_put_contents($filePath, $decodedData);
     return [
       'valid'    => true,
-      'filename' => ($saved !== false) ? $newName : null,
+      'filename' => $saved['relPath'],
+      'mediaRef' => $saved['mediaRef'],
     ];
   }
 
@@ -305,10 +292,12 @@ class Crud extends BaseController
               ->where('jam_masuk <=', $dayDate . ' 23:59:59')
               ->first();
 
+            $storedFoto = !empty($fotoCheck['mediaRef']) ? $fotoCheck['mediaRef'] : $imageData;
+
             if ($cekAbsen) {
               $updateData = [
                 'id_absen'      => $cekAbsen['id_absen'],
-                'image_masuk_2' => $imageData,
+                'image_masuk_2' => $storedFoto,
                 'status_masuk'  => $statusAbsen,
               ];
 
@@ -341,7 +330,7 @@ class Crud extends BaseController
                 'alamat_masuk'            => $alamat,
                 'latitude_masuk'          => $latitude_masuk,
                 'longitude_masuk'         => $longitude_masuk,
-                'image_masuk_1'           => $imageData,
+                'image_masuk_1'           => $storedFoto,
                 'jam_masuk'               => $jam_masuk,
                 'jam_pulang'              => $jam_pulang,
                 'aturan_jam_masuk'        => $getJam['aturan_jam_masuk'] ?? null,
@@ -452,15 +441,16 @@ class Crud extends BaseController
               ];
 
               $jamKerja = hitungJamKerja($cekAbsen['jam_masuk'], $jam_pulang);
+              $storedFoto = !empty($fotoCheck['mediaRef']) ? $fotoCheck['mediaRef'] : $imageData;
 
               if ($cekAbsen['jam_pulang'] == null) {
-                $updateData['image_pulang_1'] = $imageData;
+                $updateData['image_pulang_1'] = $storedFoto;
                 $msg = [
                   'data'  => 'sukses',
                   'pesan' => $logoHtml . '<strong>' . name_capitalize($cekData['nama']) . '</strong> sudah menandai pulang dengan waktu submit <u>' . $jam_pulang . '</u><br><strong>Total jam kerja: ' . $jamKerja . '</strong>' . $combinedHtml,
                 ];
               } else {
-                $updateData['image_pulang_2'] = $imageData;
+                $updateData['image_pulang_2'] = $storedFoto;
                 $msg = [
                   'data'  => 'sukses',
                   'pesan' => $logoHtml . '<strong>' . name_capitalize($cekData['nama']) . '</strong> memperbaharui data pulang dengan waktu submit <u>' . $jam_pulang . '</u><br><strong>Total jam kerja: ' . $jamKerja . '</strong>' . $combinedHtml,
@@ -1179,14 +1169,29 @@ class Crud extends BaseController
       'keterangan'       => $keterangan,
     ];
 
+    $mediaStorage = new \App\Libraries\AbsenMediaStorage();
+    $dateForFile = $jamMasuk ?? ($jamPulang ?? ($tanggal_target !== '' ? $tanggal_target : date('Y-m-d')));
+
     $foto_masuk = $this->request->getFile("foto_masuk");
     if ($foto_masuk && $foto_masuk->isValid() && !$foto_masuk->hasMoved() && in_array(strtolower($foto_masuk->getExtension()), ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico'], true)) {
-      $data['image_masuk_1'] = generate_base64($foto_masuk->getTempName());
+      $savedMasuk = $mediaStorage->saveUploadedFile($foto_masuk, 'foto', $dateForFile);
+      if ($savedMasuk !== null) {
+        $data['image_masuk_1'] = $savedMasuk['mediaRef'];
+      } else {
+        log_message('error', 'AbsenMediaStorage: gagal simpan upload foto_masuk, fallback ke base64.');
+        $data['image_masuk_1'] = generate_base64($foto_masuk->getTempName());
+      }
     }
 
     $foto_pulang = $this->request->getFile("foto_pulang");
     if ($foto_pulang && $foto_pulang->isValid() && !$foto_pulang->hasMoved() && in_array(strtolower($foto_pulang->getExtension()), ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico'], true)) {
-      $data['image_pulang_1'] = generate_base64($foto_pulang->getTempName());
+      $savedPulang = $mediaStorage->saveUploadedFile($foto_pulang, 'foto', $dateForFile);
+      if ($savedPulang !== null) {
+        $data['image_pulang_1'] = $savedPulang['mediaRef'];
+      } else {
+        log_message('error', 'AbsenMediaStorage: gagal simpan upload foto_pulang, fallback ke base64.');
+        $data['image_pulang_1'] = generate_base64($foto_pulang->getTempName());
+      }
     }
 
     $ok = false;
@@ -1291,8 +1296,14 @@ class Crud extends BaseController
     $base64 = false;
     $waktu = false;
     if ($foto) {
-      if ($foto->isValid() && !$foto->hasMoved() && in_array($foto->getExtension(), ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico'])) {
-        $fileContents = generate_base64($foto->getTempName());
+      if ($foto->isValid() && !$foto->hasMoved() && in_array(strtolower((string) $foto->getExtension()), ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico'], true)) {
+        $savedUpload = (new \App\Libraries\AbsenMediaStorage())->saveUploadedFile($foto, 'foto', is_string($jam) ? $jam : null);
+        if ($savedUpload !== null) {
+          $fileContents = $savedUpload['mediaRef'];
+        } else {
+          log_message('error', 'AbsenMediaStorage: gagal simpan upload addDataAbsen, fallback ke base64.');
+          $fileContents = generate_base64($foto->getTempName());
+        }
         $base64 = true;
       }
     }
@@ -1380,15 +1391,40 @@ class Crud extends BaseController
     }
     return redirect()->back();
   }
+  public static function resolveRekamImageInput(
+    string $imageInput,
+    ?string $rekamJson,
+    ?\App\Libraries\AbsenMediaStorage $storage = null
+  ): ?string {
+    $trimmed = trim($imageInput);
+    if ($trimmed === '') {
+      return null;
+    }
+
+    $storage = $storage ?? new \App\Libraries\AbsenMediaStorage();
+
+    // Format baru bebas ekstensi: /absen/rekam-foto/{id_absen}/{index}
+    if (preg_match('#^/absen/rekam-foto/\d+/(\d+)(?:\?.*)?$#', $trimmed, $m)) {
+      $fotoRef = Foto::extractRekamFotoRef($rekamJson, (int) $m[1]);
+      if ($fotoRef === null) {
+        return null;
+      }
+      return $storage->canonicalFromRekamFoto($fotoRef);
+    }
+
+    // Format legacy tab lama: /dist/foto_absen/{file} atau path relatif
+    return $storage->canonicalFromRekamFoto($trimmed);
+  }
+
   public function setNewAbsen() {
     if($this->request->isAJAX()) {
       $rekam = $this->request->getVar('rekam');
-      $id_absen = $this->request->getVar('id_absen');
+      $id_absen = (int) $this->request->getVar('id_absen');
       $alamat = $this->request->getVar('alamat');
       $longitude = $this->request->getVar('longitude');
       $latitude = $this->request->getVar('latitude');
       $jam = $this->request->getVar('jam');
-      $image = $this->request->getVar('image');
+      $image = (string) ($this->request->getVar('image') ?? '');
       
       $var = "";
       if($rekam == "Rekam Masuk") {
@@ -1397,6 +1433,9 @@ class Crud extends BaseController
           $var = "pulang";
       }
       
+      $row = $this->absenModel->select('rekam_absen')->where('id_absen', $id_absen)->first();
+      $mediaRef = self::resolveRekamImageInput($image, $row['rekam_absen'] ?? null);
+
       $msg = [];
       $data = [ 
         "id_absen" => $id_absen,
@@ -1404,8 +1443,10 @@ class Crud extends BaseController
         "longitude_".$var => $longitude,
         "latitude_".$var => $latitude,
         "jam_".$var => $jam,
-        "image_".$var."_1" => generate_base64(substr($image, 1)),
       ];
+      if ($mediaRef !== null) {
+        $data["image_".$var."_1"] = $mediaRef;
+      }
       
       if($this->absenModel->save($data)) {
           $msg = ['data' => 'sukses'];
@@ -1654,11 +1695,20 @@ class Crud extends BaseController
                   ->first();
 
               if ($absen) {
+                  $ttdStorage = new \App\Libraries\AbsenMediaStorage();
+                  $savedTtd = $ttdStorage->saveBase64((string) $signature, 'ttd', $day);
+                  if ($savedTtd !== null) {
+                      $storedSignature = $savedTtd['mediaRef'];
+                  } else {
+                      log_message('error', 'AbsenMediaStorage: gagal menyimpan tanda tangan ke disk, fallback sementara ke DB base64.');
+                      $storedSignature = $signature;
+                  }
+
                   $dataUpdate = [];
                   if ($jenis === 'masuk') {
-                      $dataUpdate['ttd_masuk'] = $signature;
+                      $dataUpdate['ttd_masuk'] = $storedSignature;
                   } else if ($jenis === 'pulang') {
-                      $dataUpdate['ttd_pulang'] = $signature;
+                      $dataUpdate['ttd_pulang'] = $storedSignature;
                   }
 
                   if (!empty($dataUpdate)) {

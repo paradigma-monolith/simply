@@ -51,6 +51,19 @@ class Ajax extends BaseController
       }
   }
   
+  public static function mapImageColumnsToUrls(int $idAbsen, array $row, array $columnToJenis): array
+  {
+      foreach ($columnToJenis as $col => $jenis) {
+          $val = isset($row[$col]) ? (string) $row[$col] : '';
+          if (\App\Libraries\AbsenMediaStorage::isEmptyValue($val)) {
+              $row[$col] = '';
+          } else {
+              $row[$col] = '/absen/foto/' . $idAbsen . '/' . $jenis;
+          }
+      }
+      return $row;
+  }
+
   public function getImage() {
       if ($this->request->isAjax()) {
           if (session_status() === PHP_SESSION_ACTIVE) {
@@ -61,6 +74,12 @@ class Ajax extends BaseController
               ->select('id_absen, image_masuk_1, image_pulang_1')
               ->where("id_absen", $id_absen)
               ->first();
+          if (is_array($cek)) {
+              $cek = self::mapImageColumnsToUrls($id_absen, $cek, [
+                  'image_masuk_1'  => 'masuk',
+                  'image_pulang_1' => 'pulang',
+              ]);
+          }
           
           return $this->response->setJSON(['data' => $cek]);
       }
@@ -114,45 +133,19 @@ class Ajax extends BaseController
               ->setHeader('ETag', $etag);
       }
 
-      $mime = 'image/jpeg';
-      $binary = null;
-
-      if (preg_match('/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/s', $raw, $matches)) {
-          $mime = $matches[1];
-          $binary = base64_decode($matches[2], true);
-      } elseif (strpos($raw, '/') === 0 || strpos($raw, 'dist/') === 0) {
-          $relPath = ltrim($raw, '/');
-          $fullPath = FCPATH . $relPath;
-          if (is_file($fullPath)) {
-              $binary = file_get_contents($fullPath);
-              $ext = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
-              $mimeMap = [
-                  'jpg'  => 'image/jpeg',
-                  'jpeg' => 'image/jpeg',
-                  'png'  => 'image/png',
-                  'webp' => 'image/webp',
-                  'gif'  => 'image/gif',
-              ];
-              $mime = $mimeMap[$ext] ?? 'image/jpeg';
-          }
-      } else {
-          $decoded = base64_decode($raw, true);
-          if ($decoded !== false && strlen($decoded) > 16) {
-              $binary = $decoded;
-          }
-      }
-
-      if ($binary === null || $binary === false || $binary === '') {
+      $storage = new \App\Libraries\AbsenMediaStorage();
+      $resolved = $storage->resolveToBinary($raw);
+      if ($resolved === null || $resolved['binary'] === '') {
           return $this->response->setStatusCode(404);
       }
 
       return $this->response
           ->setStatusCode(200)
-          ->setHeader('Content-Type', $mime)
-          ->setHeader('Content-Length', (string) strlen($binary))
+          ->setHeader('Content-Type', $resolved['mime'])
+          ->setHeader('Content-Length', (string) strlen($resolved['binary']))
           ->setHeader('Cache-Control', 'private, max-age=86400')
           ->setHeader('ETag', $etag)
-          ->setBody($binary);
+          ->setBody($resolved['binary']);
   }
   public function dataAbsenDinasLuar()
   {
@@ -606,6 +599,10 @@ class Ajax extends BaseController
               ->where('id_absen', (int) $id)
               ->first();
           if($data) {
+              $data = self::mapImageColumnsToUrls((int) $id, $data, [
+                  'image_masuk_2'  => 'masuk2',
+                  'image_pulang_2' => 'pulang2',
+              ]);
               $msg = [
                   'data' => $data
               ];
@@ -1046,19 +1043,23 @@ class Ajax extends BaseController
                       
                   if ($latestDL) {
                       // Prefer pulang if status_pulang = DL
-                      $photoBase64 = null;
-                      if ($latestDL['status_pulang'] == 'DL' && !empty($latestDL['image_pulang_1'])) {
-                          $photoBase64 = $latestDL['image_pulang_1'];
-                      } else if ($latestDL['status_masuk'] == 'DL' && !empty($latestDL['image_masuk_1'])) {
-                          $photoBase64 = $latestDL['image_masuk_1'];
-                      } else if ($latestDL['status_masuk'] == 'DL' && !empty($latestDL['image_masuk_2'])) {
-                          $photoBase64 = $latestDL['image_masuk_2'];
+                      $rawPhoto = null;
+                      if ($latestDL['status_pulang'] == 'DL' && !\App\Libraries\AbsenMediaStorage::isEmptyValue($latestDL['image_pulang_1'] ?? null)) {
+                          $rawPhoto = $latestDL['image_pulang_1'];
+                      } else if ($latestDL['status_masuk'] == 'DL' && !\App\Libraries\AbsenMediaStorage::isEmptyValue($latestDL['image_masuk_1'] ?? null)) {
+                          $rawPhoto = $latestDL['image_masuk_1'];
+                      } else if ($latestDL['status_masuk'] == 'DL' && !\App\Libraries\AbsenMediaStorage::isEmptyValue($latestDL['image_masuk_2'] ?? null)) {
+                          $rawPhoto = $latestDL['image_masuk_2'];
                       }
                       
+                      $photoBase64 = ($rawPhoto !== null)
+                          ? (new \App\Libraries\AbsenMediaStorage())->resolveToDataUri($rawPhoto)
+                          : null;
+
                       if ($photoBase64) {
                           $msg = ['data' => 'sukses', 'image' => $photoBase64, 'waktu' => $latestDL['jam_pulang'] ? $latestDL['jam_pulang'] : $latestDL['jam_masuk']];
                       } else {
-                          $msg = ['data' => 'error', 'pesan' => 'Foto tidak tersedia dalam format base64'];
+                          $msg = ['data' => 'error', 'pesan' => 'Foto tidak tersedia'];
                       }
                   } else {
                       $msg = ['data' => 'error', 'pesan' => 'Belum ada data absen DL'];
