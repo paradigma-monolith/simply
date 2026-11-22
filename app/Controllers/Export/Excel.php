@@ -3926,6 +3926,28 @@ public function cuti()
     $sheet->getColumnDimension('L')->setWidth(15);
 
     helper('tanggal');
+    $mediaStorage = new \App\Libraries\AbsenMediaStorage();
+    $tempTtdFiles = [];
+
+    $resolveTtdPathForExcel = static function (?string $rawVal, string $prefix) use ($mediaStorage, &$tempTtdFiles): ?string {
+      if (\App\Libraries\AbsenMediaStorage::isEmptyValue($rawVal)) {
+        return null;
+      }
+      $resolvedFile = $mediaStorage->resolveToFile($rawVal);
+      if ($resolvedFile !== null) {
+        return $resolvedFile['path'];
+      }
+      $resolvedBin = $mediaStorage->resolveToBinary($rawVal);
+      if ($resolvedBin !== null && $resolvedBin['binary'] !== '') {
+        $ext = ($resolvedBin['mime'] === 'image/jpeg') ? 'jpg' : 'png';
+        $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . uniqid($prefix, true) . '.' . $ext;
+        if (@file_put_contents($tmp, $resolvedBin['binary']) !== false && is_file($tmp) && filesize($tmp) > 0) {
+          $tempTtdFiles[] = $tmp;
+          return $tmp;
+        }
+      }
+      return null;
+    };
 
     foreach ($getAbsen as $key => $data) {
       $row = $key + 2;
@@ -3948,49 +3970,31 @@ public function cuti()
       $sheet->getStyle('A'.$row.':L'.$row)->getAlignment()->setWrapText(true);
 
       // Render TTD Masuk
-      if (!empty($data['ttd_masuk'])) {
-          $base64Ttd = $data['ttd_masuk'];
-          if (strpos($base64Ttd, 'base64,') !== false) {
-              $base64Ttd = substr($base64Ttd, strpos($base64Ttd, ',') + 1);
-          }
-          $imgDataTtd = base64_decode($base64Ttd);
-          if ($imgDataTtd) {
-              $tempTtd = tempnam(sys_get_temp_dir(), 'ttd_dl_masuk_') . '.png';
-              file_put_contents($tempTtd, $imgDataTtd);
-              
-              $drawingTtd = new Drawing();
-              $drawingTtd->setName('TTD Masuk');
-              $drawingTtd->setDescription('TTD Masuk');
-              $drawingTtd->setPath($tempTtd);
-              $drawingTtd->setCoordinates('G' . $row);
-              $drawingTtd->setHeight(80);
-              $drawingTtd->setOffsetX(15);
-              $drawingTtd->setOffsetY(15);
-              $drawingTtd->setWorksheet($sheet);
-          }
+      $ttdMasukPath = $resolveTtdPathForExcel($data['ttd_masuk'] ?? null, 'ttd_dl_masuk_');
+      if ($ttdMasukPath !== null) {
+          $drawingTtd = new Drawing();
+          $drawingTtd->setName('TTD Masuk');
+          $drawingTtd->setDescription('TTD Masuk');
+          $drawingTtd->setPath($ttdMasukPath);
+          $drawingTtd->setCoordinates('G' . $row);
+          $drawingTtd->setHeight(80);
+          $drawingTtd->setOffsetX(15);
+          $drawingTtd->setOffsetY(15);
+          $drawingTtd->setWorksheet($sheet);
       }
       
       // Render TTD Pulang
-      if (!empty($data['ttd_pulang'])) {
-          $base64TtdPulang = $data['ttd_pulang'];
-          if (strpos($base64TtdPulang, 'base64,') !== false) {
-              $base64TtdPulang = substr($base64TtdPulang, strpos($base64TtdPulang, ',') + 1);
-          }
-          $imgDataTtdPulang = base64_decode($base64TtdPulang);
-          if ($imgDataTtdPulang) {
-              $tempTtdPulang = tempnam(sys_get_temp_dir(), 'ttd_dl_pulang_') . '.png';
-              file_put_contents($tempTtdPulang, $imgDataTtdPulang);
-              
-              $drawingTtdPulang = new Drawing();
-              $drawingTtdPulang->setName('TTD Pulang');
-              $drawingTtdPulang->setDescription('TTD Pulang');
-              $drawingTtdPulang->setPath($tempTtdPulang);
-              $drawingTtdPulang->setCoordinates('K' . $row);
-              $drawingTtdPulang->setHeight(80);
-              $drawingTtdPulang->setOffsetX(15);
-              $drawingTtdPulang->setOffsetY(15);
-              $drawingTtdPulang->setWorksheet($sheet);
-          }
+      $ttdPulangPath = $resolveTtdPathForExcel($data['ttd_pulang'] ?? null, 'ttd_dl_pulang_');
+      if ($ttdPulangPath !== null) {
+          $drawingTtdPulang = new Drawing();
+          $drawingTtdPulang->setName('TTD Pulang');
+          $drawingTtdPulang->setDescription('TTD Pulang');
+          $drawingTtdPulang->setPath($ttdPulangPath);
+          $drawingTtdPulang->setCoordinates('K' . $row);
+          $drawingTtdPulang->setHeight(80);
+          $drawingTtdPulang->setOffsetX(15);
+          $drawingTtdPulang->setOffsetY(15);
+          $drawingTtdPulang->setWorksheet($sheet);
       }
     }
 
@@ -4007,6 +4011,9 @@ public function cuti()
     header('Cache-Control: max-age=0');
 
     $writer->save('php://output');
+    foreach ($tempTtdFiles as $tmpFile) {
+      @unlink($tmpFile);
+    }
     exit();
   }
 

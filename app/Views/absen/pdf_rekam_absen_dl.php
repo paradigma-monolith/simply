@@ -64,7 +64,13 @@
                 <td colspan="12">Tidak ada data absensi dinas luar.</td>
             </tr>
             <?php else: ?>
-                <?php $no = 1; foreach ($absen as $data): ?>
+                <?php
+                    $ttdStorage = (isset($mediaStorage) && $mediaStorage instanceof \App\Libraries\AbsenMediaStorage)
+                        ? $mediaStorage
+                        : new \App\Libraries\AbsenMediaStorage();
+                    $no = 1;
+                ?>
+                <?php foreach ($absen as $data): ?>
                 <tr>
                     <td><?= $no++ ?></td>
                     <td><?= $data['nip'] ?></td>
@@ -73,13 +79,8 @@
                     <td class="text-left"><?= $data['alamat_masuk'] ?></td>
                     <td><?= $data['jam_masuk'] ?></td>
                     <td>
-                        <?php if (!empty($data['ttd_masuk'])): ?>
-                            <?php 
-                                $ttd = $data['ttd_masuk'];
-                                if (strpos($ttd, 'base64,') === false && !empty($ttd)) {
-                                    $ttd = 'data:image/png;base64,' . $ttd;
-                                }
-                            ?>
+                        <?php $ttd = $ttdStorage->resolveToDataUri($data['ttd_masuk'] ?? null); ?>
+                        <?php if ($ttd !== null): ?>
                             <img src="<?= $ttd ?>" alt="TTD">
                         <?php endif; ?>
                     </td>
@@ -87,13 +88,8 @@
                     <td class="text-left"><?= $data['alamat_pulang'] ?></td>
                     <td><?= $data['jam_pulang'] ?></td>
                     <td>
-                        <?php if (!empty($data['ttd_pulang'])): ?>
-                            <?php 
-                                $ttdPulang = $data['ttd_pulang'];
-                                if (strpos($ttdPulang, 'base64,') === false && !empty($ttdPulang)) {
-                                    $ttdPulang = 'data:image/png;base64,' . $ttdPulang;
-                                }
-                            ?>
+                        <?php $ttdPulang = $ttdStorage->resolveToDataUri($data['ttd_pulang'] ?? null); ?>
+                        <?php if ($ttdPulang !== null): ?>
                             <img src="<?= $ttdPulang ?>" alt="TTD Pulang">
                         <?php endif; ?>
                     </td>
