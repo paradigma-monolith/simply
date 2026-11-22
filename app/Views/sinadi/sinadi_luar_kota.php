@@ -48,7 +48,7 @@
           <td data-toggle="tooltip" data-placement="top" title="<?= $data['nama_kegiatan']; ?>"><?= strlen($data['nama_kegiatan']) > 36 ? substr($data['nama_kegiatan'], 0, 36) . '...' : $data['nama_kegiatan']; ?></td>
           <td data-toggle="tooltip" data-placement="top" title="<?= $data['tempat_perjalanan']; ?>"><?= strlen($data['tempat_perjalanan']) > 36 ? substr($data['tempat_perjalanan'], 0, 36) . '...' : $data['tempat_perjalanan']; ?></td>
           <td><?= $data['jumlah_peserta']; ?> Orang</td>
-          <td><?= number_format($data['total_perjalanan'], '2', ',', '.'); ?></td>
+          <td><?= number_format((float) ($data['total_perjalanan'] ?? 0), 2, ',', '.'); ?></td>
           <td>
             <?= name_capitalize($data['nama']); ?>
           </td>

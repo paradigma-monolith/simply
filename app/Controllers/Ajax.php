@@ -247,6 +247,15 @@ class Ajax extends BaseController
       }
 
       $idUser = (int) $by['id_user'];
+      $notifCacheKey = 'notif_widget_u' . $idUser;
+      try {
+        $cachedPayload = \Config\Services::cache()->get($notifCacheKey);
+        if (is_array($cachedPayload) && array_key_exists('number', $cachedPayload) && array_key_exists('data', $cachedPayload)) {
+          return $this->response->setJSON($cachedPayload);
+        }
+      } catch (\Throwable $e) {
+        // Fallback ke DB jika cache tidak tersedia
+      }
 
       // Hitung jumlah belum dibaca dengan COUNT(*) ringan (memakai index nama_penerima + status)
       $unreadCount = (int) $this->notifikasiModel
@@ -264,20 +273,43 @@ class Ajax extends BaseController
         ->orderBy('notifikasi.created_at', 'desc')
         ->findAll(5);
 
-      return $this->response->setJSON([
+      $payload = [
         'number' => $unreadCount > 0 ? $unreadCount : '',
         'data'   => view('home/getNotifikasi', $data),
-      ]);
+      ];
+
+      try {
+        \Config\Services::cache()->save($notifCacheKey, $payload, 20);
+      } catch (\Throwable $e) {
+        // Abaikan error tulis cache
+      }
+
+      return $this->response->setJSON($payload);
     }
   }
   public function readNotif($id)
   {
+    $idUser = (int) session()->get('id_user');
+    $username = (string) session()->get('username');
+    $this->releaseSessionLock();
+
     $data = ['id_notifikasi' => $id, 'status' => 'Sudah Dibaca'];
     $this->notifikasiModel->save($data);
-    $msg = [
-      'data' => 'sukses'
-    ];
-    echo json_encode($msg);
+
+    if ($idUser <= 0 && $username !== '') {
+      $by = $this->userModel->select('id_user')->where('username', $username)->first();
+      $idUser = $by ? (int) $by['id_user'] : 0;
+    }
+    if ($idUser > 0) {
+      try {
+        \Config\Services::cache()->delete('notif_widget_u' . $idUser);
+      } catch (\Throwable $e) {
+      }
+    }
+
+    return $this->response->setJSON([
+      'data' => 'sukses',
+    ]);
   }
   
   public function agenda()

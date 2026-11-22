@@ -73,7 +73,7 @@
                                             </tr>
                                             <tr>
                                                 <td><strong>IMT</strong></td>
-                                                <td>: <?= number_format($pengukuran['imt'], 2) ?></td>
+                                                <td>: <?= number_format((float) ($pengukuran['imt'] ?? 0), 2) ?></td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Kategori IMT</strong></td>

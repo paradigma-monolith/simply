@@ -81,6 +81,9 @@ class Home extends BaseController
         $data['activeMenu'] = "";
 
         $username = (string) session()->get('username');
+        $sessionIdUser = (int) session()->get('id_user');
+        $isAdminRole = (session()->get('role') == 'Admin');
+        $this->releaseSessionLock();
         $db = \Config\Database::connect();
 
         // Konsolidasi 4 query profil/pegawai/unit_kerja/sidebar menjadi 1 query ringan
@@ -100,7 +103,7 @@ class Home extends BaseController
             ->get()
             ->getRowArray();
 
-        $data['by'] = $profileRow ?: ['id_user' => (int) session()->get('id_user'), 'catatan_pribadi' => ''];
+        $data['by'] = $profileRow ?: ['id_user' => $sessionIdUser, 'catatan_pribadi' => ''];
         $data['user'] = $profileRow ?: [];
         $data['unit_kerja'] = ($profileRow && !empty($profileRow['id_data_pegawai'])) ? $profileRow : null;
 
@@ -188,7 +191,7 @@ class Home extends BaseController
         ];
 
         $environment = getenv('CI_ENVIRONMENT');
-        $data['environment'] = ($environment === 'development' && session()->get('role') == "Admin");
+        $data['environment'] = ($environment === 'development' && $isAdminRole);
 
         return view('users/admin', $data);
     }
@@ -215,6 +218,7 @@ class Home extends BaseController
     }
     public function dashboard()
     {
+        $this->releaseSessionLock();
         $data['title'] = 'Dashboard';
         $data['activeMenu'] = 'Dashboard';
         $data['unitKerja'] = $this->unitKerjaModel->select('unit_kerja')->findAll();
@@ -1355,6 +1359,7 @@ class Home extends BaseController
 
         $idUser = (int) session()->get('id_user');
         $username = (string) session()->get('username');
+        $this->releaseSessionLock();
         if ($idUser <= 0 && $username !== '') {
             $by = $this->userModel->select('id_user')->where('username', $username)->first();
             $idUser = $by ? (int) $by['id_user'] : 0;

@@ -13,18 +13,23 @@
   <meta http-equiv="expires" content="0">
   <title><?= strip_tags($title); ?></title>
 
+  <?php $currentMenu = $activeMenu ?? ''; ?>
   <!-- Google Font: Source Sans Pro -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
   <!-- Font Awesome -->
   <link rel="stylesheet" href="/plugins/fontawesome-free/css/all.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intro.js/minified/introjs.min.css">
-  <!-- Ekko Lightbox -->
-  <link rel="stylesheet" href="/plugins/ekko-lightbox/ekko-lightbox.css">
-  <!-- Ion Slider -->
-  <link rel="stylesheet" href="/plugins/ion-rangeslider/css/ion.rangeSlider.min.css">
-  <!-- jsGrid -->
-  <link rel="stylesheet" href="/plugins/jsgrid/jsgrid.min.css">
-  <link rel="stylesheet" href="/plugins/jsgrid/jsgrid-theme.min.css">
+  <?php if (in_array($currentMenu, ['Dashboard'], true)) : ?>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intro.js/minified/introjs.min.css">
+  <?php endif; ?>
+  <?php if (in_array($currentMenu, ['relaxtimePengaturan'], true)) : ?>
+    <!-- Ion Slider -->
+    <link rel="stylesheet" href="/plugins/ion-rangeslider/css/ion.rangeSlider.min.css">
+  <?php endif; ?>
+  <?php if (in_array($currentMenu, ['relaxtimeRealisasi'], true)) : ?>
+    <!-- jsGrid -->
+    <link rel="stylesheet" href="/plugins/jsgrid/jsgrid.min.css">
+    <link rel="stylesheet" href="/plugins/jsgrid/jsgrid-theme.min.css">
+  <?php endif; ?>
   <!-- DataTables -->
   <link rel="stylesheet" href="/plugins/datatables-bs4/css/dataTables.bootstrap4.min.css">
   <link rel="stylesheet" href="/plugins/datatables-responsive/css/responsive.bootstrap4.min.css">
@@ -44,10 +49,10 @@
   <link rel="stylesheet" href="/plugins/toastr/toastr.min.css">
   <!-- iCheck -->
   <link rel="stylesheet" href="/plugins/icheck-bootstrap/icheck-bootstrap.min.css">
-  <!-- JQVMap -->
-  <link rel="stylesheet" href="/plugins/jqvmap/jqvmap.min.css">
-  <!-- Animate.css for Birthday Animation -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+  <?php if (session()->getFlashdata('birthday_popup')) : ?>
+    <!-- Animate.css for Birthday Animation -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+  <?php endif; ?>
   <!-- Theme style -->
   <link rel="stylesheet" href="/dist/css/adminlte.min.css">
   <link rel="stylesheet" href="/css/customLayout-v2.css?v=<?= @filemtime(FCPATH . 'css/customLayout-v2.css') ?: '1'; ?>">
@@ -1324,15 +1329,12 @@
   <script src="/plugins/sweetalert2/sweetalert2.min.js"></script>
   <!-- Toastr -->
   <script src="/plugins/toastr/toastr.min.js"></script>
-  <!-- Ekko Lightbox -->
-  <script src="/plugins/ekko-lightbox/ekko-lightbox.min.js"></script>
-  <!-- Filterizr-->
-  <script src="/plugins/filterizr/jquery.filterizr.min.js"></script>
   <!-- BS-Stepper -->
   <script src="/plugins/bs-stepper/js/bs-stepper.min.js"></script>
-  <!-- jsGrid -->
-  <script src="/plugins/jsgrid/demos/db.js"></script>
-  <script src="/plugins/jsgrid/jsgrid.min.js"></script>
+  <?php if (in_array($currentMenu ?? ($activeMenu ?? ''), ['relaxtimeRealisasi'], true)) : ?>
+    <!-- jsGrid -->
+    <script src="/plugins/jsgrid/jsgrid.min.js"></script>
+  <?php endif; ?>
   <!-- bs-custom-file-input -->
   <script src="/plugins/bs-custom-file-input/bs-custom-file-input.min.js"></script>
   <!-- Select2 -->
@@ -1342,13 +1344,10 @@
   <script src="/plugins/jquery-validation/additional-methods.min.js"></script>
   <!-- ChartJS -->
   <script src="/plugins/chart.js/Chart.min.js"></script>
-  <!-- Sparkline -->
-  <script src="/plugins/sparklines/sparkline.js"></script>
-  <!-- JQVMap -->
-  <!-- <script src="/plugins/jqvmap/jquery.vmap.min.js"></script>
-  <script src="/plugins/jqvmap/maps/jquery.vmap.usa.js"></script> -->
-  <!-- jQuery Knob Chart -->
-  <script src="/plugins/jquery-knob/jquery.knob.min.js"></script>
+  <?php if (in_array($currentMenu ?? ($activeMenu ?? ''), ['Dashboard'], true)) : ?>
+    <!-- jQuery Knob Chart -->
+    <script src="/plugins/jquery-knob/jquery.knob.min.js"></script>
+  <?php endif; ?>
   <!-- daterangepicker -->
   <script src="/plugins/moment/moment.min.js"></script>
   <script src="/plugins/daterangepicker/daterangepicker.js"></script>
@@ -1376,15 +1375,10 @@
   <!-- AdminLTE App -->
   <!-- <script src="/dist/js/adminlte.js"></script> -->
   <script src="/dist/js/adminlte.min.js"></script>
-  <!-- Ion Slider -->
-  <script src="/plugins/ion-rangeslider/js/ion.rangeSlider.min.js"></script>
-  <!-- AdminLTE for demo purposes -->
-  <!-- <script src="/dist/js/demo.js"></script> -->
-  <!-- AdminLTE dashboard demo (This is only for demo purposes) -->
-  <!-- <script src="/dist/js/pages/dashboard.js"></script> -->
-  <!-- AdminLTE dashboard demo (This is only for demo purposes) -->
-  <!-- <script src="dist/js/pages/dashboard3.js"></script> -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.4/xlsx.full.min.js"></script>
+  <?php if (in_array($currentMenu ?? ($activeMenu ?? ''), ['relaxtimePengaturan'], true)) : ?>
+    <!-- Ion Slider -->
+    <script src="/plugins/ion-rangeslider/js/ion.rangeSlider.min.js"></script>
+  <?php endif; ?>
   <?php if (session()->get('nama') && session()->get('role') && session()->get('username') && session()->get('picture') && session()->get('accessMenu')) : ?>
     <!--<script src="/js/formValidation.js"></script>-->
     <script src="/js/formValidation1.js"></script>
@@ -1441,9 +1435,9 @@
   </script>
   
   <script src="/js/sweetAlert3.js?v=<?= @filemtime(FCPATH . 'js/sweetAlert3.js') ?: '1'; ?>"></script>
-  <?= in_array($activeMenu, ['user']) ? '<script src="/js/user.js"></script>' : ''; ?>
-  <?= in_array($activeMenu, ['pegawai']) ? '<script src="/js/pegawai.js"></script>' : ''; ?>
-  <?= in_array($activeMenu, ['unit_kerja']) ? '<script src="/js/unit_kerja.js"></script>' : ''; ?>
+  <?= in_array($activeMenu, ['user']) ? '<script src="/js/user.js?v=' . (@filemtime(FCPATH . 'js/user.js') ?: '1') . '"></script>' : ''; ?>
+  <?= in_array($activeMenu, ['pegawai']) ? '<script src="/js/pegawai.js?v=' . (@filemtime(FCPATH . 'js/pegawai.js') ?: '1') . '"></script>' : ''; ?>
+  <?= in_array($activeMenu, ['unit_kerja']) ? '<script src="/js/unit_kerja.js?v=' . (@filemtime(FCPATH . 'js/unit_kerja.js') ?: '1') . '"></script>' : ''; ?>
   <?= in_array($activeMenu, ['profileku']) ? '<script src="/js/profileku.js"></script>' : ''; ?>
   <?= in_array($activeMenu, ['dashboard_kapal']) ? '<script src="/js/dashboard_kapal.js"></script>' : ''; ?>
   <?= in_array($activeMenu, ['dashboard_pesawat']) ? '<script src="/js/dashboard_pesawat.js"></script>' : ''; ?>
@@ -1452,7 +1446,7 @@
   <?= in_array($activeMenu, ['kelola_data_cuti', 'kelola_data_permohonan']) ? '<script src="/js/kelola_data_cuti.js"></script>' : ''; ?>
   <?= in_array($activeMenu, ['sinadiSaya']) ? '<script src="/js/sinadi.js?v=' . (@filemtime(FCPATH . 'js/sinadi.js') ?: '2') . '"></script>' : ''; ?>
   <?php if (in_array($activeMenu, ['dinasDalamKota', 'dinasLuarKota'])): ?>
-    <script src="/js/formulirPerjalananDinas3.js?v=<?= time(); ?>"></script>
+    <script src="/js/formulirPerjalananDinas3.js?v=<?= @filemtime(FCPATH . 'js/formulirPerjalananDinas3.js') ?: '1'; ?>"></script>
   <?php endif; ?>
   <?= in_array($activeMenu, ['sinadiBlockir']) ? '<script src="/js/sinadiBlockir.js"></script>' : ""; ?>
   <?= in_array($activeMenu, ['Dashboard']) ? '<script src="/js/dashboard(1).js?v=' . filemtime(FCPATH . 'js/dashboard(1).js') . '"></script>' : ""; ?>

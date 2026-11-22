@@ -222,6 +222,7 @@ class Pdf extends BaseController
   }
   public function cuti($id = null)
   {
+    $this->releaseSessionLock();
     if($id == null) {
         $data['alasan_penting'] = true;
         $id = $this->request->getVar("id");
@@ -877,6 +878,7 @@ class Pdf extends BaseController
   
   public function sinadi_nominatif($value = '')
   {
+    $this->releaseSessionLock();
     $filename = date('d-m-y-H-i-s') . '-nominatif';
     // instantiate and use the dompdf class
     $dompdf = new Dompdf();
@@ -933,6 +935,7 @@ class Pdf extends BaseController
   }
   public function sinadi_kuitansi($value = '')
   {
+    $this->releaseSessionLock();
     $filename = date('d-m-y-H-i-s') . '-kuitansi';
     // instantiate and use the dompdf class
     $dompdf = new Dompdf();
@@ -1074,6 +1077,7 @@ class Pdf extends BaseController
   }
   public function sinadi_sppd($value = '', $borang = null)
   {
+    $this->releaseSessionLock();
     // $filename = date('d-m-y-H-i-s') . '-sppd';
     // instantiate and use the dompdf class
     $dompdf = new Dompdf();

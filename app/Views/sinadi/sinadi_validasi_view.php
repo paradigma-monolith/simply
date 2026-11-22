@@ -304,19 +304,19 @@
                   </li>
                   <li class="list-group-item list-group-item-disabled-hover py-0">
                     Transportasi
-                    <strong class="float-right">Rp <?= number_format(($data['transport_jumlah']), '2', ',', '.'); ?></strong>
+                    <strong class="float-right">Rp <?= number_format((float) ($data['transport_jumlah'] ?? 0), 2, ',', '.'); ?></strong>
                   </li>
                   <li class="list-group-item list-group-item-disabled-hover py-0">
                     Uang Harian
-                    <strong class="float-right">Rp <?= number_format(($data['harian_jumlah']), '2', ',', '.'); ?></strong>
+                    <strong class="float-right">Rp <?= number_format((float) ($data['harian_jumlah'] ?? 0), 2, ',', '.'); ?></strong>
                   </li>
                   <li class="list-group-item list-group-item-disabled-hover py-0">
                     Penginapan
-                    <strong class="float-right">Rp <?= number_format(($data['penginapan_jumlah']), '2', ',', '.'); ?></strong>
+                    <strong class="float-right">Rp <?= number_format((float) ($data['penginapan_jumlah'] ?? 0), 2, ',', '.'); ?></strong>
                   </li>
                   <li class="list-group-item list-group-item-disabled-hover py-0">
                     Total
-                    <strong class="float-right">Rp <?= number_format(($data['jumlah_transfer']), '2', ',', '.'); ?></strong>
+                    <strong class="float-right">Rp <?= number_format((float) ($data['jumlah_transfer'] ?? 0), 2, ',', '.'); ?></strong>
                   </li>
                   <li class="list-group-item list-group-item-disabled-hover py-0">
                     <div class="float-right" style="width: 30%;">

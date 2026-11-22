@@ -347,6 +347,7 @@ function callAllUser() {
 }
 
 var __notifInFlight = false;
+var __notifLastFetchedAt = 0;
 
 $(document).ready(function () {
   getNotifikasi();
@@ -354,9 +355,9 @@ $(document).ready(function () {
     if (!document.hidden) {
       getNotifikasi();
     }
-  }, 30000);
+  }, 90000);
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) {
+    if (!document.hidden && (Date.now() - __notifLastFetchedAt) >= 30000) {
       getNotifikasi();
     }
   });
@@ -365,6 +366,7 @@ $(document).ready(function () {
 function getNotifikasi() {
   if (__notifInFlight) return;
   __notifInFlight = true;
+  __notifLastFetchedAt = Date.now();
   $.ajax({
     url: "/ajax/notifikasi",
     method: 'get',

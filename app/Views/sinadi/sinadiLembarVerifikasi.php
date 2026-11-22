@@ -105,7 +105,7 @@
       <td class="center">7</td>
       <td>NILAI TAGIHAN</td>
       <td>:</td>
-      <td colspan="4">Rp <?= number_format($get['total_tagihan'], 2, ',', '.') ?></td>
+      <td colspan="4">Rp <?= number_format((float) ($get['total_tagihan'] ?? 0), 2, ',', '.') ?></td>
     </tr>
   </table>
 

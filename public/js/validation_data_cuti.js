@@ -103,7 +103,7 @@ $(document).ready(function() {
       if (!document.hidden) {
         getData();
       }
-    }, 30000);
+    }, 60000);
   }
 
   if ($('.lds-ring').length > 0 || $('.previewPDF').length > 0) {

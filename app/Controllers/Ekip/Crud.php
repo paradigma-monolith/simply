@@ -69,7 +69,10 @@ class Crud extends BaseController
 
     public function simpanMasterKinerja()
     {
-        $id_user = session()->get('id_user');
+        $id_user = (int) session()->get('id_user');
+        if ($id_user <= 0) {
+            return $this->response->setStatusCode(401)->setJSON(['status' => 'error', 'message' => 'Sesi berakhir, silakan login ulang.']);
+        }
         $id = $this->request->getPost('id');
         
         // Use provided year, or fallback to current year
@@ -102,9 +105,12 @@ class Crud extends BaseController
 
     public function simpanEvaluasiMingguan()
     {
+        $id_user = (int) session()->get('id_user');
+        if ($id_user <= 0) {
+            return $this->response->setStatusCode(401)->setJSON(['status' => 'error', 'message' => 'Sesi berakhir, silakan login ulang.']);
+        }
         $pengaturan = $this->pengaturanModel->first();
         
-        $id_user = session()->get('id_user');
         $minggu_ke = $this->request->getPost('minggu_ke');
         
         $tahun = $this->request->getPost('tahun') ?? date('Y');

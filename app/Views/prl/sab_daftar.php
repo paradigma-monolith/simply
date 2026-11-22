@@ -28,7 +28,7 @@
         <td><?= $data['penanggung_jawab']; ?></td>
         <td><?= $data['penanggung_jawab_no_hp']; ?></td>
         <td><?= $data['sumber_air']; ?></td>
-        <td><?= number_format($data['kapasitas_penampungan'], 0, ',', '.'); ?> L</td>
+        <td><?= number_format((float) ($data['kapasitas_penampungan'] ?? 0), 0, ',', '.'); ?> L</td>
         <td><?= $data['nama_pegawai']; ?></td>
         <td><?= (new \DateTime($data['updated_at']))->format('j M Y, H:i'); ?></td>
         <td>

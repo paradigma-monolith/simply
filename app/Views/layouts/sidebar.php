@@ -1,9 +1,13 @@
+<?php
+$accessMenu = (array) (session()->get('accessMenu') ?? []);
+$activeMenu = $activeMenu ?? '';
+?>
 <nav class="mt-2">
   <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent text-sm" data-widget="treeview" role="menu" data-accordion="false">
     <!-- Add icons to the links using the .nav-icon class
             with font-awesome or any other icon font library -->
     <li class="nav-header">MENU</li>
-    <?php if (in_array('Dashboard', session()->get('accessMenu'))) : ?>
+    <?php if (in_array('Dashboard', $accessMenu, true)) : ?>
       <li id="dashboard" class="nav-item">
         <a href="/home/dashboard" class="nav-link <?= in_array($activeMenu, ['Dashboard']) ? "active" : ""; ?>">
           <i class="nav-icon fas fa-tachometer-alt"></i>
@@ -71,7 +75,7 @@
      
     <!-- APLIKASI E-KIP -->
 
-    <?php if (in_array('Dashboard', session()->get('accessMenu'))) : ?>
+    <?php if (in_array('Dashboard', $accessMenu, true)) : ?>
       <li id="Absen" class="nav-item <?= in_array($activeMenu, ['pengaturanAbsen', 'absenHarian', 'zonaAbsen', 'absenDinasLuar']) ? "menu-open" : ""; ?>">
         <a href="#" class="nav-link <?= in_array($activeMenu, ['pengaturanAbsen', 'absenHarian', 'zonaAbsen', 'absenDinasLuar']) ? "active" : ""; ?>">
           <i class="nav-icon fas fa-business-time"></i>
@@ -126,8 +130,8 @@
           </p>
         </a>
         <ul class="nav nav-treeview">
-        <?php if (in_array('Infografis', session()->get('accessMenu'))) : ?>
-          <?php if (in_array('Data Infografis', session()->get('accessMenu'))) : ?>
+        <?php if (in_array('Infografis', $accessMenu, true)) : ?>
+          <?php if (in_array('Data Infografis', $accessMenu, true)) : ?>
             <li class="nav-item">
               <a href="/infografis/kapal" class="nav-link <?= in_array($activeMenu, ['kapal']) ? "active" : ""; ?>">
                 <i class="far fa-circle nav-icon"></i>
@@ -160,13 +164,21 @@
     
     <!-- APLIKASI ABS -->
     <?php
-    // Cache role verifikator Rawat Kendaraan di session (180 dtk) agar tidak query DB di setiap perpindahan halaman
+    // Cache role verifikator Rawat Kendaraan di Cache Engine (180 dtk) agar tidak mengunci/menulis session di tiap halaman
     $countRawatKendaraanPending = 0;
     $isAdmin = session()->get('role') == 'Admin';
     $isVerifikator1 = false;
     $isVerifikator2 = false;
     $userId = (int) session()->get('id_user');
-    $rawatCache = session()->get('_sidebar_rawat_cache');
+    $rawatCacheKey = 'sidebar_rawat_u' . $userId;
+    $rawatCache = null;
+    if ($userId > 0) {
+        try {
+            $rawatCache = \Config\Services::cache()->get($rawatCacheKey);
+        } catch (\Throwable $e) {
+            $rawatCache = null;
+        }
+    }
     $rawatCacheValid = is_array($rawatCache)
         && (int) ($rawatCache['uid'] ?? 0) === $userId
         && (time() - (int) ($rawatCache['ts'] ?? 0)) < 180;
@@ -203,13 +215,17 @@
             // Silent error jika tabel belum tersedia
         }
 
-        session()->set('_sidebar_rawat_cache', [
-            'uid'     => $userId,
-            'ts'      => time(),
-            'v1'      => $isVerifikator1,
-            'v2'      => $isVerifikator2,
-            'pending' => $countRawatKendaraanPending,
-        ]);
+        try {
+            \Config\Services::cache()->save($rawatCacheKey, [
+                'uid'     => $userId,
+                'ts'      => time(),
+                'v1'      => $isVerifikator1,
+                'v2'      => $isVerifikator2,
+                'pending' => $countRawatKendaraanPending,
+            ], 180);
+        } catch (\Throwable $e) {
+            // Abaikan kegagalan tulis cache
+        }
     }
     ?>
     <li id="abs" class="nav-item <?= in_array($activeMenu, ['abs_pengajuan','abs_gambar', 'managemen_qr_code', 'abs_verifikasi', 'bangunan', 'lokasi', 'abs_rawat_dashboard', 'abs_rawat_pengajuan', 'abs_rawat_kendaraan', 'abs_rawat_pengaturan', 'abs_rawat_verifikasi']) ? "menu-open" : ""; ?>">
@@ -379,7 +395,7 @@
             <p>Validation Perizinan <span class="badge badge-warning right view-jumlah-data-permohonan-baru"></span></p>
           </a>
         </li>
-        <?php if (in_array('Admin', session()->get('accessMenu'))) : ?>
+        <?php if (in_array('Admin', $accessMenu, true)) : ?>
           <li class="nav-item">
             <a href="/cuti/sisa_cuti" class="nav-link <?= in_array($activeMenu, ['pengaturan_cuti']) ? "active" : ""; ?>">
               <i class="far fa-circle nav-icon"></i>
@@ -1170,7 +1186,7 @@
     </li>
     
     <!-- MENU ADMIN -->
-    <?php if (in_array('Admin', session()->get('accessMenu'))) : ?>
+    <?php if (in_array('Admin', $accessMenu, true)) : ?>
       <li id="admin" class="nav-item <?= in_array($activeMenu, ['user', 'unit_kerja', 'pegawai', 'skema_titimangsa', 'jenis', 'feedback']) ? "menu-open" : ""; ?>">
         <a href="#" class="nav-link <?= in_array($activeMenu, ['user', 'unit_kerja', 'pegawai', 'skema_titimangsa', 'jenis', 'feedback']) ? "active" : ""; ?>">
           <i class="nav-icon fas fa-user-cog"></i>

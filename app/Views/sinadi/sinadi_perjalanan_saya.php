@@ -13,7 +13,7 @@
           <div class="card-header row">
             <div class="col-12">
               <h5>Perjalanan dinas terakhir yang terekam sistem pada tanggal <?= isset($perjalanan[0]['tgl_pulang']) ? mediumdate_indo($perjalanan[0]['tgl_pulang']) : '(Tidak ada)'; ?></h5>
-              <h5>Jumlah pendapatan yang terekam sistem sebanyak <strong>Rp <?= number_format($totalPendapatan, '2', ',', '.'); ?></strong></h5>
+              <h5>Jumlah pendapatan yang terekam sistem sebanyak <strong>Rp <?= number_format((float) ($totalPendapatan ?? 0), 2, ',', '.'); ?></strong></h5>
               <hr>
             </div>
           </div>
@@ -47,8 +47,8 @@
                     <td data-toggle="tooltip" data-placement="top" title="<?= $data['nama_kegiatan']; ?>"><?= strlen($data['nama_kegiatan']) > 36 ? substr($data['nama_kegiatan'], 0, 36) . '...' : $data['nama_kegiatan']; ?></td>
                     <td data-toggle="tooltip" data-placement="top" title="<?= $data['tempat_perjalanan']; ?>"><?= strlen($data['tempat_perjalanan']) > 36 ? substr($data['tempat_perjalanan'], 0, 36) . '...' : $data['tempat_perjalanan']; ?></td>
                     <td><?= $data['jumlah_peserta']; ?> Orang</td>
-                    <td><?= number_format($data['total_perjalanan'], '2', ',', '.'); ?></td>
-                    <td><?= number_format($data['jumlah_transfer'], '2', ',', '.'); ?></td>
+                    <td><?= number_format((float) ($data['total_perjalanan'] ?? 0), 2, ',', '.'); ?></td>
+                    <td><?= number_format((float) ($data['jumlah_transfer'] ?? 0), 2, ',', '.'); ?></td>
                     <td>
                       <button class="btn btn-xs bg-gradient-info tombol-td" data-toggle="tooltip" data-placement="bottom" title="Pratinjau" for="Lihat Data"><i class="fas fa-eye"></i></button>
                       <button class="btn btn-xs btn-danger" onclick="downloadFileSinadi('<?= $data['id_perjalanan']; ?>','<?= $data['nama']; ?>')" data-toggle="tooltip" data-placement="bottom" title="Download File"><i class="fas fa-file-pdf"></i></button>
