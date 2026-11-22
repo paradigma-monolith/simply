@@ -245,4 +245,18 @@ class AbsenMediaStorageTest extends TestCase
 
         $this->assertNull($storage->saveUploadedFile($fakeUpload, 'foto', '2026-11-22'));
     }
+
+    public function testDecodeBase64TolerantAcceptsEmptyImageSubtypeFromLegacyTempUpload(): void
+    {
+        $storage = new AbsenMediaStorage($this->baseDir, $this->legacyDir);
+        $jpeg    = $this->sampleJpegBytes();
+        // Legacy generate_base64($file->getTempName()) produced `data:image/;base64,...`
+        $legacyUri = 'data:image/;base64,' . base64_encode($jpeg);
+
+        $decoded = $storage->decodeBase64Tolerant($legacyUri);
+        $this->assertIsArray($decoded);
+        $this->assertSame('jpg', $decoded['ext']);
+        $this->assertSame('image/jpeg', $decoded['mime']);
+        $this->assertSame($jpeg, $decoded['binary']);
+    }
 }

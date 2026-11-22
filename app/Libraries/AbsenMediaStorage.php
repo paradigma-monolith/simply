@@ -94,7 +94,7 @@ class AbsenMediaStorage
         $declaredMime = null;
         $payload = $trimmed;
 
-        if (preg_match('/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/s', $trimmed, $m)) {
+        if (preg_match('/^data:(image\/[a-zA-Z0-9.+-]*);base64,(.+)$/s', $trimmed, $m)) {
             $declaredMime = strtolower($m[1]);
             $payload = $m[2];
         } elseif (stripos($trimmed, 'data:') === 0) {
@@ -410,7 +410,7 @@ class AbsenMediaStorage
         }
 
         $trimmed = trim((string) $raw);
-        if (preg_match('/^data:(image\/[a-zA-Z0-9.+-]+);base64,.+$/s', $trimmed)) {
+        if (preg_match('/^data:(image\/[a-zA-Z0-9.+-]*);base64,.+$/s', $trimmed)) {
             $decoded = $this->decodeBase64Tolerant($trimmed);
             if ($decoded !== null) {
                 return 'data:' . $decoded['mime'] . ';base64,' . base64_encode($decoded['binary']);
