@@ -21,7 +21,10 @@ class Auth extends BaseController
   }
   public function index()
   {
-    return view('welcome');
+    if (session()->get('username')) {
+      return redirect()->to('/home');
+    }
+    return redirect()->to('/auth/login');
   }
   public function newIndex()
   {
