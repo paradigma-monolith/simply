@@ -64,8 +64,6 @@ $(document).on('submit', '.statusBekerja', function(e) {
         }
       });
       // ==================================================================================
-    } else if (result.isDenied) {
-      Swal.fire('Status pegawai tidak jadi diubah.', '', 'info')
     }
   })
 });

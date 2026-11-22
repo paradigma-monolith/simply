@@ -1126,7 +1126,7 @@
               <span>Infografis Kapal / Pesawat / Vaksin</span>
             </a>
             <div class="dropdown-divider"></div>
-            <a href="javascript:void(0)" data-location="/auth/logout" onclick="logoutSweetAlert(this)" class="dropdown-item text-danger">
+            <a href="/auth/logout" class="dropdown-item text-danger">
               <i class="fas fa-sign-out-alt"></i>
               <span>Keluar</span>
             </a>
@@ -1518,10 +1518,6 @@
   <?= in_array($activeMenu, ['tambah_dokumen', 'utama', 'pendukung', 'lainnya', 'daftar_sop']) ? '<script src="/js/viewSopUtama.js"></script>' : ""; ?>
   <!--<script src="/js/inspectElement.js"></script>-->
   <?php if(session()->get('role') != "Admin"): ?>
-  <?php endif; ?>
-  
-  <?php if (session()->getFlashdata('gantiPassword')) : ?>
-    <script src="/js/tutorial.js"></script>
   <?php endif; ?>
   
   <script>

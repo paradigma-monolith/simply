@@ -225,8 +225,6 @@ class Auth extends BaseController
         session()->set($ses_data);
         // dd(session()->get('nama')); // pemanggilan session
         // return redirect()->to('/admin');
-        if ($this->request->getVar('password') == '12345678')
-          session()->setFlashdata('gantiPassword', 'Ganti Password!');
 
         return true;
       } else {
@@ -270,12 +268,10 @@ class Auth extends BaseController
       'accessMenu'  => ''
     ]);
     $session->destroy();
-    session()->setFlashdata('info', 'Terimakasih atas kerjanya..');
-    return redirect()->to('/setLogout');
+    return redirect()->to('/auth/login');
   }
   public function setLogout()
   {
-    session()->setFlashdata('info', 'Terimakasih atas kerjanya..');
     return redirect()->to('/auth/login');
   }
   

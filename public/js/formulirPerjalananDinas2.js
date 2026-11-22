@@ -396,15 +396,6 @@ function sinadiHapusPeserta(e, id) {
           text: 'Terjadi kesalahan, silahkan coba kembali atau hubungi pihak yang bersangkutan!'
         })
       });
-    } else if (result.isDenied) {
-      Swal.fire('Informasi data tidak dihapus', '', 'info')
-      Swal.fire({
-        icon: 'info',
-        title: 'Data masih tersimpan pada sistem',
-        showConfirmButton: false,
-        timer: 1500,
-        allowOutsideClick: false
-      })
     }
   })
 }

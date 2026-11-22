@@ -236,38 +236,7 @@ function menuOpen(idMenu) {
 }
 
 function logoutSweetAlert(element) {
-  Swal.fire({
-    title: 'Ingin keluar dari aplikasi?',
-    showDenyButton: true,
-    showCancelButton: false,
-    icon: 'warning',
-    confirmButtonText: 'Konfirm..',
-    denyButtonText: `Tidak`,
-  }).then((result) => {
-    /* Read more about isConfirmed, isDenied below */
-    if (result.isConfirmed) {
-      Swal.fire({
-          position: 'top-end',
-          icon: 'success',
-          title: 'Kerjaan kamu pada sistem telah disimpan, Terimakasih...',
-          showConfirmButton: false,
-          allowOutsideClick: false,
-          // timer: 1500
-        },
-        setTimeout(() => {
-          window.location = $(element).attr('data-location')
-        }, "1500"))
-    } else if (result.isDenied) {
-      Swal.fire('Tidak jadi kerluar', '', 'info')
-      Swal.fire({
-        icon: 'info',
-        title: 'Anda masih di Sistem aplikasi KKP',
-        showConfirmButton: false,
-        timer: 1500,
-        allowOutsideClick: false
-      })
-    }
-  })
+  window.location = $(element).attr('data-location') || '/auth/logout';
 }
 
 // Hapus Data
@@ -307,15 +276,6 @@ function formHapusData() {
             text: 'Terjadi kesalahan, silahkan coba kembali atau hubungi pihak yang bersangkutan!'
           })
         });
-      } else if (result.isDenied) {
-        Swal.fire('Informasi data tidak dihapus', '', 'info')
-        Swal.fire({
-          icon: 'info',
-          title: 'Data masih tersimpan pada sistem',
-          showConfirmButton: false,
-          timer: 1500,
-          allowOutsideClick: false
-        })
       }
     })
   });
@@ -355,15 +315,6 @@ $(document).on("submit", ".formHapusData", function(e) {
           text: 'Terjadi kesalahan, silahkan coba kembali atau hubungi pihak yang bersangkutan!'
         })
       });
-    } else if (result.isDenied) {
-      Swal.fire('Informasi data tidak dihapus', '', 'info')
-      Swal.fire({
-        icon: 'info',
-        title: 'Data masih tersimpan pada sistem',
-        showConfirmButton: false,
-        timer: 1500,
-        allowOutsideClick: false
-      })
     }
   })
 });

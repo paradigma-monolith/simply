@@ -1224,7 +1224,7 @@
       
     <?php endif; ?>
     <li id="logout" class="nav-item">
-      <a href="javascript:void(0)" id="coba" data-location="/auth/logout" onclick="logoutSweetAlert(this)" class="nav-link">
+      <a href="/auth/logout" id="coba" class="nav-link">
         <i class="nav-icon fas fa-door-open"></i>
         <p>
           Keluar

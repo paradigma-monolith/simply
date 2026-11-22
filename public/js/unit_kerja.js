@@ -64,8 +64,6 @@ $(document).on('submit', '.statusUnitKerja', function(e) {
         }
       });
       // ==================================================================================
-    } else if (result.isDenied) {
-      Swal.fire('Unit kerja tidak jadi diubah.', '', 'info')
     }
   })
 });

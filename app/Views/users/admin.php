@@ -1670,9 +1670,7 @@ if (!empty($absenHariIni)) {
       getCallendarAgenda();
       initModuleFilter();
 
-      <?php if (!session()->getFlashdata('gantiPassword')) : ?>
-        getInformationAgenda();
-      <?php endif; ?>
+      getInformationAgenda();
 
       $('.new-fitur').on('click', function() {
         $.ajax({
