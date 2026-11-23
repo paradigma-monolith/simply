@@ -94,7 +94,7 @@ $statusBadgeMap = [
 
     <!-- Header Action Bar -->
     <div class="card card-outline card-teal shadow-sm mb-2">
-      <div class="card-body py-2 px-3 d-flex flex-wrap justify-content-between align-items-center" style="gap: 8px;">
+      <div class="card-body tb-flex-header py-2 px-3 d-flex flex-wrap justify-content-between align-items-center" style="gap: 8px;">
         <div>
           <h6 class="mb-0 font-weight-bold text-dark">
             <i class="fas fa-lungs-virus text-teal mr-2"></i>
@@ -104,7 +104,7 @@ $statusBadgeMap = [
             Kode: <strong>7956.QAA.061.051</strong> &bull; Checklist Verifikasi Kebenaran &amp; Kelengkapan Dokumen Pertanggungjawaban
           </small>
         </div>
-        <div class="d-flex flex-wrap" style="gap: 6px;">
+        <div class="d-flex flex-wrap align-items-center justify-content-end ml-auto" style="gap: 6px;">
           <button type="button" class="btn btn-success btn-sm" data-toggle="modal" data-target="#modalTemplateTracingTb">
             <i class="fas fa-file-download mr-1"></i> Template Dokumen
             <span class="badge badge-light ml-1"><?= count($templateFiles ?? []); ?></span>
