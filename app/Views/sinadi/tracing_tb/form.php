@@ -283,7 +283,7 @@ $tabShortNames = [
                 $isCustomSavedLokus = ($selectedLokus !== '' && !in_array($selectedLokus, $lokusCatalog, true));
               ?>
               <select name="lokus" id="lokus" class="form-control form-control-sm select2bs4" style="width: 100%;" required>
-                <option value="">-- Pilih Lokus Kegiatan (50 Lokus) --</option>
+                <option value="">-- Pilih Lokus Kegiatan (<?= count($lokusCatalog); ?> Lokus) --</option>
                 <?php if ($isCustomSavedLokus) : ?>
                   <option value="<?= esc($selectedLokus); ?>" selected><?= esc($selectedLokus); ?> (Lokus tersimpan)</option>
                 <?php endif; ?>
@@ -947,7 +947,7 @@ $tabShortNames = [
         Swal.fire({
           icon: 'warning',
           title: 'Lokus Kegiatan Belum Dipilih',
-          text: 'Silakan pilih Lokus Kegiatan dari daftar 50 lokus terlebih dahulu.'
+          text: 'Silakan pilih Lokus Kegiatan dari daftar lokus terlebih dahulu.'
         }).then(function() {
           if ($.fn.select2 && $('#lokus').data('select2')) {
             $('#lokus').select2('open');

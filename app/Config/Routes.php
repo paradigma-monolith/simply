@@ -404,6 +404,10 @@ $routes->get('/sinadi/tracing-tb/download-template-zip', 'Sinadi\TracingTb::down
 $routes->get('/sinadi/tracing-tb/verifikator', 'Sinadi\TracingTb::verifikator');
 $routes->post('/sinadi/tracing-tb/verifikator/tambah', 'Sinadi\TracingTb::tambahVerifikator');
 $routes->post('/sinadi/tracing-tb/verifikator/hapus/(:num)', 'Sinadi\TracingTb::hapusVerifikator/$1');
+$routes->get('/sinadi/tracing-tb/lokus', 'Sinadi\TracingTb::lokus');
+$routes->post('/sinadi/tracing-tb/lokus/tambah', 'Sinadi\TracingTb::tambahLokus');
+$routes->post('/sinadi/tracing-tb/lokus/update/(:num)', 'Sinadi\TracingTb::updateLokus/$1');
+$routes->post('/sinadi/tracing-tb/lokus/hapus/(:num)', 'Sinadi\TracingTb::hapusLokus/$1');
 
 // ROUTES FOR WBK
 $routes->get('/wbk/rencana_kerja', 'Wbk\Data::rencana_kerja');

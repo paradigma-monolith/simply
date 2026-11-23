@@ -113,6 +113,9 @@ $statusBadgeMap = [
             <i class="fas fa-plus-circle mr-1"></i> Input Form Tracing TB
           </a>
           <?php if (!empty($ctx['can_manage_verif'])) : ?>
+            <a href="/sinadi/tracing-tb/lokus" class="btn btn-outline-primary btn-sm">
+              <i class="fas fa-map-marker-alt mr-1"></i> Pengaturan Lokus
+            </a>
             <a href="/sinadi/tracing-tb/verifikator" class="btn btn-outline-dark btn-sm">
               <i class="fas fa-user-shield mr-1"></i> Manajemen Verifikator
             </a>

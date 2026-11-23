@@ -7,6 +7,7 @@ use App\Libraries\SinadiTracingTbSchema;
 use App\Models\SinadiTracingTbModel;
 use App\Models\SinadiTracingTbDokumenModel;
 use App\Models\SinadiTracingTbVerifikatorModel;
+use App\Models\SinadiTracingTbLokusModel;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
 use Psr\Log\LoggerInterface;
@@ -16,6 +17,7 @@ class TracingTb extends BaseController
     protected SinadiTracingTbModel $tracingTbModel;
     protected SinadiTracingTbDokumenModel $dokumenModel;
     protected SinadiTracingTbVerifikatorModel $verifikatorModel;
+    protected SinadiTracingTbLokusModel $lokusModel;
 
     private const ALLOWED_EXTENSIONS = ['pdf'];
     private const MAX_FILE_BYTES = 15728640; // 15 MB
@@ -27,6 +29,7 @@ class TracingTb extends BaseController
         $this->tracingTbModel = new SinadiTracingTbModel();
         $this->dokumenModel = new SinadiTracingTbDokumenModel();
         $this->verifikatorModel = new SinadiTracingTbVerifikatorModel();
+        $this->lokusModel = new SinadiTracingTbLokusModel();
     }
 
     /**
@@ -1394,5 +1397,185 @@ class TracingTb extends BaseController
 
         $this->verifikatorModel->delete((int) $id);
         return redirect()->to('/sinadi/tracing-tb/verifikator')->with('pesan', 'Verifikator berhasil dihapus.');
+    }
+
+    /**
+     * Pengaturan Master Lokus Tracing TB (Tambah, Edit, Hapus).
+     */
+    public function lokus()
+    {
+        $ctx = $this->getUserContext();
+        if (!$ctx['can_manage_verif']) {
+            return redirect()->to('/sinadi/tracing-tb')
+                ->with('error', 'Halaman Pengaturan Lokus hanya dapat diakses oleh Admin / Super User SINADI.');
+        }
+
+        $lokusRows = $this->lokusModel
+            ->orderBy('urutan', 'ASC')
+            ->orderBy('id_lokus', 'ASC')
+            ->findAll();
+
+        // Hitung pemakaian masing-masing lokus di pengajuan Tracing TB yang sudah tersimpan
+        $usageRows = \Config\Database::connect()->table('sinadi_tracing_tb')
+            ->select('lokus, COUNT(*) AS total')
+            ->groupBy('lokus')
+            ->get()
+            ->getResultArray();
+        $usageMap = [];
+        foreach ($usageRows as $ur) {
+            $usageMap[(string) $ur['lokus']] = (int) $ur['total'];
+        }
+
+        $maxUrutan = 0;
+        $activeCount = 0;
+        foreach ($lokusRows as &$lr) {
+            $u = (int) ($lr['urutan'] ?? 0);
+            if ($u > $maxUrutan) {
+                $maxUrutan = $u;
+            }
+            if ((int) ($lr['is_active'] ?? 0) === 1) {
+                $activeCount++;
+            }
+            $lr['usage_count'] = $usageMap[(string) $lr['nama_lokus']] ?? 0;
+        }
+        unset($lr);
+
+        return view('sinadi/tracing_tb/lokus', [
+            'title'       => 'Sinadi | Pengaturan Lokus Tracing TB',
+            'activeMenu'  => 'sinadiTracingTbLokus',
+            'ctx'         => $ctx,
+            'lokusRows'   => $lokusRows,
+            'activeCount' => $activeCount,
+            'nextUrutan'  => $maxUrutan + 1,
+        ]);
+    }
+
+    /**
+     * Tambah Lokus baru ke pengaturan Tracing TB.
+     */
+    public function tambahLokus()
+    {
+        $ctx = $this->getUserContext();
+        if (!$ctx['can_manage_verif']) {
+            return redirect()->to('/sinadi/tracing-tb')->with('error', 'Akses ditolak.');
+        }
+
+        $namaLokus = trim(preg_replace('/\s+/', ' ', (string) ($this->request->getPost('nama_lokus') ?? '')));
+        $urutanRaw = (int) ($this->request->getPost('urutan') ?? 0);
+        $isActive = ($this->request->getPost('is_active') !== null)
+            ? ((string) $this->request->getPost('is_active') === '1' ? 1 : 0)
+            : 1;
+
+        if ($namaLokus === '') {
+            return redirect()->to('/sinadi/tracing-tb/lokus')->withInput()->with('error', 'Nama Lokus wajib diisi.');
+        }
+        if (mb_strlen($namaLokus) > 255) {
+            return redirect()->to('/sinadi/tracing-tb/lokus')->withInput()->with('error', 'Nama Lokus maksimal 255 karakter.');
+        }
+
+        $db = \Config\Database::connect();
+        $dup = $db->table('sinadi_tracing_tb_lokus')
+            ->select('id_lokus')
+            ->where('LOWER(TRIM(nama_lokus))', mb_strtolower($namaLokus))
+            ->get()
+            ->getRowArray();
+
+        if ($dup) {
+            return redirect()->to('/sinadi/tracing-tb/lokus')->withInput()->with('error', 'Lokus "' . $namaLokus . '" sudah terdaftar.');
+        }
+
+        if ($urutanRaw <= 0) {
+            $maxRow = $this->lokusModel->selectMax('urutan')->first();
+            $urutanRaw = ((int) ($maxRow['urutan'] ?? 0)) + 1;
+        }
+
+        $this->lokusModel->insert([
+            'nama_lokus' => $namaLokus,
+            'urutan'     => $urutanRaw,
+            'is_active'  => $isActive,
+            'created_by' => $ctx['id_user'],
+            'updated_by' => $ctx['id_user'],
+        ]);
+
+        return redirect()->to('/sinadi/tracing-tb/lokus')->with('pesan', 'Lokus "' . $namaLokus . '" berhasil ditambahkan.');
+    }
+
+    /**
+     * Perbarui data Lokus Tracing TB (+ opsi sinkronisasi ke pengajuan yang sudah ada).
+     */
+    public function updateLokus($id)
+    {
+        $ctx = $this->getUserContext();
+        if (!$ctx['can_manage_verif']) {
+            return redirect()->to('/sinadi/tracing-tb')->with('error', 'Akses ditolak.');
+        }
+
+        $idLokus = (int) $id;
+        $row = $this->lokusModel->find($idLokus);
+        if (!$row) {
+            return redirect()->to('/sinadi/tracing-tb/lokus')->with('error', 'Data lokus tidak ditemukan.');
+        }
+
+        $namaLokus = trim(preg_replace('/\s+/', ' ', (string) ($this->request->getPost('nama_lokus') ?? '')));
+        $urutan = max(1, (int) ($this->request->getPost('urutan') ?? ($row['urutan'] ?? 1)));
+        $isActive = ((string) ($this->request->getPost('is_active') ?? '0') === '1') ? 1 : 0;
+        $syncRecords = ((string) ($this->request->getPost('sync_records') ?? '0') === '1');
+
+        if ($namaLokus === '') {
+            return redirect()->to('/sinadi/tracing-tb/lokus')->with('error', 'Nama Lokus tidak boleh kosong.');
+        }
+        if (mb_strlen($namaLokus) > 255) {
+            return redirect()->to('/sinadi/tracing-tb/lokus')->with('error', 'Nama Lokus maksimal 255 karakter.');
+        }
+
+        $db = \Config\Database::connect();
+        $dup = $db->table('sinadi_tracing_tb_lokus')
+            ->select('id_lokus')
+            ->where('LOWER(TRIM(nama_lokus))', mb_strtolower($namaLokus))
+            ->where('id_lokus !=', $idLokus)
+            ->get()
+            ->getRowArray();
+
+        if ($dup) {
+            return redirect()->to('/sinadi/tracing-tb/lokus')->with('error', 'Lokus "' . $namaLokus . '" sudah digunakan oleh data lain.');
+        }
+
+        $oldNama = (string) $row['nama_lokus'];
+        $this->lokusModel->update($idLokus, [
+            'nama_lokus' => $namaLokus,
+            'urutan'     => $urutan,
+            'is_active'  => $isActive,
+            'updated_by' => $ctx['id_user'],
+        ]);
+
+        if ($syncRecords && $oldNama !== $namaLokus) {
+            $db->table('sinadi_tracing_tb')
+                ->where('lokus', $oldNama)
+                ->update(['lokus' => $namaLokus]);
+        }
+
+        return redirect()->to('/sinadi/tracing-tb/lokus')->with('pesan', 'Lokus "' . $namaLokus . '" berhasil diperbarui.');
+    }
+
+    /**
+     * Hapus Lokus dari pengaturan (data pengajuan lama tetap aman menyimpan riwayat namanya).
+     */
+    public function hapusLokus($id)
+    {
+        $ctx = $this->getUserContext();
+        if (!$ctx['can_manage_verif']) {
+            return redirect()->to('/sinadi/tracing-tb')->with('error', 'Akses ditolak.');
+        }
+
+        $idLokus = (int) $id;
+        $row = $this->lokusModel->find($idLokus);
+        if (!$row) {
+            return redirect()->to('/sinadi/tracing-tb/lokus')->with('error', 'Data lokus tidak ditemukan.');
+        }
+
+        $nama = (string) $row['nama_lokus'];
+        $this->lokusModel->delete($idLokus);
+
+        return redirect()->to('/sinadi/tracing-tb/lokus')->with('pesan', 'Lokus "' . $nama . '" berhasil dihapus dari daftar pilihan.');
     }
 }

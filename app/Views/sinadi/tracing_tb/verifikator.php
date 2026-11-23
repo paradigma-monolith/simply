@@ -14,9 +14,14 @@
   <div class="container-fluid">
 
     <div class="mb-2 d-flex justify-content-between align-items-center flex-wrap" style="gap: 8px;">
-      <a href="/sinadi/tracing-tb" class="btn btn-outline-secondary btn-sm">
-        <i class="fas fa-arrow-left mr-1"></i> Kembali ke Daftar Tracing TB
-      </a>
+      <div class="d-flex flex-wrap" style="gap: 6px;">
+        <a href="/sinadi/tracing-tb" class="btn btn-outline-secondary btn-sm">
+          <i class="fas fa-arrow-left mr-1"></i> Kembali ke Daftar Tracing TB
+        </a>
+        <a href="/sinadi/tracing-tb/lokus" class="btn btn-outline-primary btn-sm">
+          <i class="fas fa-map-marker-alt mr-1"></i> Pengaturan Lokus
+        </a>
+      </div>
       <span class="badge badge-dark p-2">
         <i class="fas fa-user-shield mr-1"></i> Manajemen Verifikator BKK Tracing TB
       </span>

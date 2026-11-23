@@ -11,9 +11,9 @@ class SinadiTracingTbSchema
     public const DEFAULT_INSTANSI = 'Balai Kekarantinaan Kesehatan Kelas I Bandung';
 
     /**
-     * Daftar resmi 50 Lokus Pelaksanaan Tracing TB Terintegrasi CKG BKK Kelas I Bandung Tahun 2026.
+     * Daftar bawaan 50 Lokus Pelaksanaan Tracing TB Terintegrasi CKG BKK Kelas I Bandung Tahun 2026.
      */
-    public static function getLokusList(): array
+    public static function getDefaultLokusList(): array
     {
         return [
             'Desa Patimban I [Area Pelabuhan]',
@@ -67,6 +67,32 @@ class SinadiTracingTbSchema
             'Lapas Kota Cirebon 2',
             'Lapas Kota Cirebon 3',
         ];
+    }
+
+    /**
+     * Ambil daftar lokus aktif dari database (terurut), dengan fallback daftar bawaan jika tabel belum siap.
+     *
+     * @return string[]
+     */
+    public static function getLokusList(?BaseConnection $db = null): array
+    {
+        try {
+            $conn = $db ?? \Config\Database::connect();
+            if ($conn->tableExists('sinadi_tracing_tb_lokus')) {
+                $rows = $conn->table('sinadi_tracing_tb_lokus')
+                    ->select('nama_lokus')
+                    ->where('is_active', 1)
+                    ->orderBy('urutan', 'ASC')
+                    ->orderBy('id_lokus', 'ASC')
+                    ->get()
+                    ->getResultArray();
+                return array_values(array_map(static fn (array $r): string => (string) $r['nama_lokus'], $rows));
+            }
+        } catch (\Throwable $e) {
+            // Fallback ke daftar default bila DB belum siap
+        }
+
+        return self::getDefaultLokusList();
     }
 
     /**
@@ -421,6 +447,49 @@ class SinadiTracingTbSchema
                     KEY `idx_tracing_tb_verif_peran` (`peran`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             ");
+        }
+
+        self::createLokusTable($db);
+    }
+
+    /**
+     * Buat tabel master lokus Tracing TB dan isi seed awal 50 lokus hanya saat tabel baru dibuat.
+     */
+    public static function createLokusTable(BaseConnection $db): void
+    {
+        if ($db->tableExists('sinadi_tracing_tb_lokus')) {
+            return;
+        }
+
+        $db->query("
+            CREATE TABLE IF NOT EXISTS `sinadi_tracing_tb_lokus` (
+                `id_lokus` INT(11) NOT NULL AUTO_INCREMENT,
+                `nama_lokus` VARCHAR(255) NOT NULL,
+                `urutan` INT(11) NOT NULL DEFAULT 0,
+                `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+                `created_by` INT(11) NULL,
+                `updated_by` INT(11) NULL,
+                `created_at` DATETIME NULL,
+                `updated_at` DATETIME NULL,
+                PRIMARY KEY (`id_lokus`),
+                UNIQUE KEY `uniq_tracing_tb_lokus_nama` (`nama_lokus`(191)),
+                KEY `idx_tracing_tb_lokus_urutan` (`is_active`, `urutan`, `id_lokus`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+
+        $now = date('Y-m-d H:i:s');
+        $batch = [];
+        foreach (self::getDefaultLokusList() as $idx => $nama) {
+            $batch[] = [
+                'nama_lokus' => $nama,
+                'urutan'     => $idx + 1,
+                'is_active'  => 1,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+        if (!empty($batch)) {
+            $db->table('sinadi_tracing_tb_lokus')->insertBatch($batch);
         }
     }
 }
