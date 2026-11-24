@@ -629,7 +629,7 @@ class Data extends BaseController
         ->first();
     }
 
-    if (!\App\Libraries\SinadiMonitoringDlHelper::canAccess($role, is_array($aksesRow) ? $aksesRow : null)) {
+    if (!\App\Libraries\SinadiMonitoringDlHelper::canAccess($username, is_array($aksesRow) ? $aksesRow : null)) {
       return redirect()->to('/home')->with('error', 'Anda tidak memiliki akses ke halaman Monitoring Dinas Luar.');
     }
 
@@ -693,9 +693,16 @@ class Data extends BaseController
       ->orderBy('nama_tim_kerja', 'ASC')
       ->get()
       ->getResultArray();
+    foreach ($timKerjaList as &$tkItem) {
+      $tkItem['nama_tim_kerja'] = \App\Libraries\SinadiMonitoringDlHelper::formatTimKerjaName((string) ($tkItem['nama_tim_kerja'] ?? ''));
+    }
+    unset($tkItem);
+    usort($timKerjaList, static function (array $a, array $b): int {
+      return strcasecmp((string) ($a['nama_tim_kerja'] ?? ''), (string) ($b['nama_tim_kerja'] ?? ''));
+    });
 
     $canManageAccess = \App\Libraries\SinadiMonitoringDlHelper::canManageAccess(
-      $role,
+      $username,
       is_array($aksesRow) ? $aksesRow : null
     );
 
@@ -751,13 +758,14 @@ class Data extends BaseController
   {
     \App\Models\SinadiAksesModel::ensureMonitoringDlColumn();
     $role = (string) session()->get('role');
-    $isSuperAdmin = \App\Libraries\SinadiMonitoringDlHelper::isSuperAdmin($role);
+    $username = (string) session()->get('username');
+    $isSuperAdmin = strtolower(trim($role)) === 'admin';
 
     $data['title'] = "Sinadi | Pengaturan Akses"; // kelola_data_cuti
     $data['activeMenu'] = "sinadiPengaturan";
     $data['akses'] = $this->userModel
       ->join('sinadi_akses', 'sinadi_akses.id_user=user.id_user', 'LEFT')
-      ->where("user.username", session()->get('username'))
+      ->where("user.username", $username)
       ->first();
 
     $hasSinadiSuperUser = !empty($data['akses']['id_sinadi_akses']) && ($data['akses']['status'] ?? '') === 'Akses Diterima';
@@ -766,9 +774,10 @@ class Data extends BaseController
     }
     $data['isSuperAdmin'] = $isSuperAdmin;
     $data['hasSinadiSuperUser'] = $hasSinadiSuperUser;
+    $data['canManageMonitoringDl'] = \App\Libraries\SinadiMonitoringDlHelper::canManageAccess($username);
 
     $data['user'] = $this->userModel
-      ->select('user.id_user, user.nama, role_access.role, sinadi_akses.id_sinadi_akses, sinadi_akses.status, sinadi_akses.akses_tim, sinadi_akses.akses_monitoring_dl')
+      ->select('user.id_user, user.nama, user.username, role_access.role, sinadi_akses.id_sinadi_akses, sinadi_akses.status, sinadi_akses.akses_tim, sinadi_akses.akses_monitoring_dl')
       ->join('role_access', 'role_access.id_role_access=user.id_role_access', 'LEFT')
       ->join('sinadi_akses', 'sinadi_akses.id_user=user.id_user', 'LEFT')
       ->orderBy("user.nama", "ASC")

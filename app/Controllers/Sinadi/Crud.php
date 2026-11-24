@@ -1491,8 +1491,8 @@ class Crud extends BaseController
       ->where('user.username', session()->get('username'))
       ->first();
 
-    $role = (string) session()->get('role');
-    if (!\App\Libraries\SinadiMonitoringDlHelper::canManageAccess($role, is_array($akses) ? $akses : null)) {
+    $username = (string) session()->get('username');
+    if (!\App\Libraries\SinadiMonitoringDlHelper::canManageAccess($username, is_array($akses) ? $akses : null)) {
       echo json_encode(['data' => 'error']);
       return;
     }

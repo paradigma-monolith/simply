@@ -10,21 +10,26 @@ use DateTimeImmutable;
  */
 class SinadiMonitoringDlHelper
 {
+    public const SUPER_ADMIN_USERNAME = '199404082022031001';
+    public const SUPER_ADMIN_NAME = 'Mohamad Dahlan Fazhry';
+
     /**
-     * Mengecek apakah role pengguna termasuk Super Admin ('Admin').
+     * Mengecek apakah username pengguna merupakan Super Admin khusus Monitoring Dinas Luar
+     * (hanya Mohamad Dahlan Fazhry / NIP 199404082022031001).
      */
-    public static function isSuperAdmin(?string $role): bool
+    public static function isSuperAdmin(?string $username): bool
     {
-        return strtolower(trim((string) $role)) === 'admin';
+        return self::normalizeNip((string) $username) === self::SUPER_ADMIN_USERNAME;
     }
 
     /**
      * Mengecek apakah pengguna dapat mengakses halaman Monitoring Dinas Luar.
-     * Default: hanya Super Admin ('Admin'), atau user yang telah diberi akses_monitoring_dl = 1.
+     * Default: hanya Super Admin khusus Monitoring DL (199404082022031001),
+     * atau user lain yang telah diberi izin eksplisit akses_monitoring_dl = 1.
      */
-    public static function canAccess(?string $role, ?array $sinadiAksesRow): bool
+    public static function canAccess(?string $username, ?array $sinadiAksesRow): bool
     {
-        if (self::isSuperAdmin($role)) {
+        if (self::isSuperAdmin($username)) {
             return true;
         }
 
@@ -33,14 +38,11 @@ class SinadiMonitoringDlHelper
 
     /**
      * Mengecek apakah pengguna berhak mengatur akses user ke Monitoring Dinas Luar.
+     * Khusus Monitoring DL hanya Super Admin 199404082022031001 (Mohamad Dahlan Fazhry).
      */
-    public static function canManageAccess(?string $role, ?array $sinadiAksesRow): bool
+    public static function canManageAccess(?string $username, ?array $sinadiAksesRow = null): bool
     {
-        if (self::isSuperAdmin($role)) {
-            return true;
-        }
-
-        return trim((string) ($sinadiAksesRow['status'] ?? '')) === 'Akses Diterima';
+        return self::isSuperAdmin($username);
     }
 
     /**
@@ -97,7 +99,7 @@ class SinadiMonitoringDlHelper
 
     /**
      * Menormalkan ceklis komponen biaya (Transport, Uang Harian, Penginapan) dari query parameter.
-     * Default saat pertama dibuka (biaya_applied tidak ada) seluruh komponen aktif (true).
+     * Default saat pertama dibuka (biaya_applied tidak ada): Transport & Uang Harian aktif, Penginapan unchecked.
      *
      * @return array{transport: bool, harian: bool, penginapan: bool}
      */
@@ -108,7 +110,7 @@ class SinadiMonitoringDlHelper
             return [
                 'transport'  => true,
                 'harian'     => true,
-                'penginapan' => true,
+                'penginapan' => false,
             ];
         }
 
@@ -117,6 +119,27 @@ class SinadiMonitoringDlHelper
             'harian'     => isset($queryParams['inc_harian']) && (string) $queryParams['inc_harian'] !== '0',
             'penginapan' => isset($queryParams['inc_penginapan']) && (string) $queryParams['inc_penginapan'] !== '0',
         ];
+    }
+
+    /**
+     * Memetakan nama Tim Kerja mentah dari database ke label tampilan yang sesuai pada Monitoring DL.
+     */
+    public static function formatTimKerjaName(?string $namaTim): string
+    {
+        $clean = preg_replace('/\s+/', ' ', trim((string) $namaTim)) ?? '';
+        if ($clean === '') {
+            return 'Tanpa Tim Kerja';
+        }
+
+        $lower = strtolower($clean);
+        if ($lower === 'default') {
+            return 'Kepala Balai Kekarantinaan Kesehatan Kelas I Bandung';
+        }
+        if ($lower === 'sub adum') {
+            return 'Tim Kerja Dukungan Manajemen';
+        }
+
+        return $clean;
     }
 
     /**
@@ -158,9 +181,10 @@ class SinadiMonitoringDlHelper
         foreach ($pegawaiRows as $row) {
             $nip = self::normalizeNip((string) ($row['nip'] ?? ''));
             $namaKey = self::normalizeNameKey((string) ($row['nama'] ?? ''));
+            $rawTimNama = trim((string) ($row['nama_tim_kerja'] ?? ''));
             $info = [
                 'id_tim_kerja'   => isset($row['id_tim_kerja']) && $row['id_tim_kerja'] !== '' ? (string) $row['id_tim_kerja'] : '',
-                'nama_tim_kerja' => trim((string) ($row['nama_tim_kerja'] ?? '')),
+                'nama_tim_kerja' => $rawTimNama !== '' ? self::formatTimKerjaName($rawTimNama) : '',
                 'jabatan'        => trim((string) ($row['jabatan'] ?? '')),
                 'golongan'       => trim((string) ($row['golongan'] ?? '')),
                 'nama'           => trim((string) ($row['nama'] ?? '')),
@@ -389,10 +413,7 @@ class SinadiMonitoringDlHelper
             }
 
             $idTim = (string) ($timInfo['id_tim_kerja'] ?? '');
-            $namaTim = trim((string) ($timInfo['nama_tim_kerja'] ?? ''));
-            if ($namaTim === '') {
-                $namaTim = 'Tanpa Tim Kerja';
-            }
+            $namaTim = self::formatTimKerjaName((string) ($timInfo['nama_tim_kerja'] ?? ''));
 
             $idPerjalanan = (int) ($row['id_perjalanan'] ?? 0);
             $tglPergi = self::sanitizeYmd((string) ($row['tgl_pergi'] ?? ''));

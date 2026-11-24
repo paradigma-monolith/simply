@@ -17,7 +17,7 @@ $endDate = (string) ($endDate ?? date('Y-m-d'));
 $timKerjaFilter = (string) ($timKerjaFilter ?? 'all');
 $selectedTimNama = (string) ($selectedTimNama ?? 'Semua Tim Kerja');
 $canManageAccess = !empty($canManageAccess);
-$costComponents = is_array($costComponents ?? null) ? $costComponents : ['transport' => true, 'harian' => true, 'penginapan' => true];
+$costComponents = is_array($costComponents ?? null) ? $costComponents : ['transport' => true, 'harian' => true, 'penginapan' => false];
 $incTransport = !empty($costComponents['transport']);
 $incHarian = !empty($costComponents['harian']);
 $incPenginapan = !empty($costComponents['penginapan']);
@@ -188,15 +188,16 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
   }
   .mdl-cost-chip {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
+    min-height: 31px;
     margin: 0;
-    padding: 4px 10px;
-    border-radius: 999px;
+    padding: 3px 10px;
+    border-radius: 6px;
     border: 1px solid #cbd5e1;
     background: #f8fafc;
     font-size: 0.78rem;
@@ -204,6 +205,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     color: #334155;
     cursor: pointer;
     user-select: none;
+    white-space: nowrap;
     transition: all 0.15s ease;
   }
   .mdl-cost-chip:hover {
@@ -254,8 +256,8 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     <div class="mdl-card p-3">
       <form method="get" action="/sinadi/perjalananSaya" id="formFilterMonitoringDl">
         <input type="hidden" name="biaya_applied" value="1">
-        <div class="row align-items-end">
-          <div class="col-md-3 col-sm-6 mb-2 mb-md-0">
+        <div class="d-flex flex-wrap align-items-end" style="gap: 10px;">
+          <div style="flex: 1 1 200px; max-width: 250px;">
             <label for="filterTimKerja" class="small font-weight-bold text-muted mb-1">Tim Kerja</label>
             <select name="tim_kerja" id="filterTimKerja" class="form-control form-control-sm mdl-auto-filter">
               <option value="all" <?= $timKerjaFilter === 'all' ? 'selected' : ''; ?>>Semua Tim Kerja</option>
@@ -268,49 +270,43 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
               <option value="none" <?= $timKerjaFilter === 'none' ? 'selected' : ''; ?>>Tanpa Tim Kerja</option>
             </select>
           </div>
-          <div class="col-md-2 col-sm-6 mb-2 mb-md-0">
+          <div style="width: 145px;">
             <label for="filterStartDate" class="small font-weight-bold text-muted mb-1">Tanggal Mulai</label>
             <input type="date" name="start_date" id="filterStartDate" class="form-control form-control-sm mdl-auto-filter" value="<?= esc($startDate, 'attr'); ?>">
           </div>
-          <div class="col-md-2 col-sm-6 mb-2 mb-md-0">
+          <div style="width: 145px;">
             <label for="filterEndDate" class="small font-weight-bold text-muted mb-1">Tanggal Selesai</label>
             <input type="date" name="end_date" id="filterEndDate" class="form-control form-control-sm mdl-auto-filter" value="<?= esc($endDate, 'attr'); ?>">
           </div>
-          <div class="col-md-5 d-flex flex-wrap align-items-end justify-content-md-end" style="gap: 8px;">
-            <div style="min-width: 195px;">
+          <div>
+            <label class="small font-weight-bold text-muted mb-1 d-block">Perhitungan Biaya</label>
+            <div class="mdl-cost-check-group">
+              <label class="mdl-cost-chip">
+                <input type="checkbox" name="inc_transport" value="1" class="mdl-auto-filter" <?= $incTransport ? 'checked' : ''; ?>>
+                <span>Transport</span>
+              </label>
+              <label class="mdl-cost-chip">
+                <input type="checkbox" name="inc_harian" value="1" class="mdl-auto-filter" <?= $incHarian ? 'checked' : ''; ?>>
+                <span>Uang Harian</span>
+              </label>
+              <label class="mdl-cost-chip">
+                <input type="checkbox" name="inc_penginapan" value="1" class="mdl-auto-filter" <?= $incPenginapan ? 'checked' : ''; ?>>
+                <span>Penginapan</span>
+              </label>
+            </div>
+          </div>
+          <div class="ml-xl-auto d-flex flex-wrap align-items-end" style="gap: 8px;">
+            <div style="min-width: 180px;">
               <label for="filterSortMode" class="small font-weight-bold text-muted mb-1">Urutkan Peringkat</label>
               <select name="sort" id="filterSortMode" class="form-control form-control-sm mdl-auto-filter">
                 <option value="penghasilan" <?= $sortMode === 'penghasilan' ? 'selected' : ''; ?>>Penghasilan Terbanyak</option>
                 <option value="frekuensi" <?= $sortMode === 'frekuensi' ? 'selected' : ''; ?>>Paling Sering DL</option>
               </select>
             </div>
-            <a href="/sinadi/perjalananSaya" class="btn btn-sm btn-outline-secondary" title="Reset filter ke default">
+            <a href="/sinadi/perjalananSaya" class="btn btn-sm btn-outline-secondary" style="height: 31px;" title="Reset filter ke default">
               <i class="fas fa-undo mr-1"></i> Reset
             </a>
           </div>
-        </div>
-
-        <div class="border-top mt-2 pt-2 d-flex flex-wrap align-items-center justify-content-between" style="gap: 8px;">
-          <div class="mdl-cost-check-group">
-            <span class="small font-weight-bold text-muted mr-1">
-              <i class="fas fa-calculator text-teal mr-1"></i>Hitung Komponen Biaya:
-            </span>
-            <label class="mdl-cost-chip">
-              <input type="checkbox" name="inc_transport" value="1" class="mdl-auto-filter" <?= $incTransport ? 'checked' : ''; ?>>
-              <span>Transport</span>
-            </label>
-            <label class="mdl-cost-chip">
-              <input type="checkbox" name="inc_harian" value="1" class="mdl-auto-filter" <?= $incHarian ? 'checked' : ''; ?>>
-              <span>Uang Harian</span>
-            </label>
-            <label class="mdl-cost-chip">
-              <input type="checkbox" name="inc_penginapan" value="1" class="mdl-auto-filter" <?= $incPenginapan ? 'checked' : ''; ?>>
-              <span>Penginapan</span>
-            </label>
-          </div>
-          <small class="text-muted">
-            <i class="fas fa-bolt text-teal mr-1"></i>Filter aktif otomatis memperbarui data saat diubah.
-          </small>
         </div>
       </form>
     </div>
@@ -675,7 +671,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
       <div class="modal-body bg-light">
         <div class="alert alert-info py-2 px-3 small mb-3">
           <i class="fas fa-info-circle mr-1"></i>
-          Secara default hanya <strong>Super Admin</strong> yang dapat mengakses halaman <strong>Monitoring Dinas Luar</strong>. Aktifkan switch di bawah untuk memberi izin kepada user lain.
+          Secara default hanya <strong>Super Admin Monitoring DL (Mohamad Dahlan Fazhry &bull; 199404082022031001)</strong> yang dapat mengakses dan mengatur halaman <strong>Monitoring Dinas Luar</strong>. Aktifkan switch di bawah untuk memberi izin kepada user lain.
         </div>
         <div class="input-group input-group-sm mb-3">
           <div class="input-group-prepend">
@@ -685,7 +681,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
         </div>
         <div class="row" id="listUserAksesDl">
           <?php foreach ($accessUsers as $u) :
-            $isUserSuperAdmin = \App\Libraries\SinadiMonitoringDlHelper::isSuperAdmin((string) ($u['role'] ?? ''));
+            $isUserSuperAdmin = \App\Libraries\SinadiMonitoringDlHelper::isSuperAdmin((string) ($u['username'] ?? ''));
             $hasMonitoringAccess = $isUserSuperAdmin || (!empty($u['id_sinadi_akses']) && (int) ($u['akses_monitoring_dl'] ?? 0) === 1);
             $searchAttr = strtolower(trim((string) ($u['nama'] ?? '') . ' ' . (string) ($u['username'] ?? '') . ' ' . (string) ($u['role'] ?? '')));
           ?>

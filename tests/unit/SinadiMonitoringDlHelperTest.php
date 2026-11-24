@@ -9,18 +9,21 @@ final class SinadiMonitoringDlHelperTest extends TestCase
 {
     public function testCanAccessDefaultsToSuperAdminOnly(): void
     {
-        // Default Super Admin ('Admin') selalu bisa akses meskipun belum ada baris di sinadi_akses
-        $this->assertTrue(SinadiMonitoringDlHelper::canAccess('Admin', null));
-        $this->assertTrue(SinadiMonitoringDlHelper::canAccess('admin', ['akses_monitoring_dl' => 0]));
+        // Super Admin khusus Monitoring DL hanya Mohamad Dahlan Fazhry (199404082022031001)
+        $this->assertTrue(SinadiMonitoringDlHelper::canAccess('199404082022031001', null));
+        $this->assertTrue(SinadiMonitoringDlHelper::canAccess('199404082022031001', ['akses_monitoring_dl' => 0]));
+        $this->assertTrue(SinadiMonitoringDlHelper::canManageAccess('199404082022031001', null));
 
-        // Non-Admin default tidak bisa akses meskipun dia Super User SINADI (status = Akses Diterima)
-        $this->assertFalse(SinadiMonitoringDlHelper::canAccess('Pegawai', null));
-        $this->assertFalse(SinadiMonitoringDlHelper::canAccess('Pegawai', ['status' => 'Akses Diterima', 'akses_monitoring_dl' => 0]));
-        $this->assertFalse(SinadiMonitoringDlHelper::canAccess('Verifikator', ['akses_monitoring_dl' => '0']));
+        // User lain (termasuk role Admin biasa / username lain) default tidak bisa akses & tidak bisa kelola akses
+        $this->assertFalse(SinadiMonitoringDlHelper::canAccess('Admin', null));
+        $this->assertFalse(SinadiMonitoringDlHelper::canAccess('hadianzm', ['status' => 'Akses Diterima', 'akses_monitoring_dl' => 0]));
+        $this->assertFalse(SinadiMonitoringDlHelper::canAccess('198408022006042002', ['akses_monitoring_dl' => '0']));
+        $this->assertFalse(SinadiMonitoringDlHelper::canManageAccess('198408022006042002', ['status' => 'Akses Diterima', 'akses_monitoring_dl' => 1]));
 
-        // Non-Admin bisa akses setelah diberi izin eksplisit akses_monitoring_dl = 1
-        $this->assertTrue(SinadiMonitoringDlHelper::canAccess('Pegawai', ['status' => 'Akses Diblokir', 'akses_monitoring_dl' => 1]));
-        $this->assertTrue(SinadiMonitoringDlHelper::canAccess('Verifikator', ['akses_monitoring_dl' => '1']));
+        // User lain bisa akses setelah diberi izin eksplisit akses_monitoring_dl = 1 (namun tetap bukan pengelola akses)
+        $this->assertTrue(SinadiMonitoringDlHelper::canAccess('198408022006042002', ['status' => 'Akses Diblokir', 'akses_monitoring_dl' => 1]));
+        $this->assertTrue(SinadiMonitoringDlHelper::canAccess('hadianzm', ['akses_monitoring_dl' => '1']));
+        $this->assertFalse(SinadiMonitoringDlHelper::canManageAccess('hadianzm', ['akses_monitoring_dl' => 1]));
     }
 
     public function testResolveDateRangeDefaultsToStartOfYearUntilToday(): void
@@ -269,8 +272,17 @@ final class SinadiMonitoringDlHelperTest extends TestCase
 
     public function testResolveCostComponentsDefaultsToAllTrueAndRespectsUnchecked(): void
     {
+        // Default pertama dibuka: Transport & Uang Harian aktif, Penginapan unchecked
         $default = SinadiMonitoringDlHelper::resolveCostComponents([]);
-        $this->assertSame(['transport' => true, 'harian' => true, 'penginapan' => true], $default);
+        $this->assertSame(['transport' => true, 'harian' => true, 'penginapan' => false], $default);
+
+        $withPenginapan = SinadiMonitoringDlHelper::resolveCostComponents([
+            'biaya_applied'  => '1',
+            'inc_transport'  => '1',
+            'inc_harian'     => '1',
+            'inc_penginapan' => '1',
+        ]);
+        $this->assertSame(['transport' => true, 'harian' => true, 'penginapan' => true], $withPenginapan);
 
         $onlyHarian = SinadiMonitoringDlHelper::resolveCostComponents([
             'biaya_applied' => '1',
@@ -385,5 +397,41 @@ final class SinadiMonitoringDlHelperTest extends TestCase
         $this->assertEqualsWithDelta(670000.0, $transportOnly['rows'][1]['total_penghasilan'], 0.01);
         $this->assertEqualsWithDelta(170000.0, $transportOnly['rows'][1]['penghasilan_dalam_kota'], 0.01);
         $this->assertEqualsWithDelta(500000.0, $transportOnly['rows'][1]['penghasilan_luar_kota'], 0.01);
+    }
+
+    public function testFormatTimKerjaNameMapsDefaultAndSubAdum(): void
+    {
+        $this->assertSame(
+            'Kepala Balai Kekarantinaan Kesehatan Kelas I Bandung',
+            SinadiMonitoringDlHelper::formatTimKerjaName('Default')
+        );
+        $this->assertSame(
+            'Kepala Balai Kekarantinaan Kesehatan Kelas I Bandung',
+            SinadiMonitoringDlHelper::formatTimKerjaName('  default ')
+        );
+        $this->assertSame(
+            'Tim Kerja Dukungan Manajemen',
+            SinadiMonitoringDlHelper::formatTimKerjaName('Sub Adum')
+        );
+        $this->assertSame(
+            'Tim Kerja Dukungan Manajemen',
+            SinadiMonitoringDlHelper::formatTimKerjaName('sub adum')
+        );
+        $this->assertSame('Tanpa Tim Kerja', SinadiMonitoringDlHelper::formatTimKerjaName(''));
+        $this->assertSame('Tim Kerja Surveilans', SinadiMonitoringDlHelper::formatTimKerjaName('Tim Kerja Surveilans'));
+
+        $timMap = SinadiMonitoringDlHelper::buildPegawaiTimMap([
+            ['nip' => '196901042002121003', 'nama' => 'Kepala Balai', 'id_tim_kerja' => '12', 'nama_tim_kerja' => 'Default'],
+            ['nip' => '199404082022031001', 'nama' => 'Mohamad Dahlan Fazhry', 'id_tim_kerja' => '11', 'nama_tim_kerja' => 'Sub Adum'],
+        ]);
+        $pesertaRows = [
+            ['id_perjalanan' => 1, 'status_surat' => 'Disetujui', 'nip_pegawai' => '196901042002121003', 'nama_pegawai' => 'Kepala Balai', 'tgl_pergi' => '2026-02-01', 'tgl_pulang' => '2026-02-02', 'jumlah_transfer' => 2000000],
+            ['id_perjalanan' => 2, 'status_surat' => 'Disetujui', 'nip_pegawai' => '199404082022031001', 'nama_pegawai' => 'Mohamad Dahlan Fazhry', 'tgl_pergi' => '2026-02-03', 'tgl_pulang' => '2026-02-04', 'jumlah_transfer' => 1500000],
+        ];
+        $aggregated = SinadiMonitoringDlHelper::aggregate($pesertaRows, $timMap);
+        $this->assertSame('Kepala Balai Kekarantinaan Kesehatan Kelas I Bandung', $aggregated['rows'][0]['nama_tim_kerja']);
+        $this->assertSame('Tim Kerja Dukungan Manajemen', $aggregated['rows'][1]['nama_tim_kerja']);
+        $this->assertSame('Kepala Balai Kekarantinaan Kesehatan Kelas I Bandung', $aggregated['tim_kerja_summary'][0]['nama_tim_kerja']);
+        $this->assertSame('Tim Kerja Dukungan Manajemen', $aggregated['tim_kerja_summary'][1]['nama_tim_kerja']);
     }
 }

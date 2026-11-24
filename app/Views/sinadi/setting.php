@@ -103,9 +103,10 @@
     </div>
     <!-- /.card -->
 
+    <?php if (!empty($canManageMonitoringDl)) : ?>
     <div class="card card-success collapsed-card">
       <div class="card-header">
-        <h3 class="card-title">Akses Monitoring Dinas Luar <small class="ml-1">(Default: Hanya Super Admin)</small></h3>
+        <h3 class="card-title">Akses Monitoring Dinas Luar <small class="ml-1">(Super Admin: Mohamad Dahlan Fazhry)</small></h3>
         <div class="card-tools">
           <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-plus"></i></button>
         </div>
@@ -119,7 +120,7 @@
         </div>
         <div class="row">
           <?php foreach ($user as $data) :
-            $isRowSuperAdmin = \App\Libraries\SinadiMonitoringDlHelper::isSuperAdmin((string) ($data['role'] ?? ''));
+            $isRowSuperAdmin = \App\Libraries\SinadiMonitoringDlHelper::isSuperAdmin((string) ($data['username'] ?? ''));
             $hasMonAccess = $isRowSuperAdmin || (!empty($data['id_sinadi_akses']) && (int) ($data['akses_monitoring_dl'] ?? 0) === 1);
           ?>
             <div class="col-xl-3 col-lg-4 col-sm-6 setting-akses-mon-dl-item" data-nama="<?= esc(strtolower((string) ($data['nama'] ?? '')), 'attr'); ?>">
@@ -138,6 +139,7 @@
       </div>
     </div>
     <!-- /.card -->
+    <?php endif; ?>
 
     <div class="card card-warning collapsed-card">
       <div class="card-header">

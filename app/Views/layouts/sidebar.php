@@ -447,7 +447,7 @@ $activeMenu = $activeMenu ?? '';
           ]);
         }
         $canAccessMonitoringDl = \App\Libraries\SinadiMonitoringDlHelper::canAccess(
-          $sinadiRole,
+          $sinadiUsername,
           is_array($sinadiAkses) ? $sinadiAkses : null
         );
         ?>
