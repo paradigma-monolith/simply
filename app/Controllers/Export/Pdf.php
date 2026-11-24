@@ -1096,19 +1096,13 @@ class Pdf extends BaseController
     $data['borang'] = $borang;
     
     // Tangkap data GET dari Modal SPPD Srikandi
-    $data['jabatan_tujuan'] = $this->request->getGet('jabatan_tujuan');
-    $pegawai_tujuan = $this->request->getGet('pegawai_tujuan');
-    
-    if ($pegawai_tujuan === 'manual') {
-        $data['nama_tujuan'] = $this->request->getGet('nama_tujuan_manual');
-        $data['nip_tujuan']  = $this->request->getGet('nip_tujuan_manual');
-    } else if (!empty($pegawai_tujuan)) {
-        $peg_arr = explode('|', $pegawai_tujuan);
-        if (count($peg_arr) == 2) {
-            $data['nama_tujuan'] = $peg_arr[0];
-            $data['nip_tujuan'] = $peg_arr[1];
-        }
-    }
+    $srikandiConfig = \App\Libraries\SinadiSppdSrikandiHelper::parseFromRequest($this->request);
+    $data['srikandi_config'] = $srikandiConfig;
+
+    $firstSrikandiRow = $srikandiConfig['rows'][0] ?? [];
+    $data['jabatan_tujuan'] = $firstSrikandiRow['jabatan'] ?? '';
+    $data['nama_tujuan']    = $firstSrikandiRow['nama'] ?? '';
+    $data['nip_tujuan']     = $firstSrikandiRow['nip'] ?? '';
     
     if($data['perjalanan'][0]['verifikator_3']) {
         $ttd_verifikator_3 = unserialize($data['perjalanan'][0]['verifikator_3']);

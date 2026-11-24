@@ -182,6 +182,36 @@
     table td {
       padding-bottom: 10px;
     }
+
+    .sppd-back.sppd-compact-1 td {
+      padding-top: 7px;
+      padding-bottom: 7px;
+    }
+
+    .sppd-back.sppd-compact-2 td {
+      padding-top: 4px;
+      padding-bottom: 4px;
+    }
+
+    .sppd-back.sppd-compact-2 td div,
+    .sppd-back.sppd-compact-2 td span,
+    .sppd-back.sppd-compact-2 td div strong,
+    .sppd-back.sppd-compact-2 td div u {
+      font-size: 8.5pt;
+    }
+
+    .sppd-back.sppd-compact-3 td {
+      padding-top: 2px;
+      padding-bottom: 2px;
+    }
+
+    .sppd-back.sppd-compact-3 td div,
+    .sppd-back.sppd-compact-3 td span,
+    .sppd-back.sppd-compact-3 td div strong,
+    .sppd-back.sppd-compact-3 td div u {
+      font-size: 8pt;
+      line-height: 1.15;
+    }
   </style>
 </head>
 
@@ -431,8 +461,76 @@
     </div>
     <div class="page-break"></div>
 
-    <div style="margin-top: 35px;">
-      <table class="no-hight sppd-back" style="width: 100%;">
+    <?php
+    $isBorangMode = isset($borang) && $borang === 'borang';
+    $backStopsInfo = \App\Libraries\SinadiSppdSrikandiHelper::buildBackPageStops(
+        $data,
+        $srikandi_config ?? [],
+        $isBorangMode
+    );
+    $stopRows = $backStopsInfo['stops'];
+    $filledPejabatCount = (int) ($backStopsInfo['filled_pejabat_count'] ?? 0);
+
+    if ($filledPejabatCount >= 3) {
+        $backCompactClass = 'sppd-compact-3';
+        $backMarginTop = 14;
+        $row1TtdHeight = 58;
+        $row1Breaks = '<br><br>';
+        $pejabatTitleHeight = 20;
+        $pejabatTtdHeight = 50;
+        $pejabatMarginTop = 3;
+        $pejabatBreaks = '<br>';
+        $emptySpacerA = 14;
+        $emptySpacerB = 10;
+        $row6LabelHeight = 22;
+        $row6TtdHeight = 50;
+        $row6Breaks = '<br>';
+    } elseif ($filledPejabatCount === 2) {
+        $backCompactClass = 'sppd-compact-2';
+        $backMarginTop = 20;
+        $row1TtdHeight = 76;
+        $row1Breaks = '<br><br><br>';
+        $pejabatTitleHeight = 22;
+        $pejabatTtdHeight = 68;
+        $pejabatMarginTop = 6;
+        $pejabatBreaks = '<br><br>';
+        $emptySpacerA = 20;
+        $emptySpacerB = 14;
+        $row6LabelHeight = 28;
+        $row6TtdHeight = 62;
+        $row6Breaks = '<br>';
+    } elseif ($filledPejabatCount === 1) {
+        $backCompactClass = 'sppd-compact-1';
+        $backMarginTop = 26;
+        $row1TtdHeight = 100;
+        $row1Breaks = '<br><br><br><br>';
+        $pejabatTitleHeight = 24;
+        $pejabatTtdHeight = 95;
+        $pejabatMarginTop = 8;
+        $pejabatBreaks = '<br><br><br>';
+        $emptySpacerA = 26;
+        $emptySpacerB = 20;
+        $row6LabelHeight = 36;
+        $row6TtdHeight = 76;
+        $row6Breaks = '<br><br>';
+    } else {
+        $backCompactClass = '';
+        $backMarginTop = 35;
+        $row1TtdHeight = 120;
+        $row1Breaks = '<br><br><br><br><br>';
+        $pejabatTitleHeight = 25;
+        $pejabatTtdHeight = 110;
+        $pejabatMarginTop = 15;
+        $pejabatBreaks = '<br><br><br>';
+        $emptySpacerA = 38;
+        $emptySpacerB = 30;
+        $row6LabelHeight = 45;
+        $row6TtdHeight = 90;
+        $row6Breaks = '<br><br>';
+    }
+    ?>
+    <div style="margin-top: <?= $backMarginTop; ?>px;">
+      <table class="no-hight sppd-back <?= $backCompactClass; ?>" style="width: 100%;">
         <tr>
           <td style="width: 50%;">&nbsp;</td>
           <td style="width: 50%;">
@@ -446,9 +544,9 @@
             <div style="display: inline; padding-right: 90px;">Ke</div>
             <div style="display: inline;">: <?= $data['kota']; ?></div>
             <div style="width: 200px;">Kepala <?= $data['nama_kantor']; ?></div>
-            <div style="height: 120px; text-align: left; vertical-align: middle; padding-left: 30px;">
-              <?php if (isset($borang) && $borang == 'borang') : ?>
-                <br><br><br><br><br>${ttd_pengirim2}
+            <div style="height: <?= $row1TtdHeight; ?>px; text-align: left; vertical-align: middle; padding-left: 30px;">
+              <?php if ($isBorangMode) : ?>
+                <?= $row1Breaks; ?>${ttd_pengirim2}
               <?php endif; ?>
             </div>
 
@@ -468,77 +566,63 @@
 
           </td>
         </tr>
-        <?php
-        $nomor = ['II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
-        $arrayKotaTujuan = explode(',', $data['kota']);
-        $koteTerakhir = false;
-        // $arrayKotaTujuan = []; // explode(',', $data['kota']);
-        for ($i = 0; $i < 4; $i++) {
+        <?php foreach ($stopRows as $stop) :
+          $pejabat = $stop['pejabat'];
         ?>
           <tr>
             <td style="width: 50%;">
-              <span style="margin-right: 8px; position: absolute"><?= $nomor[$i]; ?></span>
+              <span style="margin-right: 8px; position: absolute"><?= $stop['roman']; ?></span>
               <div style="display: inline; margin-left: 25px; padding-right: 69px;"> Tiba di</div>
-              <div style="display: inline;">: <?php if (isset($arrayKotaTujuan[$i])) echo $arrayKotaTujuan[$i]; ?></div>
+              <div style="display: inline;">: <?= esc($stop['tiba_di']); ?></div>
               <div></div>
               <div style="display: inline; padding-right: 30px; margin-left: 25px;">Pada Tanggal</div>
-              <div style="display: inline;">: <?php if (isset($arrayKotaTujuan[$i])) echo mediumdate_indo($data['tgl_pergi']); ?></div>
-              <?php if (isset($borang) && $borang == 'borang' && $i == 0 && isset($jabatan_tujuan) && $jabatan_tujuan != '' && isset($nama_tujuan) && $nama_tujuan != '') : ?>
+              <div style="display: inline;">: <?= esc($stop['tgl_tiba_label']); ?></div>
+              <?php if ($pejabat !== null) : ?>
                 <div style="text-align: center;">
-                  <div style="font-weight: bold; height: 25px;"><?= htmlspecialchars($jabatan_tujuan) ?></div>
-                  <div style="height: 110px; margin-top: 15px; vertical-align: middle;">
-                    <br><br><br>${ttd_pengirim3}
+                  <div style="font-weight: bold; min-height: <?= $pejabatTitleHeight; ?>px;"><?= esc($pejabat['jabatan']); ?></div>
+                  <div style="height: <?= $pejabatTtdHeight; ?>px; margin-top: <?= $pejabatMarginTop; ?>px; vertical-align: middle;">
+                    <?= $pejabatBreaks . $pejabat['placeholder']; ?>
                   </div>
-                  <div style="font-weight: bold;"><u><?= htmlspecialchars($nama_tujuan) ?></u></div>
-                  <div>NIP. <?= htmlspecialchars($nip_tujuan) ?></div>
+                  <div style="font-weight: bold;"><u><?= esc($pejabat['nama']); ?></u></div>
+                  <div><?= $pejabat['nip'] !== '' ? 'NIP. ' . esc($pejabat['nip']) : '&nbsp;'; ?></div>
                 </div>
               <?php else: ?>
-                <div style="width: 200px; margin-left: 18px; height: 38px;"></div>
-                <div style="height: 30px;"></div>
+                <div style="width: 200px; margin-left: 18px; height: <?= $emptySpacerA; ?>px;"></div>
+                <div style="height: <?= $emptySpacerB; ?>px;"></div>
                 <div style="margin-left: 18px;">&nbsp;</div>
                 <div style="margin-left: 18px;">&nbsp;</div>
               <?php endif; ?>
             </td>
             <td style="width: 50%;">
               <div style="display: inline; padding-right: 25px;">Berangkat dari</div>
-              <div style="display: inline;">: <?php if (isset($arrayKotaTujuan[$i])) echo $arrayKotaTujuan[$i]; ?></div>
+              <div style="display: inline;">: <?= esc($stop['berangkat_dari']); ?></div>
               <div></div>
               <div style="display: inline; padding-right: 88.5px;">Ke</div>
-              <div style="display: inline;">: <?php 
-              if($koteTerakhir == false){
-                if (isset($arrayKotaTujuan[($i + 1)])) {
-                  echo $arrayKotaTujuan[($i + 1)]; 
-                }
-                else {
-                  $koteTerakhir = true;
-                  echo $data['kota_asal']; 
-                }
-              }
-              ?></div>
+              <div style="display: inline;">: <?= esc($stop['ke']); ?></div>
               <div></div>
               <div style="display: inline; padding-right: 28.5px; ">Pada Tanggal</div>
-              <div style="display: inline;">: <?php if (isset($arrayKotaTujuan[$i])) echo mediumdate_indo($data['tgl_pulang']); ?></div>
-              <?php if (isset($borang) && $borang == 'borang' && $i == 0 && isset($jabatan_tujuan) && $jabatan_tujuan != '' && isset($nama_tujuan) && $nama_tujuan != '') : ?>
+              <div style="display: inline;">: <?= esc($stop['tgl_berangkat_label']); ?></div>
+              <?php if ($pejabat !== null) : ?>
                 <div style="text-align: center;">
-                  <div style="font-weight: bold; height: 25px;"><?= htmlspecialchars($jabatan_tujuan) ?></div>
-                  <div style="height: 110px; margin-top: 15px; vertical-align: middle;">
-                    <br><br><br>${ttd_pengirim3}
+                  <div style="font-weight: bold; min-height: <?= $pejabatTitleHeight; ?>px;"><?= esc($pejabat['jabatan']); ?></div>
+                  <div style="height: <?= $pejabatTtdHeight; ?>px; margin-top: <?= $pejabatMarginTop; ?>px; vertical-align: middle;">
+                    <?= $pejabatBreaks . $pejabat['placeholder']; ?>
                   </div>
-                  <div style="font-weight: bold;"><u><?= htmlspecialchars($nama_tujuan) ?></u></div>
-                  <div>NIP. <?= htmlspecialchars($nip_tujuan) ?></div>
+                  <div style="font-weight: bold;"><u><?= esc($pejabat['nama']); ?></u></div>
+                  <div><?= $pejabat['nip'] !== '' ? 'NIP. ' . esc($pejabat['nip']) : '&nbsp;'; ?></div>
                 </div>
               <?php else: ?>
-                <div style="width: 200px; height: 24px;">&nbsp;</div>
-                <div style="height: 30px;"></div>
+                <div style="width: 200px; height: <?= max(12, $emptySpacerA - 12); ?>px;">&nbsp;</div>
+                <div style="height: <?= $emptySpacerB; ?>px;"></div>
                 <div>&nbsp;</div>
                 <div>&nbsp;</div>
               <?php endif; ?>
             </td>
           </tr>
-        <?php } ?>
+        <?php endforeach; ?>
         <tr>
           <td style="width: 50%;">
-            <span style="margin-right: 8px; position: absolute;"><?= $nomor[$i++]; ?></span>
+            <span style="margin-right: 8px; position: absolute;">VI</span>
             <div style="display: inline; margin-left: 25px; padding-right: 69px;">Tiba di</div>
             <div style="display: inline;">: <?= $data['kota_asal']; ?></div>
             <div></div>
@@ -546,12 +630,14 @@
             <!--<div style="display: inline;">: <?//= mediumdate_indo($data['tgl_pelaksanaan_akhir']); ?></div>-->
             <div style="display: inline;">: <?= mediumdate_indo($data['tgl_pulang']); ?></div>
             <div>&nbsp;</div>
-            <div>&nbsp;</div>
-            <div>&nbsp;</div>
-            <div style="width: 200px; margin-left: 18px; height: 45px;">Pejabat Pembuat Komitmen</div>
-            <div style="height: 90px; text-align: left; vertical-align: middle; margin-left: 18px; padding-left: 30px;">
-              <?php if (isset($borang) && $borang == 'borang') : ?>
-                <br><br>${ttd_pengirim1}
+            <?php if ($filledPejabatCount < 2) : ?>
+              <div>&nbsp;</div>
+              <div>&nbsp;</div>
+            <?php endif; ?>
+            <div style="width: 200px; margin-left: 18px; height: <?= $row6LabelHeight; ?>px;">Pejabat Pembuat Komitmen</div>
+            <div style="height: <?= $row6TtdHeight; ?>px; text-align: left; vertical-align: middle; margin-left: 18px; padding-left: 30px;">
+              <?php if ($isBorangMode) : ?>
+                <?= $row6Breaks; ?>${ttd_pengirim1}
               <?php endif; ?>
             </div>
             <div style="margin-left: 18px;"><strong><?= name_capitalize($data['ppk']); ?></strong></div>
@@ -560,10 +646,10 @@
           <td>
             <div>Telah diperiksa dengan keterangan bahwa perjalanan tersebut di atas benar dilakukan atas perintahnya dan semata-mata untuk kepentingan jabatan dalam waktu yang sesingkat-singkatnya</div>
             <div>&nbsp;</div>
-            <div style="width: 200px; height: 45px;">Pejabat Pembuat Komitmen</div>
-            <div style="height: 90px; text-align: left; vertical-align: middle; padding-left: 30px;">
-              <?php if (isset($borang) && $borang == 'borang') : ?>
-                <br><br>${ttd_pengirim1}
+            <div style="width: 200px; height: <?= $row6LabelHeight; ?>px;">Pejabat Pembuat Komitmen</div>
+            <div style="height: <?= $row6TtdHeight; ?>px; text-align: left; vertical-align: middle; padding-left: 30px;">
+              <?php if ($isBorangMode) : ?>
+                <?= $row6Breaks; ?>${ttd_pengirim1}
               <?php endif; ?>
             </div>
             <div><strong><?= name_capitalize($data['ppk']); ?></strong></div>
@@ -572,13 +658,13 @@
         </tr>
         <tr>
           <td colspan="2" style="padding-top: 5px; padding-bottom: 5px;">
-            <span style="margin-right: 8px; position: absolute;"><?= $nomor[$i++]; ?></span>
+            <span style="margin-right: 8px; position: absolute;">VII</span>
             <div style="display: inline; margin-left: 25px; padding-right: 69px;">CATATAN LAIN-LAIN</div>
           </td>
         </tr>
         <tr>
           <td colspan="2" style="padding-top: 5px; padding-bottom: 5px; border: unset;">
-            <span style="margin-right: 8px; position: absolute;"><?= $nomor[$i++]; ?></span>
+            <span style="margin-right: 8px; position: absolute;">VIII</span>
             <div style="margin-left: 25px; padding-right: 69px;"><u>PERHATIAN</u></div>
             <div style="padding-left: 15px; padding-top: 5px;">PPK yang menerbitkan SPD, pegawai yang melakukan perjalanan dinas, para pejabat yang mengesahkan tanggal berangkat / tiba, serta bendahara pengeluaran bertanggung jawab berdasarkan peraturan - peraturan Keuangan Negawa apabila negara menderita rugi akibat kesalahan, kelalaian, dan kealpaannya.</div>
           </td>
