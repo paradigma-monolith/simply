@@ -664,6 +664,7 @@ class Data extends BaseController
           ->where("TRIM(COALESCE(p.kota, '')) != TRIM(COALESCE(p.kota_asal, ''))", null, false)
         ->groupEnd()
       ->groupEnd()
+      ->where("LOWER(TRIM(COALESCE(d.status_surat, '')))", 'disetujui')
       ->where('d.tgl_pelaksanaan >=', $dateRange['start'])
       ->where('d.tgl_pelaksanaan <=', $dateRange['end'])
       ->get()
@@ -687,7 +688,8 @@ class Data extends BaseController
       $pegawaiTimMap,
       $timKerjaFilter,
       $sortMode,
-      $dukWhitelist
+      $dukWhitelist,
+      true
     );
 
     $timKerjaList = $db->table('tim_kerja')
@@ -740,8 +742,10 @@ class Data extends BaseController
       'accessUsers'     => $accessUsers,
       'defaultStart'    => date('Y-01-01'),
       'defaultEnd'      => date('Y-m-d'),
-      'dukTotal'        => (int) ($dukWhitelist['total'] ?? 0),
-      'dukPeriode'      => \App\Config\SinadiDukPegawai::PERIODE_LABEL,
+      'dukTotal'           => (int) ($dukWhitelist['total'] ?? 0),
+      'dukPeriode'         => \App\Config\SinadiDukPegawai::PERIODE_LABEL,
+      'timKerjaSummary'    => $aggregated['tim_kerja_summary'] ?? [],
+      'timKerjaGrandTotal' => $aggregated['tim_kerja_grand_total'] ?? [],
     ];
 
     return view('sinadi/sinadi_perjalanan_saya', $data);

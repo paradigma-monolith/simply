@@ -52,17 +52,17 @@ final class SinadiMonitoringDlHelperTest extends TestCase
 
         $pesertaRows = [
             // Budi: 3 DL unik (id 10, 11, 12; id 10 muncul dua baris namun dihitung 1 DL), total penghasilan 4.500.000
-            ['id_perjalanan' => 10, 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-02-01', 'tgl_pulang' => '2026-02-02', 'transport_jumlah' => 500000, 'harian_jumlah' => 800000, 'penginapan_jumlah' => 200000, 'jumlah_transfer' => 1500000],
-            ['id_perjalanan' => 10, 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-02-01', 'tgl_pulang' => '2026-02-02', 'transport_jumlah' => 0, 'harian_jumlah' => 0, 'penginapan_jumlah' => 0, 'jumlah_transfer' => 0],
-            ['id_perjalanan' => 11, 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-04-10', 'tgl_pulang' => '2026-04-10', 'transport_jumlah' => 300000, 'harian_jumlah' => 700000, 'penginapan_jumlah' => 0, 'jumlah_transfer' => 1000000],
-            ['id_perjalanan' => 12, 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-06-05', 'tgl_pulang' => '2026-06-07', 'transport_jumlah' => 600000, 'harian_jumlah' => 900000, 'penginapan_jumlah' => 500000, 'jumlah_transfer' => 2000000],
+            ['id_perjalanan' => 10, 'status_surat' => 'Disetujui', 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-02-01', 'tgl_pulang' => '2026-02-02', 'transport_jumlah' => 500000, 'harian_jumlah' => 800000, 'penginapan_jumlah' => 200000, 'jumlah_transfer' => 1500000],
+            ['id_perjalanan' => 10, 'status_surat' => 'Disetujui', 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-02-01', 'tgl_pulang' => '2026-02-02', 'transport_jumlah' => 0, 'harian_jumlah' => 0, 'penginapan_jumlah' => 0, 'jumlah_transfer' => 0],
+            ['id_perjalanan' => 11, 'status_surat' => 'Disetujui', 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-04-10', 'tgl_pulang' => '2026-04-10', 'transport_jumlah' => 300000, 'harian_jumlah' => 700000, 'penginapan_jumlah' => 0, 'jumlah_transfer' => 1000000],
+            ['id_perjalanan' => 12, 'status_surat' => 'Disetujui', 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-06-05', 'tgl_pulang' => '2026-06-07', 'transport_jumlah' => 600000, 'harian_jumlah' => 900000, 'penginapan_jumlah' => 500000, 'jumlah_transfer' => 2000000],
 
             // Siti: 2 DL, total penghasilan 6.200.000 (jumlah_transfer 0 di DL kedua -> fallback sum komponen)
-            ['id_perjalanan' => 20, 'nip_pegawai' => '19810202', 'nama_pegawai' => 'Siti Aminah', 'tgl_pergi' => '2026-03-01', 'tgl_pulang' => '2026-03-04', 'transport_jumlah' => 1000000, 'harian_jumlah' => 1500000, 'penginapan_jumlah' => 1200000, 'jumlah_transfer' => 3700000],
-            ['id_perjalanan' => 21, 'nip_pegawai' => '19810202', 'nama_pegawai' => 'Siti Aminah', 'tgl_pergi' => '2026-05-12', 'tgl_pulang' => '2026-05-14', 'transport_jumlah' => 800000, 'harian_jumlah' => 1000000, 'penginapan_jumlah' => 700000, 'jumlah_transfer' => 0],
+            ['id_perjalanan' => 20, 'status_surat' => 'Disetujui', 'nip_pegawai' => '19810202', 'nama_pegawai' => 'Siti Aminah', 'tgl_pergi' => '2026-03-01', 'tgl_pulang' => '2026-03-04', 'transport_jumlah' => 1000000, 'harian_jumlah' => 1500000, 'penginapan_jumlah' => 1200000, 'jumlah_transfer' => 3700000],
+            ['id_perjalanan' => 21, 'status_surat' => 'Disetujui', 'nip_pegawai' => '19810202', 'nama_pegawai' => 'Siti Aminah', 'tgl_pergi' => '2026-05-12', 'tgl_pulang' => '2026-05-14', 'transport_jumlah' => 800000, 'harian_jumlah' => 1000000, 'penginapan_jumlah' => 700000, 'jumlah_transfer' => 0],
 
             // Andi: 1 DL, total penghasilan 1.200.000
-            ['id_perjalanan' => 30, 'nip_pegawai' => '19820303', 'nama_pegawai' => 'Andi Wijaya', 'tgl_pergi' => '2026-07-01', 'tgl_pulang' => '2026-07-02', 'transport_jumlah' => 400000, 'harian_jumlah' => 800000, 'penginapan_jumlah' => 0, 'jumlah_transfer' => 1200000],
+            ['id_perjalanan' => 30, 'status_surat' => 'Disetujui', 'nip_pegawai' => '19820303', 'nama_pegawai' => 'Andi Wijaya', 'tgl_pergi' => '2026-07-01', 'tgl_pulang' => '2026-07-02', 'transport_jumlah' => 400000, 'harian_jumlah' => 800000, 'penginapan_jumlah' => 0, 'jumlah_transfer' => 1200000],
         ];
 
         // 1. Sort berdasarkan frekuensi (default): Budi #1 (3x), Siti #2 (2x), Andi #3 (1x)
@@ -130,6 +130,7 @@ final class SinadiMonitoringDlHelperTest extends TestCase
         $pesertaRows = [
             [
                 'id_perjalanan'   => 201,
+                'status_surat'    => 'Disetujui',
                 'nip_pegawai'     => $formattedNip,
                 'nama_pegawai'    => 'Nama Lama Non Kapital',
                 'jabatan_pegawai' => '',
@@ -141,6 +142,7 @@ final class SinadiMonitoringDlHelperTest extends TestCase
             [
                 // Pegawai DUK ke-2 tanpa NIP, cocok lewat nama
                 'id_perjalanan'   => 202,
+                'status_surat'    => 'Disetujui',
                 'nip_pegawai'     => '',
                 'nama_pegawai'    => strtolower($secondDuk['nama']),
                 'jabatan_pegawai' => '',
@@ -152,6 +154,7 @@ final class SinadiMonitoringDlHelperTest extends TestCase
             [
                 // Non-DUK: PPNPN / pegawai tidak terdaftar di DUK harus disaring keluar
                 'id_perjalanan'   => 203,
+                'status_surat'    => 'Disetujui',
                 'nip_pegawai'     => '999999999999999999',
                 'nama_pegawai'    => 'Pegawai Non DUK',
                 'jabatan_pegawai' => 'Tenaga Kontrak',
@@ -182,5 +185,85 @@ final class SinadiMonitoringDlHelperTest extends TestCase
         $this->assertSame($firstDuk['nama'], $matchedFirst['nama']);
         $this->assertSame('Tim KLB', $matchedFirst['nama_tim_kerja']);
         $this->assertSame(2000000.0, $result['summary']['total_penghasilan']);
+    }
+
+    public function testNormalizeSortDefaultsToPenghasilan(): void
+    {
+        $this->assertSame('penghasilan', SinadiMonitoringDlHelper::normalizeSort(null));
+        $this->assertSame('penghasilan', SinadiMonitoringDlHelper::normalizeSort(''));
+        $this->assertSame('penghasilan', SinadiMonitoringDlHelper::normalizeSort('invalid'));
+        $this->assertSame('penghasilan', SinadiMonitoringDlHelper::normalizeSort('penghasilan'));
+        $this->assertSame('frekuensi', SinadiMonitoringDlHelper::normalizeSort('frekuensi'));
+        $this->assertSame('frekuensi', SinadiMonitoringDlHelper::normalizeSort(' FREKUENSI '));
+    }
+
+    public function testAggregateDefaultsToPenghasilanAndExcludesNonApprovedStatuses(): void
+    {
+        $timMap = SinadiMonitoringDlHelper::buildPegawaiTimMap([
+            ['nip' => '19800101', 'nama' => 'Budi Santoso', 'id_tim_kerja' => '1', 'nama_tim_kerja' => 'Tim A'],
+            ['nip' => '19810202', 'nama' => 'Siti Aminah', 'id_tim_kerja' => '2', 'nama_tim_kerja' => 'Tim B'],
+        ]);
+
+        $pesertaRows = [
+            // Budi punya 2 perjalanan Disetujui total 3.000.000, plus Draft/Diajukan/Ditolak besar yang harus diabaikan
+            ['id_perjalanan' => 1, 'status_surat' => 'Disetujui', 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-02-01', 'tgl_pulang' => '2026-02-02', 'jumlah_transfer' => 1500000],
+            ['id_perjalanan' => 2, 'status_surat' => 'disetujui', 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-02-10', 'tgl_pulang' => '2026-02-11', 'jumlah_transfer' => 1500000],
+            ['id_perjalanan' => 3, 'status_surat' => 'Draft', 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-03-01', 'tgl_pulang' => '2026-03-03', 'jumlah_transfer' => 9000000],
+            ['id_perjalanan' => 4, 'status_surat' => 'Diajukan', 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-03-05', 'tgl_pulang' => '2026-03-06', 'jumlah_transfer' => 4000000],
+            ['id_perjalanan' => 5, 'status_surat' => 'Dalam Verifikasi', 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-03-07', 'tgl_pulang' => '2026-03-08', 'jumlah_transfer' => 4000000],
+            ['id_perjalanan' => 6, 'status_surat' => 'Perlu Revisi', 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-03-09', 'tgl_pulang' => '2026-03-10', 'jumlah_transfer' => 4000000],
+            ['id_perjalanan' => 7, 'status_surat' => 'Ditolak', 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-03-11', 'tgl_pulang' => '2026-03-12', 'jumlah_transfer' => 4000000],
+            ['id_perjalanan' => 8, 'status_surat' => '', 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-03-13', 'tgl_pulang' => '2026-03-14', 'jumlah_transfer' => 4000000],
+
+            // Siti punya 1 perjalanan Disetujui senilai 5.000.000 -> default sort tanpa argumen $sort harus menaruh Siti di #1
+            ['id_perjalanan' => 9, 'status_surat' => 'Disetujui', 'nip_pegawai' => '19810202', 'nama_pegawai' => 'Siti Aminah', 'tgl_pergi' => '2026-04-01', 'tgl_pulang' => '2026-04-03', 'jumlah_transfer' => 5000000],
+        ];
+
+        $result = SinadiMonitoringDlHelper::aggregate($pesertaRows, $timMap);
+
+        $this->assertCount(2, $result['rows']);
+        $this->assertSame('Siti Aminah', $result['rows'][0]['nama']);
+        $this->assertSame(1, $result['rows'][0]['rank']);
+        $this->assertSame('Budi Santoso', $result['rows'][1]['nama']);
+        $this->assertSame(2, $result['rows'][1]['jumlah_dl']);
+        $this->assertEqualsWithDelta(3000000.0, $result['rows'][1]['total_penghasilan'], 0.01);
+        $this->assertEqualsWithDelta(8000000.0, $result['summary']['total_penghasilan'], 0.01);
+    }
+
+    public function testAggregateBuildsTimKerjaSummarySortedByTotalPenghasilan(): void
+    {
+        $timMap = SinadiMonitoringDlHelper::buildPegawaiTimMap([
+            ['nip' => '19800101', 'nama' => 'Budi Santoso', 'id_tim_kerja' => '1', 'nama_tim_kerja' => 'Tim Surveilans'],
+            ['nip' => '19820303', 'nama' => 'Andi Wijaya', 'id_tim_kerja' => '1', 'nama_tim_kerja' => 'Tim Surveilans'],
+            ['nip' => '19810202', 'nama' => 'Siti Aminah', 'id_tim_kerja' => '2', 'nama_tim_kerja' => 'Tim Karantina'],
+        ]);
+
+        $pesertaRows = [
+            ['id_perjalanan' => 10, 'status_surat' => 'Disetujui', 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-02-01', 'tgl_pulang' => '2026-02-02', 'transport_jumlah' => 500000, 'harian_jumlah' => 1000000, 'penginapan_jumlah' => 0, 'jumlah_transfer' => 1500000],
+            ['id_perjalanan' => 11, 'status_surat' => 'Disetujui', 'nip_pegawai' => '19820303', 'nama_pegawai' => 'Andi Wijaya', 'tgl_pergi' => '2026-02-05', 'tgl_pulang' => '2026-02-06', 'transport_jumlah' => 500000, 'harian_jumlah' => 1000000, 'penginapan_jumlah' => 1000000, 'jumlah_transfer' => 2500000],
+            ['id_perjalanan' => 12, 'status_surat' => 'Disetujui', 'nip_pegawai' => '19810202', 'nama_pegawai' => 'Siti Aminah', 'tgl_pergi' => '2026-03-01', 'tgl_pulang' => '2026-03-04', 'transport_jumlah' => 1000000, 'harian_jumlah' => 2000000, 'penginapan_jumlah' => 3000000, 'jumlah_transfer' => 6000000],
+            ['id_perjalanan' => 13, 'status_surat' => 'Draft', 'nip_pegawai' => '19800101', 'nama_pegawai' => 'Budi Santoso', 'tgl_pergi' => '2026-04-01', 'tgl_pulang' => '2026-04-02', 'jumlah_transfer' => 9999999],
+        ];
+
+        // Meskipun filter Tim Kerja = 1, tim_kerja_summary tetap menampilkan perbandingan semua Tim Kerja
+        $result = SinadiMonitoringDlHelper::aggregate($pesertaRows, $timMap, '1', 'penghasilan');
+
+        $this->assertCount(2, $result['rows']);
+        $this->assertCount(2, $result['tim_kerja_summary']);
+
+        // Urutan tim: Tim Karantina (6jt, 60%) lalu Tim Surveilans (4jt, 40%)
+        $this->assertSame('Tim Karantina', $result['tim_kerja_summary'][0]['nama_tim_kerja']);
+        $this->assertSame(1, $result['tim_kerja_summary'][0]['total_pegawai']);
+        $this->assertEqualsWithDelta(6000000.0, $result['tim_kerja_summary'][0]['total_penghasilan'], 0.01);
+        $this->assertEqualsWithDelta(60.0, $result['tim_kerja_summary'][0]['persentase'], 0.01);
+
+        $this->assertSame('Tim Surveilans', $result['tim_kerja_summary'][1]['nama_tim_kerja']);
+        $this->assertSame(2, $result['tim_kerja_summary'][1]['total_pegawai']);
+        $this->assertSame(2, $result['tim_kerja_summary'][1]['total_penugasan']);
+        $this->assertEqualsWithDelta(4000000.0, $result['tim_kerja_summary'][1]['total_penghasilan'], 0.01);
+        $this->assertEqualsWithDelta(40.0, $result['tim_kerja_summary'][1]['persentase'], 0.01);
+
+        $this->assertEqualsWithDelta(10000000.0, $result['tim_kerja_grand_total']['total_penghasilan'], 0.01);
+        $this->assertSame(3, $result['tim_kerja_grand_total']['total_pegawai']);
     }
 }

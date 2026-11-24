@@ -8,8 +8,10 @@ if (!function_exists('mediumdate_indo')) {
 $rankingRows = is_array($rankingRows ?? null) ? $rankingRows : [];
 $summary = is_array($summary ?? null) ? $summary : [];
 $timKerjaList = is_array($timKerjaList ?? null) ? $timKerjaList : [];
+$timKerjaSummary = is_array($timKerjaSummary ?? null) ? $timKerjaSummary : [];
+$timKerjaGrandTotal = is_array($timKerjaGrandTotal ?? null) ? $timKerjaGrandTotal : [];
 $accessUsers = is_array($accessUsers ?? null) ? $accessUsers : [];
-$sortMode = ($sortMode ?? 'frekuensi') === 'penghasilan' ? 'penghasilan' : 'frekuensi';
+$sortMode = ($sortMode ?? 'penghasilan') === 'frekuensi' ? 'frekuensi' : 'penghasilan';
 $startDate = (string) ($startDate ?? date('Y-01-01'));
 $endDate = (string) ($endDate ?? date('Y-m-d'));
 $timKerjaFilter = (string) ($timKerjaFilter ?? 'all');
@@ -181,7 +183,8 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           <i class="fas fa-chart-bar mr-2"></i>Monitoring Dinas Luar
         </h4>
         <p class="mdl-hero-sub">
-          Peringkat frekuensi perjalanan Dinas Luar &amp; akumulasi penghasilan perorangan &bull;
+          Peringkat penghasilan &amp; frekuensi perjalanan Dinas Luar perorangan &bull;
+          Status: <strong>Disetujui</strong> &bull;
           Periode: <strong><?= esc(mediumdate_indo($startDate)); ?></strong> s.d. <strong><?= esc(mediumdate_indo($endDate)); ?></strong> &bull;
           Tim: <strong><?= esc($selectedTimNama); ?></strong> &bull;
           Pegawai: <strong>Sesuai DUK (<?= (int) ($dukTotal ?? 0); ?> Pegawai &bull; <?= esc($dukPeriode ?? 'Keadaan Oktober 2026'); ?>)</strong>
@@ -224,8 +227,8 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           <div class="col-md-2 col-sm-6 mb-2 mb-md-0">
             <label for="filterSortMode" class="small font-weight-bold text-muted mb-1">Urutkan Peringkat</label>
             <select name="sort" id="filterSortMode" class="form-control form-control-sm">
-              <option value="frekuensi" <?= $sortMode === 'frekuensi' ? 'selected' : ''; ?>>Paling Sering DL</option>
               <option value="penghasilan" <?= $sortMode === 'penghasilan' ? 'selected' : ''; ?>>Penghasilan Terbanyak</option>
+              <option value="frekuensi" <?= $sortMode === 'frekuensi' ? 'selected' : ''; ?>>Paling Sering DL</option>
             </select>
           </div>
           <div class="col-md-3 d-flex align-items-center" style="gap: 6px;">
@@ -243,14 +246,14 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     <!-- 4 Kartu Ringkasan & Highlight #1 -->
     <div class="row mb-3">
       <div class="col-xl-3 col-sm-6 mb-2 mb-xl-0">
-        <div class="mdl-stat-card accent-gold">
-          <div class="mdl-stat-label"><i class="fas fa-trophy text-warning mr-1"></i> #1 Paling Sering DL</div>
-          <?php if (!empty($topFrekuensi)) : ?>
-            <div class="mdl-stat-value"><?= esc($topFrekuensi['nama']); ?></div>
+        <div class="mdl-stat-card accent-teal">
+          <div class="mdl-stat-label"><i class="fas fa-coins text-teal mr-1"></i> #1 Penghasilan Terbanyak</div>
+          <?php if (!empty($topPenghasilan)) : ?>
+            <div class="mdl-stat-value"><?= esc($topPenghasilan['nama']); ?></div>
             <div class="mdl-stat-sub">
-              <strong><?= (int) $topFrekuensi['jumlah_dl']; ?> kali DL</strong> (<?= (int) $topFrekuensi['total_hari']; ?> hari)<br>
-              Penghasilan: <strong>Rp <?= number_format((float) $topFrekuensi['total_penghasilan'], 0, ',', '.'); ?></strong><br>
-              <span class="badge badge-light border mt-1"><?= esc($topFrekuensi['nama_tim_kerja']); ?></span>
+              <strong>Rp <?= number_format((float) $topPenghasilan['total_penghasilan'], 0, ',', '.'); ?></strong><br>
+              Frekuensi: <strong><?= (int) $topPenghasilan['jumlah_dl']; ?> kali DL</strong> (<?= (int) $topPenghasilan['total_hari']; ?> hari)<br>
+              <span class="badge badge-light border mt-1"><?= esc($topPenghasilan['nama_tim_kerja']); ?></span>
             </div>
           <?php else : ?>
             <div class="mdl-stat-value text-muted">-</div>
@@ -260,14 +263,14 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
       </div>
 
       <div class="col-xl-3 col-sm-6 mb-2 mb-xl-0">
-        <div class="mdl-stat-card accent-teal">
-          <div class="mdl-stat-label"><i class="fas fa-coins text-teal mr-1"></i> #1 Penghasilan Terbanyak</div>
-          <?php if (!empty($topPenghasilan)) : ?>
-            <div class="mdl-stat-value"><?= esc($topPenghasilan['nama']); ?></div>
+        <div class="mdl-stat-card accent-gold">
+          <div class="mdl-stat-label"><i class="fas fa-trophy text-warning mr-1"></i> #1 Paling Sering DL</div>
+          <?php if (!empty($topFrekuensi)) : ?>
+            <div class="mdl-stat-value"><?= esc($topFrekuensi['nama']); ?></div>
             <div class="mdl-stat-sub">
-              <strong>Rp <?= number_format((float) $topPenghasilan['total_penghasilan'], 0, ',', '.'); ?></strong><br>
-              Frekuensi: <strong><?= (int) $topPenghasilan['jumlah_dl']; ?> kali DL</strong> (<?= (int) $topPenghasilan['total_hari']; ?> hari)<br>
-              <span class="badge badge-light border mt-1"><?= esc($topPenghasilan['nama_tim_kerja']); ?></span>
+              <strong><?= (int) $topFrekuensi['jumlah_dl']; ?> kali DL</strong> (<?= (int) $topFrekuensi['total_hari']; ?> hari)<br>
+              Penghasilan: <strong>Rp <?= number_format((float) $topFrekuensi['total_penghasilan'], 0, ',', '.'); ?></strong><br>
+              <span class="badge badge-light border mt-1"><?= esc($topFrekuensi['nama_tim_kerja']); ?></span>
             </div>
           <?php else : ?>
             <div class="mdl-stat-value text-muted">-</div>
@@ -299,6 +302,107 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
       </div>
     </div>
 
+    <!-- Ringkasan Total Penghasilan per Tim Kerja -->
+    <div class="mdl-card">
+      <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center py-2 px-3" style="gap: 8px;">
+        <div>
+          <h5 class="mb-0 font-weight-bold" style="font-size: 0.98rem;">
+            <i class="fas fa-sitemap text-teal mr-1"></i> Total Penghasilan per Tim Kerja
+          </h5>
+          <small class="text-muted">
+            Akumulasi penghasilan Dinas Luar berstatus <strong>Disetujui</strong> (Pegawai DUK) pada periode filter &bull; Klik nama tim untuk memfilter tabel pegawai.
+          </small>
+        </div>
+        <?php if ($timKerjaFilter !== 'all') : ?>
+          <a href="<?= esc($buildQueryUrl(['tim_kerja' => 'all']), 'attr'); ?>" class="btn btn-xs btn-outline-teal font-weight-bold" style="border-color: #0d9488; color: #0d9488;">
+            <i class="fas fa-layer-group mr-1"></i> Tampilkan Semua Tim
+          </a>
+        <?php endif; ?>
+      </div>
+      <div class="card-body p-3">
+        <?php if (!empty($timKerjaSummary)) : ?>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.82rem;">
+              <thead style="background: #f8fafc;">
+                <tr>
+                  <th class="text-center" style="width: 44px;">#</th>
+                  <th>Tim Kerja</th>
+                  <th class="text-center">Pegawai DUK</th>
+                  <th class="text-center">Frekuensi DL</th>
+                  <th class="text-right">Rincian Biaya</th>
+                  <th class="text-right">Total Penghasilan</th>
+                  <th class="text-center" style="min-width: 120px;">Porsi</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($timKerjaSummary as $tkIdx => $tkRow) :
+                  $isActiveTim = ($timKerjaFilter === (string) ($tkRow['filter_key'] ?? ''));
+                  $porsi = (float) ($tkRow['persentase'] ?? 0);
+                  $barWidth = max(0.0, min(100.0, $porsi));
+                ?>
+                  <tr class="<?= $isActiveTim ? 'table-info' : ''; ?>">
+                    <td class="text-center font-weight-bold"><?= $tkIdx + 1; ?></td>
+                    <td>
+                      <a href="<?= esc($buildQueryUrl(['tim_kerja' => (string) ($tkRow['filter_key'] ?? 'all')]), 'attr'); ?>" class="font-weight-bold text-dark">
+                        <?= esc($tkRow['nama_tim_kerja'] ?? 'Tanpa Tim Kerja'); ?>
+                      </a>
+                      <?php if ($isActiveTim) : ?>
+                        <span class="badge badge-teal ml-1" style="background: #0d9488; color: #fff;">Aktif</span>
+                      <?php endif; ?>
+                    </td>
+                    <td class="text-center"><?= number_format((int) ($tkRow['total_pegawai'] ?? 0), 0, ',', '.'); ?> Orang</td>
+                    <td class="text-center">
+                      <strong><?= number_format((int) ($tkRow['total_penugasan'] ?? 0), 0, ',', '.'); ?> kali</strong>
+                      <span class="text-muted">&bull; <?= number_format((int) ($tkRow['total_hari'] ?? 0), 0, ',', '.'); ?> hari</span>
+                    </td>
+                    <td class="text-right small text-muted">
+                      Transport: Rp <?= number_format((float) ($tkRow['total_transport'] ?? 0), 0, ',', '.'); ?> &bull;
+                      Harian: Rp <?= number_format((float) ($tkRow['total_harian'] ?? 0), 0, ',', '.'); ?> &bull;
+                      Inap: Rp <?= number_format((float) ($tkRow['total_penginapan'] ?? 0), 0, ',', '.'); ?>
+                    </td>
+                    <td class="text-right font-weight-bold text-success text-nowrap">
+                      Rp <?= number_format((float) ($tkRow['total_penghasilan'] ?? 0), 0, ',', '.'); ?>
+                    </td>
+                    <td class="text-center align-middle">
+                      <div class="d-flex align-items-center" style="gap: 6px;">
+                        <div class="progress flex-fill mb-0" style="height: 7px; background: #e2e8f0;">
+                          <div class="progress-bar bg-teal" role="progressbar" style="width: <?= $barWidth; ?>%; background-color: #0d9488 !important;" aria-valuenow="<?= $barWidth; ?>" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <span class="small font-weight-bold text-dark" style="min-width: 42px; text-align: right;"><?= number_format($porsi, 1, ',', '.'); ?>%</span>
+                      </div>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+              <tfoot style="background: #f1f5f9;">
+                <tr class="font-weight-bold">
+                  <td colspan="2" class="text-right">Total Keseluruhan</td>
+                  <td class="text-center"><?= number_format((int) ($timKerjaGrandTotal['total_pegawai'] ?? 0), 0, ',', '.'); ?> Orang</td>
+                  <td class="text-center">
+                    <?= number_format((int) ($timKerjaGrandTotal['total_penugasan'] ?? 0), 0, ',', '.'); ?> kali
+                    &bull; <?= number_format((int) ($timKerjaGrandTotal['total_hari'] ?? 0), 0, ',', '.'); ?> hari
+                  </td>
+                  <td class="text-right small">
+                    Transport: Rp <?= number_format((float) ($timKerjaGrandTotal['total_transport'] ?? 0), 0, ',', '.'); ?> &bull;
+                    Harian: Rp <?= number_format((float) ($timKerjaGrandTotal['total_harian'] ?? 0), 0, ',', '.'); ?> &bull;
+                    Inap: Rp <?= number_format((float) ($timKerjaGrandTotal['total_penginapan'] ?? 0), 0, ',', '.'); ?>
+                  </td>
+                  <td class="text-right text-success text-nowrap">
+                    Rp <?= number_format((float) ($timKerjaGrandTotal['total_penghasilan'] ?? 0), 0, ',', '.'); ?>
+                  </td>
+                  <td class="text-center">100,0%</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        <?php else : ?>
+          <div class="text-center text-muted small py-2">
+            Belum ada data Dinas Luar berstatus Disetujui pada rentang tanggal yang dipilih.
+          </div>
+        <?php endif; ?>
+      </div>
+    </div>
+
     <!-- Tabel Peringkat Perorangan -->
     <div class="mdl-card">
       <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center py-2 px-3" style="gap: 8px;">
@@ -311,11 +415,11 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           </small>
         </div>
         <div class="mdl-sort-pills">
-          <a href="<?= esc($buildQueryUrl(['sort' => 'frekuensi']), 'attr'); ?>" class="mdl-sort-pill <?= $sortMode === 'frekuensi' ? 'active' : ''; ?>">
-            <i class="fas fa-sort-amount-down mr-1"></i> #1 Paling Sering DL
-          </a>
           <a href="<?= esc($buildQueryUrl(['sort' => 'penghasilan']), 'attr'); ?>" class="mdl-sort-pill <?= $sortMode === 'penghasilan' ? 'active' : ''; ?>">
             <i class="fas fa-money-bill-wave mr-1"></i> #1 Penghasilan Terbanyak
+          </a>
+          <a href="<?= esc($buildQueryUrl(['sort' => 'frekuensi']), 'attr'); ?>" class="mdl-sort-pill <?= $sortMode === 'frekuensi' ? 'active' : ''; ?>">
+            <i class="fas fa-sort-amount-down mr-1"></i> #1 Paling Sering DL
           </a>
         </div>
       </div>
