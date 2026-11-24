@@ -19,6 +19,7 @@
                             <th>No</th>
                             <th>Nama Kendaraan</th>
                             <th>Plat Nomor</th>
+                            <th>Status Peminjaman</th>
                             <th>Gambar</th>
                             <th>Aksi</th>
                         </tr>
@@ -27,8 +28,15 @@
                         <?php $no=1; foreach($kendaraan as $k): ?>
                         <tr>
                             <td><?= $no++; ?></td>
-                            <td><?= $k['nama_kendaraan']; ?></td>
-                            <td><?= $k['plat_nomor']; ?></td>
+                            <td><?= esc($k['nama_kendaraan']); ?></td>
+                            <td><?= esc($k['plat_nomor']); ?></td>
+                            <td>
+                                <?php if ((int) ($k['bisa_dipinjam'] ?? 1) === 1): ?>
+                                    <span class="badge badge-success">Bisa Dipinjam</span>
+                                <?php else: ?>
+                                    <span class="badge badge-secondary">Khusus Rawat</span>
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <?php if($k['gambar']): ?>
                                     <img src="/dist/img/<?= $k['gambar']; ?>" width="100">
@@ -82,6 +90,13 @@
                         </div>
                         <small class="text-muted">Format: jpg, jpeg, png. Max: 5MB</small>
                     </div>
+                    <div class="form-group mb-0">
+                        <input type="hidden" name="bisa_dipinjam" value="0">
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="bisaDipinjamTambah" name="bisa_dipinjam" value="1">
+                            <label class="custom-control-label" for="bisaDipinjamTambah">Tampilkan juga di daftar Peminjaman Kendaraan</label>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer justify-content-between">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Batal</button>
@@ -113,10 +128,17 @@
                         <input type="text" name="plat_nomor" class="form-control" value="<?= $k['plat_nomor']; ?>" required>
                     </div>
                     <div class="form-group">
-                        <label>Gambar</label>
+                        <label>Gambar (Opsional)</label>
                         <div class="custom-file">
-                            <input type="file" name="file" class="custom-file-input" id="customFileEdit<?= $k['id_kendaraan_kantor_daftar']; ?>" required>
+                            <input type="file" name="file" class="custom-file-input" id="customFileEdit<?= $k['id_kendaraan_kantor_daftar']; ?>">
                             <label class="custom-file-label" for="customFileEdit<?= $k['id_kendaraan_kantor_daftar']; ?>">Pilih file</label>
+                        </div>
+                    </div>
+                    <div class="form-group mb-0">
+                        <input type="hidden" name="bisa_dipinjam" value="0">
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="bisaDipinjamEdit<?= $k['id_kendaraan_kantor_daftar']; ?>" name="bisa_dipinjam" value="1" <?= ((int) ($k['bisa_dipinjam'] ?? 1) === 1) ? 'checked' : ''; ?>>
+                            <label class="custom-control-label" for="bisaDipinjamEdit<?= $k['id_kendaraan_kantor_daftar']; ?>">Tampilkan juga di daftar Peminjaman Kendaraan</label>
                         </div>
                     </div>
                 </div>

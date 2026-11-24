@@ -61,7 +61,7 @@ class Ajax extends BaseController
             }
             $usedIds = array_values(array_unique($usedIds));
 
-            $allCars = $this->kendaraanKantorDaftarModel->orderBy('nama_kendaraan', 'ASC')->findAll();
+            $allCars = $this->kendaraanKantorDaftarModel->getBorrowable();
             $data['getData'] = [];
             $data['notData'] = [];
             foreach ($allCars as $car) {
@@ -232,7 +232,15 @@ class Ajax extends BaseController
                 }
 
                 if ($cacheCek) {
-                    $id = $this->request->getVar("id_kendaraan_kantor_daftar");
+                    $id = (int) $this->request->getVar("id_kendaraan_kantor_daftar");
+                    if (!$this->kendaraanKantorDaftarModel->isBorrowable($id)) {
+                        $msg = [
+                            "status" => "error",
+                            "data" => "Kendaraan tidak tersedia untuk peminjaman."
+                        ];
+                        echo json_encode($msg);
+                        return;
+                    }
                     $this->kendaraanKantorRiwayatModel->like('tanggal', $tanggalArray[0])
                         ->where('id_kendaraan_kantor_daftar', $id);
                     for ($i = 1; $i < count($tanggalArray); $i++) {

@@ -83,6 +83,13 @@ class Crud extends BaseController
       'plat_nomor' => $this->request->getVar('plat_nomor'),
       'updated_by' => $by['id_user'],
     ];
+    if ($this->request->getPost('bisa_dipinjam') !== null) {
+      $data = $this->kendaraanKantorDaftarModel->withBorrowableFlag(
+        $data,
+        $this->request->getPost('bisa_dipinjam'),
+        1
+      );
+    }
 
     if ($this->kendaraanKantorDaftarModel->save($data)) {
       session()->setFlashdata('pesan', 'Data berhasil diperbaharui.');
@@ -122,6 +129,11 @@ class Crud extends BaseController
       'created_by' => $by['id_user'],
       'updated_by' => $by['id_user'],
     ];
+    $data = $this->kendaraanKantorDaftarModel->withBorrowableFlag(
+      $data,
+      $this->request->getPost('bisa_dipinjam'),
+      1
+    );
 
     if ($this->kendaraanKantorDaftarModel->save($data)) {
       session()->setFlashdata('pesan', 'Data berhasil ditambahkan.');

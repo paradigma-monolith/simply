@@ -112,6 +112,16 @@
                        value="">
               </div>
 
+              <?php if ($isAdminRole): ?>
+                <div class="form-group">
+                  <input type="hidden" name="bisa_dipinjam" value="0">
+                  <div class="custom-control custom-checkbox">
+                    <input type="checkbox" class="custom-control-input" id="bisaDipinjamKkTambah" name="bisa_dipinjam" value="1" checked>
+                    <label class="custom-control-label font-weight-bold" for="bisaDipinjamKkTambah">Tersedia di Daftar Peminjaman Kendaraan</label>
+                  </div>
+                </div>
+              <?php endif; ?>
+
               <div class="d-flex justify-content-end mt-4" style="gap: 10px;">
                 <a href="/kendaraan_kantor/daftar_kendaraan" class="btn btn-light border px-4" style="border-radius: 9px;">Batal</a>
                 <button type="submit" class="btn btn-success font-weight-bold px-4" style="border-radius: 9px;">

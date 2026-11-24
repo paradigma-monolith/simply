@@ -150,6 +150,11 @@ class RawatKendaraanCrud extends BaseController
             'created_by' => $by['id_user'],
             'updated_by' => $by['id_user'],
         ];
+        $data = $this->kendaraanKantorDaftarModel->withBorrowableFlag(
+            $data,
+            $this->request->getPost('bisa_dipinjam'),
+            0
+        );
 
         if ($this->kendaraanKantorDaftarModel->save($data)) {
             session()->setFlashdata('success', 'Data berhasil ditambahkan.');
@@ -202,6 +207,13 @@ class RawatKendaraanCrud extends BaseController
             'plat_nomor' => $this->request->getVar('plat_nomor'),
             'updated_by' => $by['id_user'],
         ];
+        if ($this->request->getPost('bisa_dipinjam') !== null) {
+            $data = $this->kendaraanKantorDaftarModel->withBorrowableFlag(
+                $data,
+                $this->request->getPost('bisa_dipinjam'),
+                0
+            );
+        }
 
         if ($this->kendaraanKantorDaftarModel->save($data)) {
             session()->setFlashdata('success', 'Data berhasil diperbaharui.');

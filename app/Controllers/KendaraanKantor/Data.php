@@ -65,9 +65,7 @@ class Data extends BaseController
     $data['title'] = "Peminjaman Kendaraan | Daftar Kendaraan";
     $data['activeMenu'] = "daftar_kendaraan";
 
-    $data['getData'] = $this->kendaraanKantorDaftarModel
-      ->orderBy('nama_kendaraan', 'ASC')
-      ->findAll();
+    $data['getData'] = $this->kendaraanKantorDaftarModel->getBorrowable();
 
     return view("kendaraan_kantor/daftar_kendaraan", $data);
   }
