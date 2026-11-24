@@ -18,6 +18,48 @@ if (empty($pegawaiOptions)) {
 ?>
 <!-- Modal SPPD Srikandi -->
 <style>
+  #modalSppdSrikandi {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  #modalSppdSrikandi .modal-dialog-scrollable {
+    max-height: calc(100% - 1rem);
+  }
+  @media (min-width: 576px) {
+    #modalSppdSrikandi .modal-dialog-scrollable {
+      max-height: calc(100% - 3.5rem);
+    }
+  }
+  #modalSppdSrikandi .modal-dialog-scrollable .modal-content {
+    max-height: calc(100vh - 1rem);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  @media (min-width: 576px) {
+    #modalSppdSrikandi .modal-dialog-scrollable .modal-content {
+      max-height: calc(100vh - 3.5rem);
+    }
+  }
+  #modalSppdSrikandi .modal-dialog-scrollable .modal-header,
+  #modalSppdSrikandi .modal-dialog-scrollable .modal-footer {
+    flex-shrink: 0;
+  }
+  #modalSppdSrikandi .modal-dialog-scrollable .modal-body {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: calc(100vh - 150px);
+  }
+  @media (min-width: 576px) {
+    #modalSppdSrikandi .modal-dialog-scrollable .modal-body {
+      max-height: calc(100vh - 190px);
+    }
+  }
+  #modalSppdSrikandi > .select2-container--open {
+    z-index: 1060;
+  }
   #modalSppdSrikandi .select2-container {
     width: 100% !important;
   }
@@ -32,17 +74,16 @@ if (empty($pegawaiOptions)) {
   }
 </style>
 <div class="modal fade" id="modalSppdSrikandi" role="dialog" aria-labelledby="modalSppdSrikandiLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg" role="document">
-    <div class="modal-content">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+    <form id="formSppdSrikandi" class="modal-content" onsubmit="event.preventDefault();">
       <div class="modal-header bg-success">
         <h5 class="modal-title" id="modalSppdSrikandiLabel">Cetak SPPD Srikandi</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
-      <form id="formSppdSrikandi" onsubmit="event.preventDefault();">
-        <input type="hidden" id="id_perjalanan_srikandi" value="<?= (int) ($getData['id_perjalanan'] ?? 0); ?>">
-        <div class="modal-body">
+      <input type="hidden" id="id_perjalanan_srikandi" value="<?= (int) ($getData['id_perjalanan'] ?? 0); ?>">
+      <div class="modal-body">
           <div class="alert alert-info mb-3" style="font-size: 13px;">
             <i class="fas fa-info-circle"></i> <strong>Catatan:</strong> Kosongkan form pejabat dan langsung klik <b>Cetak SPPD Srikandi</b> jika belum ada Pejabat Tujuan. Anda dapat menambahkan hingga <strong>3 Pejabat Tujuan</strong> (Baris <strong>II</strong>, <strong>III</strong>, dan <strong>IV</strong>).
           </div>
@@ -80,13 +121,12 @@ if (empty($pegawaiOptions)) {
             </button>
             <small class="text-muted" id="srikandiRowCounterInfo">1 dari 3 baris aktif</small>
           </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
-          <button type="button" class="btn btn-success" onclick="cetakSppdSrikandi()">Cetak SPPD Srikandi</button>
-        </div>
-      </form>
-    </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+        <button type="button" class="btn btn-success" onclick="cetakSppdSrikandi()">Cetak SPPD Srikandi</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -315,6 +355,7 @@ if (empty($pegawaiOptions)) {
       }
       $card.remove();
       refreshRowsUI(false);
+      $('#modalSppdSrikandi').modal('handleUpdate');
     });
 
     $('#srikandiPejabatContainer').append($card);
@@ -364,12 +405,24 @@ if (empty($pegawaiOptions)) {
   }
 
   $(document).ready(function() {
+    var $modal = $('#modalSppdSrikandi');
+    if ($modal.length && !$modal.parent().is('body')) {
+      $('body > #modalSppdSrikandi').not($modal).remove();
+      $modal.appendTo('body');
+    }
+
     if ($('#srikandiPejabatContainer .srikandi-pejabat-row').length === 0) {
       createRowCard(0);
     }
     refreshRowsUI(false);
 
-    $('#modalSppdSrikandi').on('shown.bs.modal', function() {
+    $modal.find('.modal-body').on('scroll', function() {
+      if ($modal.children('.select2-container--open').length) {
+        $modal.find('.srikandi-pegawai-select.select2-hidden-accessible').select2('close');
+      }
+    });
+
+    $modal.on('shown.bs.modal', function() {
       var $rows = $('#srikandiPejabatContainer .srikandi-pejabat-row');
       if ($rows.length === 0) {
         createRowCard(0);
@@ -385,6 +438,7 @@ if (empty($pegawaiOptions)) {
           initSelect2ForElement($sel);
         });
       }
+      $modal.modal('handleUpdate');
     });
 
     $('#btnTambahPejabatSrikandi').on('click', function() {
@@ -392,11 +446,17 @@ if (empty($pegawaiOptions)) {
       if (currentCount < MAX_PEJABAT) {
         createRowCard(currentCount);
         refreshRowsUI(getDateMode() === 'manual');
+        var $modalBody = $modal.find('.modal-body');
+        if ($modalBody.length) {
+          $modalBody.stop(true).animate({ scrollTop: $modalBody[0].scrollHeight }, 200);
+        }
+        $modal.modal('handleUpdate');
       }
     });
 
     $('input[name="srikandi_mode_tanggal"]').on('change', function() {
       refreshRowsUI(getDateMode() === 'manual');
+      $modal.modal('handleUpdate');
     });
   });
 
