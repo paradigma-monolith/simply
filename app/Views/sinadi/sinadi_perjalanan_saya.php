@@ -183,7 +183,8 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
         <p class="mdl-hero-sub">
           Peringkat frekuensi perjalanan Dinas Luar &amp; akumulasi penghasilan perorangan &bull;
           Periode: <strong><?= esc(mediumdate_indo($startDate)); ?></strong> s.d. <strong><?= esc(mediumdate_indo($endDate)); ?></strong> &bull;
-          Tim: <strong><?= esc($selectedTimNama); ?></strong>
+          Tim: <strong><?= esc($selectedTimNama); ?></strong> &bull;
+          Pegawai: <strong>Sesuai DUK (<?= (int) ($dukTotal ?? 0); ?> Pegawai &bull; <?= esc($dukPeriode ?? 'Keadaan Oktober 2026'); ?>)</strong>
         </p>
       </div>
       <?php if ($canManageAccess) : ?>
@@ -278,7 +279,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
       <div class="col-xl-3 col-sm-6 mb-2 mb-sm-0">
         <div class="mdl-stat-card accent-indigo">
           <div class="mdl-stat-label"><i class="fas fa-users text-indigo mr-1"></i> Total Pegawai &amp; Frekuensi</div>
-          <div class="mdl-stat-value"><?= number_format((int) ($summary['total_pegawai'] ?? 0), 0, ',', '.'); ?> Pegawai</div>
+          <div class="mdl-stat-value"><?= number_format((int) ($summary['total_pegawai'] ?? 0), 0, ',', '.'); ?> / <?= number_format((int) ($dukTotal ?? 0), 0, ',', '.'); ?> DUK</div>
           <div class="mdl-stat-sub">
             Total Penugasan: <strong><?= number_format((int) ($summary['total_penugasan'] ?? 0), 0, ',', '.'); ?> kali</strong><br>
             Kegiatan DL: <strong><?= number_format((int) ($summary['total_dl_kegiatan'] ?? 0), 0, ',', '.'); ?> kegiatan</strong> &bull; <?= number_format((int) ($summary['total_hari'] ?? 0), 0, ',', '.'); ?> hari

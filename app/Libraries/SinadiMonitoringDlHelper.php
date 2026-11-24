@@ -136,11 +136,131 @@ class SinadiMonitoringDlHelper
      *   top_penghasilan: array<string, mixed>|null
      * }
      */
+    /**
+     * Memuat daftar pegawai sesuai DUK.
+     * Jika file DUK PEGAWAI.xlsx tersedia di root proyek, baca secara dinamis (dengan cache),
+     * dan jika tidak ada, gunakan fallback konfigurasi App\Config\SinadiDukPegawai::ITEMS.
+     */
+    public static function loadDukRows(?string $xlsxPath = null): array
+    {
+        $path = $xlsxPath ?? (ROOTPATH . 'DUK PEGAWAI.xlsx');
+
+        if (is_file($path) && is_readable($path)) {
+            $mtime = (string) (@filemtime($path) ?: '0');
+            $cacheKey = 'sinadi_duk_pegawai_xlsx_' . md5($path . '|' . $mtime);
+
+            if (function_exists('cache')) {
+                $cached = cache($cacheKey);
+                if (is_array($cached) && !empty($cached)) {
+                    return $cached;
+                }
+            }
+
+            try {
+                $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($path);
+                $sheet = $spreadsheet->getSheetByName('LAPORAN DUK') ?? $spreadsheet->getActiveSheet();
+                $highestRow = $sheet->getHighestDataRow();
+                $rows = [];
+
+                for ($r = 8; $r <= $highestRow; $r++) {
+                    $rawNama = (string) $sheet->getCell("B{$r}")->getValue();
+                    $rawNip  = (string) $sheet->getCell("C{$r}")->getValue();
+                    $rawGol  = (string) $sheet->getCell("D{$r}")->getValue();
+                    $rawJab  = (string) $sheet->getCell("F{$r}")->getValue();
+
+                    $lines = preg_split('/\r\n|\r|\n/', trim($rawNama));
+                    $nama = preg_replace('/\s+/', ' ', trim((string) ($lines[0] ?? ''))) ?? '';
+                    $nip = self::normalizeNip($rawNip);
+
+                    if ($nip === '' || $nama === '') {
+                        continue;
+                    }
+
+                    $rows[] = [
+                        'nip'      => $nip,
+                        'nama'     => $nama,
+                        'golongan' => preg_replace('/\s+/', ' ', trim($rawGol)) ?? '',
+                        'jabatan'  => preg_replace('/\s+/', ' ', trim($rawJab)) ?? '',
+                    ];
+                }
+
+                if (!empty($rows)) {
+                    if (function_exists('cache')) {
+                        cache()->save($cacheKey, $rows, 86400);
+                    }
+                    return $rows;
+                }
+            } catch (\Throwable $e) {
+                if (function_exists('log_message')) {
+                    log_message('warning', 'Gagal membaca DUK PEGAWAI.xlsx, fallback ke SinadiDukPegawai: ' . $e->getMessage());
+                }
+            }
+        }
+
+        return \App\Config\SinadiDukPegawai::ITEMS;
+    }
+
+    /**
+     * Membangun indeks whitelist pegawai DUK berdasarkan NIP 18 digit, nama lengkap, dan nama dasar tanpa gelar.
+     */
+    public static function buildDukWhitelist(array $dukRows): array
+    {
+        $byNip = [];
+        $byName = [];
+        $byBaseName = [];
+        $ambiguousBase = [];
+
+        foreach ($dukRows as $row) {
+            $nip = self::normalizeNip((string) ($row['nip'] ?? ''));
+            $nama = preg_replace('/\s+/', ' ', trim((string) ($row['nama'] ?? ''))) ?? '';
+            if ($nip === '' && $nama === '') {
+                continue;
+            }
+
+            $entry = [
+                'nip'      => $nip,
+                'nama'     => $nama,
+                'golongan' => trim((string) ($row['golongan'] ?? '')),
+                'jabatan'  => trim((string) ($row['jabatan'] ?? '')),
+            ];
+
+            if ($nip !== '' && !isset($byNip[$nip])) {
+                $byNip[$nip] = $entry;
+            }
+
+            $normName = self::normalizeNameKey($nama);
+            if ($normName !== '' && !isset($byName[$normName])) {
+                $byName[$normName] = $entry;
+            }
+
+            $baseName = self::normalizeBaseName($nama);
+            if ($baseName !== '') {
+                if (isset($byBaseName[$baseName]) && $byBaseName[$baseName]['nip'] !== $nip) {
+                    $ambiguousBase[$baseName] = true;
+                } else {
+                    $byBaseName[$baseName] = $entry;
+                }
+            }
+        }
+
+        foreach (array_keys($ambiguousBase) as $dupBase) {
+            unset($byBaseName[$dupBase]);
+        }
+
+        return [
+            'by_nip'       => $byNip,
+            'by_name'      => $byName,
+            'by_base_name' => $byBaseName,
+            'total'        => count($byNip) > 0 ? count($byNip) : count($byName),
+        ];
+    }
+
     public static function aggregate(
         array $pesertaRows,
         array $pegawaiTimMap,
         string $timKerjaFilter = 'all',
-        string $sort = 'frekuensi'
+        string $sort = 'frekuensi',
+        ?array $dukWhitelist = null
     ): array {
         $sortMode = self::normalizeSort($sort);
         $timFilter = trim($timKerjaFilter);
@@ -150,6 +270,9 @@ class SinadiMonitoringDlHelper
 
         $byNip = $pegawaiTimMap['by_nip'] ?? [];
         $byName = $pegawaiTimMap['by_name'] ?? [];
+        $dukByNip = $dukWhitelist['by_nip'] ?? [];
+        $dukByName = $dukWhitelist['by_name'] ?? [];
+        $dukByBase = $dukWhitelist['by_base_name'] ?? [];
 
         $grouped = [];
         $uniquePerjalananAll = [];
@@ -162,6 +285,31 @@ class SinadiMonitoringDlHelper
 
             if ($normNip === '' && $normNama === '') {
                 continue;
+            }
+
+            $dukInfo = null;
+            if ($dukWhitelist !== null) {
+                if ($normNip !== '' && isset($dukByNip[$normNip])) {
+                    $dukInfo = $dukByNip[$normNip];
+                } elseif ($normNama !== '' && isset($dukByName[$normNama])) {
+                    $dukInfo = $dukByName[$normNama];
+                } else {
+                    $baseName = self::normalizeBaseName($rawNama);
+                    if ($baseName !== '' && isset($dukByBase[$baseName])) {
+                        $dukInfo = $dukByBase[$baseName];
+                    }
+                }
+
+                if ($dukInfo === null) {
+                    continue;
+                }
+
+                if (!empty($dukInfo['nip'])) {
+                    $normNip = (string) $dukInfo['nip'];
+                }
+                if (!empty($dukInfo['nama'])) {
+                    $normNama = self::normalizeNameKey((string) $dukInfo['nama']);
+                }
             }
 
             $personKey = $normNip !== '' ? ('nip:' . $normNip) : ('name:' . $normNama);
@@ -210,12 +358,27 @@ class SinadiMonitoringDlHelper
             $penghasilan = $transfer > 0 ? $transfer : ($transport + $harian + $penginapan);
 
             if (!isset($grouped[$personKey])) {
+                $displayNip = $dukInfo !== null && ($dukInfo['nip'] ?? '') !== ''
+                    ? (string) $dukInfo['nip']
+                    : ($normNip !== '' ? $normNip : ($rawNip !== '' ? $rawNip : (string) ($timInfo['nip'] ?? '')));
+                $displayNama = $dukInfo !== null && ($dukInfo['nama'] ?? '') !== ''
+                    ? (string) $dukInfo['nama']
+                    : ($rawNama !== '' ? $rawNama : (string) ($timInfo['nama'] ?? '-'));
+                $rowJab = trim((string) ($row['jabatan_pegawai'] ?? ''));
+                $displayJab = ($dukInfo !== null && ($dukInfo['jabatan'] ?? '') !== '')
+                    ? (string) $dukInfo['jabatan']
+                    : ($rowJab !== '' ? $rowJab : (string) ($timInfo['jabatan'] ?? ''));
+                $rowGol = trim((string) ($row['golongan'] ?? ''));
+                $displayGol = ($dukInfo !== null && ($dukInfo['golongan'] ?? '') !== '')
+                    ? (string) $dukInfo['golongan']
+                    : ($rowGol !== '' ? $rowGol : (string) ($timInfo['golongan'] ?? ''));
+
                 $grouped[$personKey] = [
                     'person_key'            => $personKey,
-                    'nip'                   => $rawNip !== '' ? $rawNip : (string) ($timInfo['nip'] ?? ''),
-                    'nama'                  => $rawNama !== '' ? $rawNama : (string) ($timInfo['nama'] ?? '-'),
-                    'jabatan'               => trim((string) ($row['jabatan_pegawai'] ?? '')) !== '' ? trim((string) $row['jabatan_pegawai']) : (string) ($timInfo['jabatan'] ?? ''),
-                    'golongan'              => trim((string) ($row['golongan'] ?? '')) !== '' ? trim((string) $row['golongan']) : (string) ($timInfo['golongan'] ?? ''),
+                    'nip'                   => $displayNip,
+                    'nama'                  => $displayNama,
+                    'jabatan'               => $displayJab,
+                    'golongan'              => $displayGol,
                     'id_tim_kerja'          => $idTim,
                     'nama_tim_kerja'        => $namaTim,
                     'jumlah_dl'             => 0,
@@ -395,13 +558,31 @@ class SinadiMonitoringDlHelper
 
     private static function normalizeNip(string $nip): string
     {
-        return preg_replace('/\s+/', '', trim($nip)) ?? '';
+        return preg_replace('/\D+/', '', trim($nip)) ?? '';
     }
 
     private static function normalizeNameKey(string $nama): string
     {
         $clean = preg_replace('/\s+/', ' ', trim($nama)) ?? '';
         return strtolower($clean);
+    }
+
+    private static function normalizeBaseName(string $nama): string
+    {
+        $clean = preg_replace('/\s+/', ' ', trim($nama)) ?? '';
+        if ($clean === '') {
+            return '';
+        }
+
+        $commaPos = strpos($clean, ',');
+        if ($commaPos !== false) {
+            $clean = substr($clean, 0, $commaPos);
+        }
+
+        $clean = strtolower(trim($clean));
+        $clean = preg_replace('/^(?:(?:prof|drg|dr|ns|apt|hj|h)\.?\s+)+/i', '', $clean) ?? $clean;
+        $clean = preg_replace('/[^a-z0-9\s]/', ' ', $clean) ?? $clean;
+        return preg_replace('/\s+/', ' ', trim($clean)) ?? '';
     }
 
     private static function sanitizeYmd(string $value): string

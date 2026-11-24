@@ -679,12 +679,15 @@ class Data extends BaseController
       ->get()
       ->getResultArray();
 
+    $dukRows = \App\Libraries\SinadiMonitoringDlHelper::loadDukRows();
+    $dukWhitelist = \App\Libraries\SinadiMonitoringDlHelper::buildDukWhitelist($dukRows);
     $pegawaiTimMap = \App\Libraries\SinadiMonitoringDlHelper::buildPegawaiTimMap($pegawaiLookup);
     $aggregated = \App\Libraries\SinadiMonitoringDlHelper::aggregate(
       $pesertaRows,
       $pegawaiTimMap,
       $timKerjaFilter,
-      $sortMode
+      $sortMode,
+      $dukWhitelist
     );
 
     $timKerjaList = $db->table('tim_kerja')
@@ -737,6 +740,8 @@ class Data extends BaseController
       'accessUsers'     => $accessUsers,
       'defaultStart'    => date('Y-01-01'),
       'defaultEnd'      => date('Y-m-d'),
+      'dukTotal'        => (int) ($dukWhitelist['total'] ?? 0),
+      'dukPeriode'      => \App\Config\SinadiDukPegawai::PERIODE_LABEL,
     ];
 
     return view('sinadi/sinadi_perjalanan_saya', $data);

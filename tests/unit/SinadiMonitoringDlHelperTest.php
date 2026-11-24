@@ -91,4 +91,96 @@ final class SinadiMonitoringDlHelperTest extends TestCase
         $this->assertSame('Budi Santoso', $filtered['rows'][0]['nama']);
         $this->assertSame('Andi Wijaya', $filtered['rows'][1]['nama']);
     }
+
+    public function testDukConfigContainsValidNinetySixEntries(): void
+    {
+        $items = \App\Config\SinadiDukPegawai::ITEMS;
+        $this->assertCount(96, $items);
+
+        $nips = [];
+        foreach ($items as $item) {
+            $this->assertMatchesRegularExpression('/^\d{18}$/', $item['nip']);
+            $this->assertNotSame('', trim($item['nama']));
+            $nips[$item['nip']] = true;
+        }
+        $this->assertCount(96, $nips);
+
+        $whitelist = SinadiMonitoringDlHelper::buildDukWhitelist(\App\Libraries\SinadiMonitoringDlHelper::loadDukRows());
+        $this->assertSame(96, $whitelist['total']);
+    }
+
+    public function testAggregateFiltersStrictlyToDukWhitelistAndNormalizesFormattedNips(): void
+    {
+        $dukRows = \App\Config\SinadiDukPegawai::ITEMS;
+        $firstDuk = $dukRows[0];
+        $secondDuk = $dukRows[1];
+
+        $whitelist = SinadiMonitoringDlHelper::buildDukWhitelist($dukRows);
+        $formattedNip = substr($firstDuk['nip'], 0, 8) . ' ' . substr($firstDuk['nip'], 8, 6) . ' ' . substr($firstDuk['nip'], 14, 1) . ' ' . substr($firstDuk['nip'], 15, 3);
+
+        $timMap = SinadiMonitoringDlHelper::buildPegawaiTimMap([
+            [
+                'nip'            => $firstDuk['nip'],
+                'nama'           => $firstDuk['nama'],
+                'id_tim_kerja'   => 2,
+                'nama_tim_kerja' => 'Tim KLB',
+            ],
+        ]);
+
+        $pesertaRows = [
+            [
+                'id_perjalanan'   => 201,
+                'nip_pegawai'     => $formattedNip,
+                'nama_pegawai'    => 'Nama Lama Non Kapital',
+                'jabatan_pegawai' => '',
+                'golongan'        => '',
+                'tgl_pergi'       => '2026-03-01',
+                'tgl_pulang'      => '2026-03-02',
+                'jumlah_transfer' => 1500000,
+            ],
+            [
+                // Pegawai DUK ke-2 tanpa NIP, cocok lewat nama
+                'id_perjalanan'   => 202,
+                'nip_pegawai'     => '',
+                'nama_pegawai'    => strtolower($secondDuk['nama']),
+                'jabatan_pegawai' => '',
+                'golongan'        => '',
+                'tgl_pergi'       => '2026-03-05',
+                'tgl_pulang'      => '2026-03-05',
+                'jumlah_transfer' => 500000,
+            ],
+            [
+                // Non-DUK: PPNPN / pegawai tidak terdaftar di DUK harus disaring keluar
+                'id_perjalanan'   => 203,
+                'nip_pegawai'     => '999999999999999999',
+                'nama_pegawai'    => 'Pegawai Non DUK',
+                'jabatan_pegawai' => 'Tenaga Kontrak',
+                'golongan'        => '-',
+                'tgl_pergi'       => '2026-03-10',
+                'tgl_pulang'      => '2026-03-12',
+                'jumlah_transfer' => 9000000,
+            ],
+        ];
+
+        $result = SinadiMonitoringDlHelper::aggregate($pesertaRows, $timMap, 'all', 'frekuensi', $whitelist);
+
+        $this->assertCount(2, $result['rows']);
+        $nipsReturned = array_column($result['rows'], 'nip');
+        $this->assertContains($firstDuk['nip'], $nipsReturned);
+        $this->assertContains($secondDuk['nip'], $nipsReturned);
+        $this->assertNotContains('999999999999999999', $nipsReturned);
+
+        // Pastikan nama & tim tetap terpetakan dengan benar meski NIP di peserta pakai spasi
+        $matchedFirst = null;
+        foreach ($result['rows'] as $row) {
+            if ($row['nip'] === $firstDuk['nip']) {
+                $matchedFirst = $row;
+                break;
+            }
+        }
+        $this->assertNotNull($matchedFirst);
+        $this->assertSame($firstDuk['nama'], $matchedFirst['nama']);
+        $this->assertSame('Tim KLB', $matchedFirst['nama_tim_kerja']);
+        $this->assertSame(2000000.0, $result['summary']['total_penghasilan']);
+    }
 }
