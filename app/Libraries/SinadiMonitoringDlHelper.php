@@ -96,6 +96,54 @@ class SinadiMonitoringDlHelper
     }
 
     /**
+     * Menormalkan ceklis komponen biaya (Transport, Uang Harian, Penginapan) dari query parameter.
+     * Default saat pertama dibuka (biaya_applied tidak ada) seluruh komponen aktif (true).
+     *
+     * @return array{transport: bool, harian: bool, penginapan: bool}
+     */
+    public static function resolveCostComponents(array $queryParams): array
+    {
+        $applied = !empty($queryParams['biaya_applied']) && (string) $queryParams['biaya_applied'] !== '0';
+        if (!$applied) {
+            return [
+                'transport'  => true,
+                'harian'     => true,
+                'penginapan' => true,
+            ];
+        }
+
+        return [
+            'transport'  => isset($queryParams['inc_transport']) && (string) $queryParams['inc_transport'] !== '0',
+            'harian'     => isset($queryParams['inc_harian']) && (string) $queryParams['inc_harian'] !== '0',
+            'penginapan' => isset($queryParams['inc_penginapan']) && (string) $queryParams['inc_penginapan'] !== '0',
+        ];
+    }
+
+    /**
+     * Mengklasifikasikan perjalanan dinas sebagai 'dalam_kota' atau 'luar_kota'.
+     */
+    public static function classifyJenisPerjalanan(array $row): string
+    {
+        $jenis = strtolower(trim((string) ($row['jenis_perjalanan_dinas'] ?? '')));
+        if ($jenis !== '') {
+            if (strpos($jenis, 'dalam') !== false) {
+                return 'dalam_kota';
+            }
+            if (strpos($jenis, 'luar') !== false) {
+                return 'luar_kota';
+            }
+        }
+
+        $kota = strtolower(trim((string) ($row['kota'] ?? '')));
+        $kotaAsal = strtolower(trim((string) ($row['kota_asal'] ?? '')));
+        if ($kota !== '' && $kotaAsal !== '' && $kota === $kotaAsal) {
+            return 'dalam_kota';
+        }
+
+        return 'luar_kota';
+    }
+
+    /**
      * Membangun lookup map tim kerja, jabatan, dan golongan pegawai berdasarkan NIP dan nama
      * agar join tidak menggandakan baris DL bila ada NIP ganda pada tabel data_pegawai.
      *
@@ -270,13 +318,19 @@ class SinadiMonitoringDlHelper
         string $timKerjaFilter = 'all',
         string $sort = 'penghasilan',
         ?array $dukWhitelist = null,
-        bool $onlyApproved = true
+        bool $onlyApproved = true,
+        ?array $costComponents = null
     ): array {
         $sortMode = self::normalizeSort($sort);
         $timFilter = trim($timKerjaFilter);
         if ($timFilter === '') {
             $timFilter = 'all';
         }
+
+        $incTransport = $costComponents === null ? true : !empty($costComponents['transport']);
+        $incHarian = $costComponents === null ? true : !empty($costComponents['harian']);
+        $incPenginapan = $costComponents === null ? true : !empty($costComponents['penginapan']);
+        $allComponentsEnabled = $incTransport && $incHarian && $incPenginapan;
 
         $byNip = $pegawaiTimMap['by_nip'] ?? [];
         $byName = $pegawaiTimMap['by_name'] ?? [];
@@ -358,7 +412,17 @@ class SinadiMonitoringDlHelper
             $harian = (float) ($row['harian_jumlah'] ?? 0);
             $penginapan = (float) ($row['penginapan_jumlah'] ?? 0);
             $transfer = (float) ($row['jumlah_transfer'] ?? 0);
-            $penghasilan = $transfer > 0 ? $transfer : ($transport + $harian + $penginapan);
+
+            $effTransport = $incTransport ? $transport : 0.0;
+            $effHarian = $incHarian ? $harian : 0.0;
+            $effPenginapan = $incPenginapan ? $penginapan : 0.0;
+            if ($allComponentsEnabled) {
+                $penghasilan = $transfer > 0 ? $transfer : ($transport + $harian + $penginapan);
+            } else {
+                $penghasilan = $effTransport + $effHarian + $effPenginapan;
+            }
+
+            $jenisPerjalanan = self::classifyJenisPerjalanan($row);
 
             if (!isset($allGrouped[$personKey])) {
                 $displayNip = $dukInfo !== null && ($dukInfo['nip'] ?? '') !== ''
@@ -377,24 +441,28 @@ class SinadiMonitoringDlHelper
                     : ($rowGol !== '' ? $rowGol : (string) ($timInfo['golongan'] ?? ''));
 
                 $allGrouped[$personKey] = [
-                    'person_key'            => $personKey,
-                    'nip'                   => $displayNip,
-                    'nama'                  => $displayNama,
-                    'jabatan'               => $displayJab,
-                    'golongan'              => $displayGol,
-                    'id_tim_kerja'          => $idTim,
-                    'nama_tim_kerja'        => $namaTim,
-                    'jumlah_dl'             => 0,
-                    'total_hari'            => 0,
-                    'total_transport'       => 0.0,
-                    'total_harian'          => 0.0,
-                    'total_penginapan'      => 0.0,
-                    'total_penghasilan'     => 0.0,
-                    'rata_rata_penghasilan' => 0.0,
-                    'dl_terakhir'           => '',
-                    'riwayat'               => [],
-                    '_seen_perjalanan'      => [],
-                    '_perjalanan_ids'       => [],
+                    'person_key'             => $personKey,
+                    'nip'                    => $displayNip,
+                    'nama'                   => $displayNama,
+                    'jabatan'                => $displayJab,
+                    'golongan'               => $displayGol,
+                    'id_tim_kerja'           => $idTim,
+                    'nama_tim_kerja'         => $namaTim,
+                    'jumlah_dl'              => 0,
+                    'jumlah_dl_luar_kota'    => 0,
+                    'jumlah_dl_dalam_kota'   => 0,
+                    'total_hari'             => 0,
+                    'total_transport'        => 0.0,
+                    'total_harian'           => 0.0,
+                    'total_penginapan'       => 0.0,
+                    'total_penghasilan'      => 0.0,
+                    'penghasilan_luar_kota'  => 0.0,
+                    'penghasilan_dalam_kota' => 0.0,
+                    'rata_rata_penghasilan'  => 0.0,
+                    'dl_terakhir'            => '',
+                    'riwayat'                => [],
+                    '_seen_perjalanan'       => [],
+                    '_perjalanan_ids'        => [],
                 ];
             } else {
                 // Gunakan nama/jabatan terbaru bila baris sebelumnya kosong
@@ -419,12 +487,22 @@ class SinadiMonitoringDlHelper
                 $allGrouped[$personKey]['_seen_perjalanan'][$tripKey] = true;
                 $allGrouped[$personKey]['jumlah_dl']++;
                 $allGrouped[$personKey]['total_hari'] += $hari;
+                if ($jenisPerjalanan === 'dalam_kota') {
+                    $allGrouped[$personKey]['jumlah_dl_dalam_kota']++;
+                } else {
+                    $allGrouped[$personKey]['jumlah_dl_luar_kota']++;
+                }
             }
 
-            $allGrouped[$personKey]['total_transport'] += $transport;
-            $allGrouped[$personKey]['total_harian'] += $harian;
-            $allGrouped[$personKey]['total_penginapan'] += $penginapan;
+            $allGrouped[$personKey]['total_transport'] += $effTransport;
+            $allGrouped[$personKey]['total_harian'] += $effHarian;
+            $allGrouped[$personKey]['total_penginapan'] += $effPenginapan;
             $allGrouped[$personKey]['total_penghasilan'] += $penghasilan;
+            if ($jenisPerjalanan === 'dalam_kota') {
+                $allGrouped[$personKey]['penghasilan_dalam_kota'] += $penghasilan;
+            } else {
+                $allGrouped[$personKey]['penghasilan_luar_kota'] += $penghasilan;
+            }
 
             $refDate = $tglPulang !== '' ? $tglPulang : $tglPergi;
             if ($refDate !== '' && ($allGrouped[$personKey]['dl_terakhir'] === '' || $refDate > $allGrouped[$personKey]['dl_terakhir'])) {
@@ -433,15 +511,16 @@ class SinadiMonitoringDlHelper
 
             $allGrouped[$personKey]['riwayat'][] = [
                 'id_perjalanan'     => $idPerjalanan,
+                'jenis_perjalanan'  => $jenisPerjalanan,
                 'nama_kegiatan'     => trim((string) ($row['nama_kegiatan'] ?? '')),
                 'tempat_perjalanan' => trim((string) ($row['kota'] ?? ($row['tempat_perjalanan'] ?? ''))),
                 'kota_asal'         => trim((string) ($row['kota_asal'] ?? '')),
                 'tgl_pergi'         => $tglPergi,
                 'tgl_pulang'        => $tglPulang,
                 'hari'              => $hari,
-                'transport'         => $transport,
-                'harian'            => $harian,
-                'penginapan'        => $penginapan,
+                'transport'         => $effTransport,
+                'harian'            => $effHarian,
+                'penginapan'        => $effPenginapan,
                 'penghasilan'       => $penghasilan,
                 'status_surat'      => trim((string) ($row['status_surat'] ?? '')),
                 'sumber_anggaran'   => trim((string) ($row['sumber_anggaran'] ?? '')),
@@ -451,26 +530,34 @@ class SinadiMonitoringDlHelper
         // Bangun ringkasan total penghasilan per Tim Kerja (dari semua pegawai DUK & Disetujui pada periode filter)
         $timKerjaBuckets = [];
         $timKerjaGrandTotal = [
-            'total_pegawai'     => 0,
-            'total_penugasan'   => 0,
-            'total_hari'        => 0,
-            'total_transport'   => 0.0,
-            'total_harian'      => 0.0,
-            'total_penginapan'  => 0.0,
-            'total_penghasilan' => 0.0,
+            'total_pegawai'              => 0,
+            'total_penugasan'            => 0,
+            'total_penugasan_luar_kota'  => 0,
+            'total_penugasan_dalam_kota' => 0,
+            'total_hari'                 => 0,
+            'total_transport'            => 0.0,
+            'total_harian'               => 0.0,
+            'total_penginapan'           => 0.0,
+            'total_penghasilan'          => 0.0,
+            'total_penghasilan_luar_kota'  => 0.0,
+            'total_penghasilan_dalam_kota' => 0.0,
         ];
 
         $items = [];
         $uniquePerjalananFiltered = [];
         $summary = [
-            'total_pegawai'     => 0,
-            'total_dl_kegiatan' => 0,
-            'total_penugasan'   => 0,
-            'total_hari'        => 0,
-            'total_transport'   => 0.0,
-            'total_harian'      => 0.0,
-            'total_penginapan'  => 0.0,
-            'total_penghasilan' => 0.0,
+            'total_pegawai'                => 0,
+            'total_dl_kegiatan'            => 0,
+            'total_penugasan'              => 0,
+            'total_penugasan_luar_kota'    => 0,
+            'total_penugasan_dalam_kota'   => 0,
+            'total_hari'                   => 0,
+            'total_transport'              => 0.0,
+            'total_harian'                 => 0.0,
+            'total_penginapan'             => 0.0,
+            'total_penghasilan'            => 0.0,
+            'total_penghasilan_luar_kota'  => 0.0,
+            'total_penghasilan_dalam_kota' => 0.0,
         ];
 
         foreach ($allGrouped as $item) {
@@ -480,35 +567,47 @@ class SinadiMonitoringDlHelper
 
             if (!isset($timKerjaBuckets[$filterKey])) {
                 $timKerjaBuckets[$filterKey] = [
-                    'id_tim_kerja'      => $idTim,
-                    'filter_key'        => $filterKey,
-                    'nama_tim_kerja'    => $namaTim,
-                    'total_pegawai'     => 0,
-                    'total_penugasan'   => 0,
-                    'total_hari'        => 0,
-                    'total_transport'   => 0.0,
-                    'total_harian'      => 0.0,
-                    'total_penginapan'  => 0.0,
-                    'total_penghasilan' => 0.0,
-                    'persentase'        => 0.0,
+                    'id_tim_kerja'                 => $idTim,
+                    'filter_key'                   => $filterKey,
+                    'nama_tim_kerja'               => $namaTim,
+                    'total_pegawai'                => 0,
+                    'total_penugasan'              => 0,
+                    'total_penugasan_luar_kota'    => 0,
+                    'total_penugasan_dalam_kota'   => 0,
+                    'total_hari'                   => 0,
+                    'total_transport'              => 0.0,
+                    'total_harian'                 => 0.0,
+                    'total_penginapan'             => 0.0,
+                    'total_penghasilan'            => 0.0,
+                    'total_penghasilan_luar_kota'  => 0.0,
+                    'total_penghasilan_dalam_kota' => 0.0,
+                    'persentase'                   => 0.0,
                 ];
             }
 
             $timKerjaBuckets[$filterKey]['total_pegawai']++;
             $timKerjaBuckets[$filterKey]['total_penugasan'] += (int) $item['jumlah_dl'];
+            $timKerjaBuckets[$filterKey]['total_penugasan_luar_kota'] += (int) $item['jumlah_dl_luar_kota'];
+            $timKerjaBuckets[$filterKey]['total_penugasan_dalam_kota'] += (int) $item['jumlah_dl_dalam_kota'];
             $timKerjaBuckets[$filterKey]['total_hari'] += (int) $item['total_hari'];
             $timKerjaBuckets[$filterKey]['total_transport'] += (float) $item['total_transport'];
             $timKerjaBuckets[$filterKey]['total_harian'] += (float) $item['total_harian'];
             $timKerjaBuckets[$filterKey]['total_penginapan'] += (float) $item['total_penginapan'];
             $timKerjaBuckets[$filterKey]['total_penghasilan'] += (float) $item['total_penghasilan'];
+            $timKerjaBuckets[$filterKey]['total_penghasilan_luar_kota'] += (float) $item['penghasilan_luar_kota'];
+            $timKerjaBuckets[$filterKey]['total_penghasilan_dalam_kota'] += (float) $item['penghasilan_dalam_kota'];
 
             $timKerjaGrandTotal['total_pegawai']++;
             $timKerjaGrandTotal['total_penugasan'] += (int) $item['jumlah_dl'];
+            $timKerjaGrandTotal['total_penugasan_luar_kota'] += (int) $item['jumlah_dl_luar_kota'];
+            $timKerjaGrandTotal['total_penugasan_dalam_kota'] += (int) $item['jumlah_dl_dalam_kota'];
             $timKerjaGrandTotal['total_hari'] += (int) $item['total_hari'];
             $timKerjaGrandTotal['total_transport'] += (float) $item['total_transport'];
             $timKerjaGrandTotal['total_harian'] += (float) $item['total_harian'];
             $timKerjaGrandTotal['total_penginapan'] += (float) $item['total_penginapan'];
             $timKerjaGrandTotal['total_penghasilan'] += (float) $item['total_penghasilan'];
+            $timKerjaGrandTotal['total_penghasilan_luar_kota'] += (float) $item['penghasilan_luar_kota'];
+            $timKerjaGrandTotal['total_penghasilan_dalam_kota'] += (float) $item['penghasilan_dalam_kota'];
 
             $matchesTimFilter = true;
             if ($timFilter !== 'all') {
@@ -539,11 +638,15 @@ class SinadiMonitoringDlHelper
 
             $summary['total_pegawai']++;
             $summary['total_penugasan'] += $item['jumlah_dl'];
+            $summary['total_penugasan_luar_kota'] += $item['jumlah_dl_luar_kota'];
+            $summary['total_penugasan_dalam_kota'] += $item['jumlah_dl_dalam_kota'];
             $summary['total_hari'] += $item['total_hari'];
             $summary['total_transport'] += $item['total_transport'];
             $summary['total_harian'] += $item['total_harian'];
             $summary['total_penginapan'] += $item['total_penginapan'];
             $summary['total_penghasilan'] += $item['total_penghasilan'];
+            $summary['total_penghasilan_luar_kota'] += $item['penghasilan_luar_kota'];
+            $summary['total_penghasilan_dalam_kota'] += $item['penghasilan_dalam_kota'];
 
             $items[] = $item;
         }

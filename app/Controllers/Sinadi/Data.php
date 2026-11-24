@@ -644,26 +644,21 @@ class Data extends BaseController
     $sortMode = \App\Libraries\SinadiMonitoringDlHelper::normalizeSort(
       (string) $this->request->getGet('sort')
     );
+    $costComponents = \App\Libraries\SinadiMonitoringDlHelper::resolveCostComponents(
+      (array) ($this->request->getGet() ?? [])
+    );
 
     $db = \Config\Database::connect();
 
-    // 1. Ambil seluruh baris peserta Dinas Luar pada rentang tanggal filter
+    // 1. Ambil seluruh baris peserta perjalanan dinas (Dalam Kota & Luar Kota) berstatus Disetujui pada rentang tanggal filter
     $pesertaRows = $db->table('sinadi_perjalanan_dinas_peserta AS p')
       ->select(
         'p.id_peserta, p.id_perjalanan, p.nip_pegawai, p.nama_pegawai, p.jabatan_pegawai, p.golongan, '
         . 'p.tgl_pergi, p.tgl_pulang, p.kota, p.kota_asal, '
         . 'p.transport_jumlah, p.harian_jumlah, p.penginapan_jumlah, p.jumlah_transfer, '
-        . 'd.nama_kegiatan, d.tgl_pelaksanaan, d.tgl_pelaksanaan_akhir, d.tempat_perjalanan, d.status_surat, d.sumber_anggaran'
+        . 'd.nama_kegiatan, d.jenis_perjalanan_dinas, d.tgl_pelaksanaan, d.tgl_pelaksanaan_akhir, d.tempat_perjalanan, d.status_surat, d.sumber_anggaran'
       )
       ->join('sinadi_perjalanan_dinas AS d', 'd.id_perjalanan = p.id_perjalanan')
-      ->groupStart()
-        ->where("LOWER(TRIM(COALESCE(d.jenis_perjalanan_dinas, '')))", 'luar kota')
-        ->orGroupStart()
-          ->where("TRIM(COALESCE(d.jenis_perjalanan_dinas, ''))", '')
-          ->where("TRIM(COALESCE(p.kota, '')) !=", '')
-          ->where("TRIM(COALESCE(p.kota, '')) != TRIM(COALESCE(p.kota_asal, ''))", null, false)
-        ->groupEnd()
-      ->groupEnd()
       ->where("LOWER(TRIM(COALESCE(d.status_surat, '')))", 'disetujui')
       ->where('d.tgl_pelaksanaan >=', $dateRange['start'])
       ->where('d.tgl_pelaksanaan <=', $dateRange['end'])
@@ -689,7 +684,8 @@ class Data extends BaseController
       $timKerjaFilter,
       $sortMode,
       $dukWhitelist,
-      true
+      true,
+      $costComponents
     );
 
     $timKerjaList = $db->table('tim_kerja')
@@ -744,6 +740,7 @@ class Data extends BaseController
       'defaultEnd'      => date('Y-m-d'),
       'dukTotal'           => (int) ($dukWhitelist['total'] ?? 0),
       'dukPeriode'         => \App\Config\SinadiDukPegawai::PERIODE_LABEL,
+      'costComponents'     => $costComponents,
       'timKerjaSummary'    => $aggregated['tim_kerja_summary'] ?? [],
       'timKerjaGrandTotal' => $aggregated['tim_kerja_grand_total'] ?? [],
     ];

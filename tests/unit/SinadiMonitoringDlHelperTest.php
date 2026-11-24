@@ -266,4 +266,124 @@ final class SinadiMonitoringDlHelperTest extends TestCase
         $this->assertEqualsWithDelta(10000000.0, $result['tim_kerja_grand_total']['total_penghasilan'], 0.01);
         $this->assertSame(3, $result['tim_kerja_grand_total']['total_pegawai']);
     }
+
+    public function testResolveCostComponentsDefaultsToAllTrueAndRespectsUnchecked(): void
+    {
+        $default = SinadiMonitoringDlHelper::resolveCostComponents([]);
+        $this->assertSame(['transport' => true, 'harian' => true, 'penginapan' => true], $default);
+
+        $onlyHarian = SinadiMonitoringDlHelper::resolveCostComponents([
+            'biaya_applied' => '1',
+            'inc_harian'    => '1',
+        ]);
+        $this->assertSame(['transport' => false, 'harian' => true, 'penginapan' => false], $onlyHarian);
+
+        $noneChecked = SinadiMonitoringDlHelper::resolveCostComponents([
+            'biaya_applied' => '1',
+        ]);
+        $this->assertSame(['transport' => false, 'harian' => false, 'penginapan' => false], $noneChecked);
+    }
+
+    public function testAggregateCalculatesDalamKotaLuarKotaAndRespectsCostComponents(): void
+    {
+        $timMap = SinadiMonitoringDlHelper::buildPegawaiTimMap([
+            ['nip' => '19800101', 'nama' => 'Budi Santoso', 'id_tim_kerja' => '1', 'nama_tim_kerja' => 'Tim Surveilans'],
+            ['nip' => '19810202', 'nama' => 'Siti Aminah', 'id_tim_kerja' => '2', 'nama_tim_kerja' => 'Tim Karantina'],
+        ]);
+
+        $pesertaRows = [
+            // Budi: Luar Kota (transport 500k + harian 1jt + inap 500k = 2jt) + Dalam Kota (transport 170k = 170k)
+            [
+                'id_perjalanan'          => 101,
+                'status_surat'           => 'Disetujui',
+                'jenis_perjalanan_dinas' => 'luar kota',
+                'nip_pegawai'            => '19800101',
+                'nama_pegawai'           => 'Budi Santoso',
+                'kota_asal'              => 'Kota Bandung',
+                'kota'                   => 'Kab. Garut',
+                'tgl_pergi'              => '2026-02-01',
+                'tgl_pulang'             => '2026-02-02',
+                'transport_jumlah'       => 500000,
+                'harian_jumlah'          => 1000000,
+                'penginapan_jumlah'      => 500000,
+                'jumlah_transfer'        => 2000000,
+            ],
+            [
+                'id_perjalanan'          => 102,
+                'status_surat'           => 'Disetujui',
+                'jenis_perjalanan_dinas' => 'dalam kota',
+                'nip_pegawai'            => '19800101',
+                'nama_pegawai'           => 'Budi Santoso',
+                'kota_asal'              => 'Kota Bandung',
+                'kota'                   => 'Kota Bandung',
+                'tgl_pergi'              => '2026-02-10',
+                'tgl_pulang'             => '2026-02-10',
+                'transport_jumlah'       => 170000,
+                'harian_jumlah'          => 0,
+                'penginapan_jumlah'      => 0,
+                'jumlah_transfer'        => 170000,
+            ],
+            // Siti: Luar Kota (transport 1.5jt + harian 600k + inap 0 = 2.1jt)
+            [
+                'id_perjalanan'          => 103,
+                'status_surat'           => 'Disetujui',
+                'jenis_perjalanan_dinas' => 'luar kota',
+                'nip_pegawai'            => '19810202',
+                'nama_pegawai'           => 'Siti Aminah',
+                'kota_asal'              => 'Kota Bandung',
+                'kota'                   => 'Kab. Sukabumi',
+                'tgl_pergi'              => '2026-03-01',
+                'tgl_pulang'             => '2026-03-02',
+                'transport_jumlah'       => 1500000,
+                'harian_jumlah'          => 600000,
+                'penginapan_jumlah'      => 0,
+                'jumlah_transfer'        => 2100000,
+            ],
+        ];
+
+        // 1. Semua biaya aktif: Budi total 2.17jt (LK 2jt, DK 170rb), Siti total 2.1jt (LK 2.1jt, DK 0)
+        $all = SinadiMonitoringDlHelper::aggregate($pesertaRows, $timMap, 'all', 'penghasilan');
+        $this->assertSame('Budi Santoso', $all['rows'][0]['nama']);
+        $this->assertSame(1, $all['rows'][0]['jumlah_dl_luar_kota']);
+        $this->assertSame(1, $all['rows'][0]['jumlah_dl_dalam_kota']);
+        $this->assertEqualsWithDelta(2000000.0, $all['rows'][0]['penghasilan_luar_kota'], 0.01);
+        $this->assertEqualsWithDelta(170000.0, $all['rows'][0]['penghasilan_dalam_kota'], 0.01);
+        $this->assertEqualsWithDelta(4100000.0, $all['summary']['total_penghasilan_luar_kota'], 0.01);
+        $this->assertEqualsWithDelta(170000.0, $all['summary']['total_penghasilan_dalam_kota'], 0.01);
+        $this->assertSame(2, $all['summary']['total_penugasan_luar_kota']);
+        $this->assertSame(1, $all['summary']['total_penugasan_dalam_kota']);
+
+        // 2. Hanya Uang Harian yang dicentang: Budi = 1jt, Siti = 600rb
+        $harianOnly = SinadiMonitoringDlHelper::aggregate(
+            $pesertaRows,
+            $timMap,
+            'all',
+            'penghasilan',
+            null,
+            true,
+            ['transport' => false, 'harian' => true, 'penginapan' => false]
+        );
+        $this->assertSame('Budi Santoso', $harianOnly['rows'][0]['nama']);
+        $this->assertEqualsWithDelta(1000000.0, $harianOnly['rows'][0]['total_penghasilan'], 0.01);
+        $this->assertEqualsWithDelta(0.0, $harianOnly['rows'][0]['total_transport'], 0.01);
+        $this->assertEqualsWithDelta(600000.0, $harianOnly['rows'][1]['total_penghasilan'], 0.01);
+        $this->assertEqualsWithDelta(1600000.0, $harianOnly['summary']['total_penghasilan'], 0.01);
+
+        // 3. Hanya Transport yang dicentang: Siti (1.5jt) naik ke #1 mengalahkan Budi (670rb)
+        $transportOnly = SinadiMonitoringDlHelper::aggregate(
+            $pesertaRows,
+            $timMap,
+            'all',
+            'penghasilan',
+            null,
+            true,
+            ['transport' => true, 'harian' => false, 'penginapan' => false]
+        );
+        $this->assertSame('Siti Aminah', $transportOnly['rows'][0]['nama']);
+        $this->assertEqualsWithDelta(1500000.0, $transportOnly['rows'][0]['total_penghasilan'], 0.01);
+        $this->assertSame('Budi Santoso', $transportOnly['rows'][1]['nama']);
+        $this->assertEqualsWithDelta(670000.0, $transportOnly['rows'][1]['total_penghasilan'], 0.01);
+        $this->assertEqualsWithDelta(170000.0, $transportOnly['rows'][1]['penghasilan_dalam_kota'], 0.01);
+        $this->assertEqualsWithDelta(500000.0, $transportOnly['rows'][1]['penghasilan_luar_kota'], 0.01);
+    }
 }

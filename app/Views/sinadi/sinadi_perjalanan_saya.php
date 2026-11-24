@@ -17,13 +17,21 @@ $endDate = (string) ($endDate ?? date('Y-m-d'));
 $timKerjaFilter = (string) ($timKerjaFilter ?? 'all');
 $selectedTimNama = (string) ($selectedTimNama ?? 'Semua Tim Kerja');
 $canManageAccess = !empty($canManageAccess);
+$costComponents = is_array($costComponents ?? null) ? $costComponents : ['transport' => true, 'harian' => true, 'penginapan' => true];
+$incTransport = !empty($costComponents['transport']);
+$incHarian = !empty($costComponents['harian']);
+$incPenginapan = !empty($costComponents['penginapan']);
 
-$buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $timKerjaFilter, $sortMode): string {
+$buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $timKerjaFilter, $sortMode, $incTransport, $incHarian, $incPenginapan): string {
   $params = array_merge([
-    'start_date' => $startDate,
-    'end_date'   => $endDate,
-    'tim_kerja'  => $timKerjaFilter,
-    'sort'       => $sortMode,
+    'start_date'     => $startDate,
+    'end_date'       => $endDate,
+    'tim_kerja'      => $timKerjaFilter,
+    'sort'           => $sortMode,
+    'biaya_applied'  => '1',
+    'inc_transport'  => $incTransport ? '1' : '0',
+    'inc_harian'     => $incHarian ? '1' : '0',
+    'inc_penginapan' => $incPenginapan ? '1' : '0',
   ], $overrides);
   return '/sinadi/perjalananSaya?' . http_build_query($params);
 };
@@ -172,6 +180,49 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     margin-bottom: 8px;
     background: #ffffff;
   }
+  .mdl-card-header-flex::after {
+    display: none !important;
+    content: none !important;
+  }
+  .mdl-cost-check-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .mdl-cost-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.15s ease;
+  }
+  .mdl-cost-chip:hover {
+    border-color: #0d9488;
+    background: #f0fdfa;
+  }
+  .mdl-cost-chip input[type="checkbox"] {
+    accent-color: #0d9488;
+    cursor: pointer;
+  }
+  .mdl-collapse-toggle {
+    cursor: pointer;
+  }
+  .mdl-collapse-chevron {
+    transition: transform 0.2s ease;
+  }
+  .mdl-collapse-toggle[aria-expanded="true"] .mdl-collapse-chevron {
+    transform: rotate(180deg);
+  }
 </style>
 
 <section class="content">
@@ -199,13 +250,14 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
       <?php endif; ?>
     </div>
 
-    <!-- Filter Card -->
+    <!-- Filter Card (Aktif Otomatis) -->
     <div class="mdl-card p-3">
       <form method="get" action="/sinadi/perjalananSaya" id="formFilterMonitoringDl">
+        <input type="hidden" name="biaya_applied" value="1">
         <div class="row align-items-end">
           <div class="col-md-3 col-sm-6 mb-2 mb-md-0">
             <label for="filterTimKerja" class="small font-weight-bold text-muted mb-1">Tim Kerja</label>
-            <select name="tim_kerja" id="filterTimKerja" class="form-control form-control-sm">
+            <select name="tim_kerja" id="filterTimKerja" class="form-control form-control-sm mdl-auto-filter">
               <option value="all" <?= $timKerjaFilter === 'all' ? 'selected' : ''; ?>>Semua Tim Kerja</option>
               <?php foreach ($timKerjaList as $tk) : ?>
                 <?php $tkId = (string) ($tk['id_tim_kerja'] ?? ''); ?>
@@ -218,27 +270,47 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           </div>
           <div class="col-md-2 col-sm-6 mb-2 mb-md-0">
             <label for="filterStartDate" class="small font-weight-bold text-muted mb-1">Tanggal Mulai</label>
-            <input type="date" name="start_date" id="filterStartDate" class="form-control form-control-sm" value="<?= esc($startDate, 'attr'); ?>">
+            <input type="date" name="start_date" id="filterStartDate" class="form-control form-control-sm mdl-auto-filter" value="<?= esc($startDate, 'attr'); ?>">
           </div>
           <div class="col-md-2 col-sm-6 mb-2 mb-md-0">
             <label for="filterEndDate" class="small font-weight-bold text-muted mb-1">Tanggal Selesai</label>
-            <input type="date" name="end_date" id="filterEndDate" class="form-control form-control-sm" value="<?= esc($endDate, 'attr'); ?>">
+            <input type="date" name="end_date" id="filterEndDate" class="form-control form-control-sm mdl-auto-filter" value="<?= esc($endDate, 'attr'); ?>">
           </div>
-          <div class="col-md-2 col-sm-6 mb-2 mb-md-0">
-            <label for="filterSortMode" class="small font-weight-bold text-muted mb-1">Urutkan Peringkat</label>
-            <select name="sort" id="filterSortMode" class="form-control form-control-sm">
-              <option value="penghasilan" <?= $sortMode === 'penghasilan' ? 'selected' : ''; ?>>Penghasilan Terbanyak</option>
-              <option value="frekuensi" <?= $sortMode === 'frekuensi' ? 'selected' : ''; ?>>Paling Sering DL</option>
-            </select>
-          </div>
-          <div class="col-md-3 d-flex align-items-center" style="gap: 6px;">
-            <button type="submit" class="btn btn-sm btn-success font-weight-bold flex-fill">
-              <i class="fas fa-filter mr-1"></i> Terapkan
-            </button>
-            <a href="/sinadi/perjalananSaya" class="btn btn-sm btn-outline-secondary" title="Reset ke awal tahun s.d. hari ini">
+          <div class="col-md-5 d-flex flex-wrap align-items-end justify-content-md-end" style="gap: 8px;">
+            <div style="min-width: 195px;">
+              <label for="filterSortMode" class="small font-weight-bold text-muted mb-1">Urutkan Peringkat</label>
+              <select name="sort" id="filterSortMode" class="form-control form-control-sm mdl-auto-filter">
+                <option value="penghasilan" <?= $sortMode === 'penghasilan' ? 'selected' : ''; ?>>Penghasilan Terbanyak</option>
+                <option value="frekuensi" <?= $sortMode === 'frekuensi' ? 'selected' : ''; ?>>Paling Sering DL</option>
+              </select>
+            </div>
+            <a href="/sinadi/perjalananSaya" class="btn btn-sm btn-outline-secondary" title="Reset filter ke default">
               <i class="fas fa-undo mr-1"></i> Reset
             </a>
           </div>
+        </div>
+
+        <div class="border-top mt-2 pt-2 d-flex flex-wrap align-items-center justify-content-between" style="gap: 8px;">
+          <div class="mdl-cost-check-group">
+            <span class="small font-weight-bold text-muted mr-1">
+              <i class="fas fa-calculator text-teal mr-1"></i>Hitung Komponen Biaya:
+            </span>
+            <label class="mdl-cost-chip">
+              <input type="checkbox" name="inc_transport" value="1" class="mdl-auto-filter" <?= $incTransport ? 'checked' : ''; ?>>
+              <span>Transport</span>
+            </label>
+            <label class="mdl-cost-chip">
+              <input type="checkbox" name="inc_harian" value="1" class="mdl-auto-filter" <?= $incHarian ? 'checked' : ''; ?>>
+              <span>Uang Harian</span>
+            </label>
+            <label class="mdl-cost-chip">
+              <input type="checkbox" name="inc_penginapan" value="1" class="mdl-auto-filter" <?= $incPenginapan ? 'checked' : ''; ?>>
+              <span>Penginapan</span>
+            </label>
+          </div>
+          <small class="text-muted">
+            <i class="fas fa-bolt text-teal mr-1"></i>Filter aktif otomatis memperbarui data saat diubah.
+          </small>
         </div>
       </form>
     </div>
@@ -284,8 +356,10 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           <div class="mdl-stat-label"><i class="fas fa-users text-indigo mr-1"></i> Total Pegawai &amp; Frekuensi</div>
           <div class="mdl-stat-value"><?= number_format((int) ($summary['total_pegawai'] ?? 0), 0, ',', '.'); ?> / <?= number_format((int) ($dukTotal ?? 0), 0, ',', '.'); ?> DUK</div>
           <div class="mdl-stat-sub">
-            Total Penugasan: <strong><?= number_format((int) ($summary['total_penugasan'] ?? 0), 0, ',', '.'); ?> kali</strong><br>
-            Kegiatan DL: <strong><?= number_format((int) ($summary['total_dl_kegiatan'] ?? 0), 0, ',', '.'); ?> kegiatan</strong> &bull; <?= number_format((int) ($summary['total_hari'] ?? 0), 0, ',', '.'); ?> hari
+            Penugasan: <strong><?= number_format((int) ($summary['total_penugasan'] ?? 0), 0, ',', '.'); ?>x</strong>
+            (LK: <strong><?= number_format((int) ($summary['total_penugasan_luar_kota'] ?? 0), 0, ',', '.'); ?></strong> &bull;
+            DK: <strong><?= number_format((int) ($summary['total_penugasan_dalam_kota'] ?? 0), 0, ',', '.'); ?></strong>)<br>
+            Kegiatan: <strong><?= number_format((int) ($summary['total_dl_kegiatan'] ?? 0), 0, ',', '.'); ?></strong> &bull; <?= number_format((int) ($summary['total_hari'] ?? 0), 0, ',', '.'); ?> hari
           </div>
         </div>
       </div>
@@ -295,117 +369,150 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           <div class="mdl-stat-label"><i class="fas fa-wallet text-success mr-1"></i> Total Akumulasi Penghasilan DL</div>
           <div class="mdl-stat-value">Rp <?= number_format((float) ($summary['total_penghasilan'] ?? 0), 0, ',', '.'); ?></div>
           <div class="mdl-stat-sub">
-            Transport: Rp <?= number_format((float) ($summary['total_transport'] ?? 0), 0, ',', '.'); ?><br>
-            Harian: Rp <?= number_format((float) ($summary['total_harian'] ?? 0), 0, ',', '.'); ?> &bull; Inap: Rp <?= number_format((float) ($summary['total_penginapan'] ?? 0), 0, ',', '.'); ?>
+            Luar Kota: <strong>Rp <?= number_format((float) ($summary['total_penghasilan_luar_kota'] ?? 0), 0, ',', '.'); ?></strong><br>
+            Dalam Kota: <strong>Rp <?= number_format((float) ($summary['total_penghasilan_dalam_kota'] ?? 0), 0, ',', '.'); ?></strong><br>
+            <span class="text-muted">T: Rp <?= number_format((float) ($summary['total_transport'] ?? 0), 0, ',', '.'); ?> &bull; H: Rp <?= number_format((float) ($summary['total_harian'] ?? 0), 0, ',', '.'); ?> &bull; P: Rp <?= number_format((float) ($summary['total_penginapan'] ?? 0), 0, ',', '.'); ?></span>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Ringkasan Total Penghasilan per Tim Kerja -->
+    <!-- Ringkasan Total Penghasilan per Tim Kerja (Default Collapsed) -->
     <div class="mdl-card">
-      <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center py-2 px-3" style="gap: 8px;">
+      <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center py-2 px-3 mdl-card-header-flex mdl-collapse-toggle"
+           style="gap: 8px;"
+           data-toggle="collapse"
+           data-target="#collapseTimKerjaSummary"
+           aria-expanded="false"
+           aria-controls="collapseTimKerjaSummary">
         <div>
           <h5 class="mb-0 font-weight-bold" style="font-size: 0.98rem;">
             <i class="fas fa-sitemap text-teal mr-1"></i> Total Penghasilan per Tim Kerja
           </h5>
           <small class="text-muted">
-            Akumulasi penghasilan Dinas Luar berstatus <strong>Disetujui</strong> (Pegawai DUK) pada periode filter &bull; Klik nama tim untuk memfilter tabel pegawai.
+            Akumulasi penghasilan Dinas Luar berstatus <strong>Disetujui</strong> (Pegawai DUK) &bull; Klik untuk membuka rincian per tim.
           </small>
         </div>
-        <?php if ($timKerjaFilter !== 'all') : ?>
-          <a href="<?= esc($buildQueryUrl(['tim_kerja' => 'all']), 'attr'); ?>" class="btn btn-xs btn-outline-teal font-weight-bold" style="border-color: #0d9488; color: #0d9488;">
-            <i class="fas fa-layer-group mr-1"></i> Tampilkan Semua Tim
-          </a>
-        <?php endif; ?>
+        <div class="d-flex flex-wrap align-items-center ml-auto" style="gap: 6px;">
+          <span class="badge badge-light border px-2 py-1">
+            <?= count($timKerjaSummary); ?> Tim &bull; Rp <?= number_format((float) ($timKerjaGrandTotal['total_penghasilan'] ?? 0), 0, ',', '.'); ?>
+          </span>
+          <?php if ($timKerjaFilter !== 'all') : ?>
+            <a href="<?= esc($buildQueryUrl(['tim_kerja' => 'all']), 'attr'); ?>" onclick="event.stopPropagation();" class="btn btn-xs btn-outline-teal font-weight-bold" style="border-color: #0d9488; color: #0d9488;">
+              <i class="fas fa-layer-group mr-1"></i> Tampilkan Semua Tim
+            </a>
+          <?php endif; ?>
+          <button type="button" class="btn btn-xs btn-outline-secondary">
+            <span>Rincian Tim</span>
+            <i class="fas fa-chevron-down ml-1 mdl-collapse-chevron"></i>
+          </button>
+        </div>
       </div>
-      <div class="card-body p-3">
-        <?php if (!empty($timKerjaSummary)) : ?>
-          <div class="table-responsive">
-            <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.82rem;">
-              <thead style="background: #f8fafc;">
-                <tr>
-                  <th class="text-center" style="width: 44px;">#</th>
-                  <th>Tim Kerja</th>
-                  <th class="text-center">Pegawai DUK</th>
-                  <th class="text-center">Frekuensi DL</th>
-                  <th class="text-right">Rincian Biaya</th>
-                  <th class="text-right">Total Penghasilan</th>
-                  <th class="text-center" style="min-width: 120px;">Porsi</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php foreach ($timKerjaSummary as $tkIdx => $tkRow) :
-                  $isActiveTim = ($timKerjaFilter === (string) ($tkRow['filter_key'] ?? ''));
-                  $porsi = (float) ($tkRow['persentase'] ?? 0);
-                  $barWidth = max(0.0, min(100.0, $porsi));
-                ?>
-                  <tr class="<?= $isActiveTim ? 'table-info' : ''; ?>">
-                    <td class="text-center font-weight-bold"><?= $tkIdx + 1; ?></td>
-                    <td>
-                      <a href="<?= esc($buildQueryUrl(['tim_kerja' => (string) ($tkRow['filter_key'] ?? 'all')]), 'attr'); ?>" class="font-weight-bold text-dark">
-                        <?= esc($tkRow['nama_tim_kerja'] ?? 'Tanpa Tim Kerja'); ?>
-                      </a>
-                      <?php if ($isActiveTim) : ?>
-                        <span class="badge badge-teal ml-1" style="background: #0d9488; color: #fff;">Aktif</span>
-                      <?php endif; ?>
-                    </td>
-                    <td class="text-center"><?= number_format((int) ($tkRow['total_pegawai'] ?? 0), 0, ',', '.'); ?> Orang</td>
-                    <td class="text-center">
-                      <strong><?= number_format((int) ($tkRow['total_penugasan'] ?? 0), 0, ',', '.'); ?> kali</strong>
-                      <span class="text-muted">&bull; <?= number_format((int) ($tkRow['total_hari'] ?? 0), 0, ',', '.'); ?> hari</span>
-                    </td>
-                    <td class="text-right small text-muted">
-                      Transport: Rp <?= number_format((float) ($tkRow['total_transport'] ?? 0), 0, ',', '.'); ?> &bull;
-                      Harian: Rp <?= number_format((float) ($tkRow['total_harian'] ?? 0), 0, ',', '.'); ?> &bull;
-                      Inap: Rp <?= number_format((float) ($tkRow['total_penginapan'] ?? 0), 0, ',', '.'); ?>
-                    </td>
-                    <td class="text-right font-weight-bold text-success text-nowrap">
-                      Rp <?= number_format((float) ($tkRow['total_penghasilan'] ?? 0), 0, ',', '.'); ?>
-                    </td>
-                    <td class="text-center align-middle">
-                      <div class="d-flex align-items-center" style="gap: 6px;">
-                        <div class="progress flex-fill mb-0" style="height: 7px; background: #e2e8f0;">
-                          <div class="progress-bar bg-teal" role="progressbar" style="width: <?= $barWidth; ?>%; background-color: #0d9488 !important;" aria-valuenow="<?= $barWidth; ?>" aria-valuemin="0" aria-valuemax="100"></div>
+      <div id="collapseTimKerjaSummary" class="collapse">
+        <div class="card-body p-3 border-top">
+          <?php if (!empty($timKerjaSummary)) : ?>
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.82rem;">
+                <thead style="background: #f8fafc;">
+                  <tr>
+                    <th class="text-center" style="width: 44px;">#</th>
+                    <th>Tim Kerja</th>
+                    <th class="text-center">Pegawai DUK</th>
+                    <th class="text-center">Frekuensi DL</th>
+                    <th class="text-right">Rincian Biaya</th>
+                    <th class="text-right">Total Penghasilan (LK / DK)</th>
+                    <th class="text-center" style="min-width: 120px;">Porsi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php foreach ($timKerjaSummary as $tkIdx => $tkRow) :
+                    $isActiveTim = ($timKerjaFilter === (string) ($tkRow['filter_key'] ?? ''));
+                    $porsi = (float) ($tkRow['persentase'] ?? 0);
+                    $barWidth = max(0.0, min(100.0, $porsi));
+                  ?>
+                    <tr class="<?= $isActiveTim ? 'table-info' : ''; ?>">
+                      <td class="text-center font-weight-bold"><?= $tkIdx + 1; ?></td>
+                      <td>
+                        <a href="<?= esc($buildQueryUrl(['tim_kerja' => (string) ($tkRow['filter_key'] ?? 'all')]), 'attr'); ?>" class="font-weight-bold text-dark">
+                          <?= esc($tkRow['nama_tim_kerja'] ?? 'Tanpa Tim Kerja'); ?>
+                        </a>
+                        <?php if ($isActiveTim) : ?>
+                          <span class="badge badge-teal ml-1" style="background: #0d9488; color: #fff;">Aktif</span>
+                        <?php endif; ?>
+                      </td>
+                      <td class="text-center"><?= number_format((int) ($tkRow['total_pegawai'] ?? 0), 0, ',', '.'); ?> Orang</td>
+                      <td class="text-center">
+                        <strong><?= number_format((int) ($tkRow['total_penugasan'] ?? 0), 0, ',', '.'); ?> kali</strong>
+                        <span class="text-muted">&bull; <?= number_format((int) ($tkRow['total_hari'] ?? 0), 0, ',', '.'); ?> hr</span>
+                        <div class="small text-muted">
+                          LK: <?= number_format((int) ($tkRow['total_penugasan_luar_kota'] ?? 0), 0, ',', '.'); ?> &bull;
+                          DK: <?= number_format((int) ($tkRow['total_penugasan_dalam_kota'] ?? 0), 0, ',', '.'); ?>
                         </div>
-                        <span class="small font-weight-bold text-dark" style="min-width: 42px; text-align: right;"><?= number_format($porsi, 1, ',', '.'); ?>%</span>
+                      </td>
+                      <td class="text-right small text-muted">
+                        Transport: Rp <?= number_format((float) ($tkRow['total_transport'] ?? 0), 0, ',', '.'); ?> &bull;
+                        Harian: Rp <?= number_format((float) ($tkRow['total_harian'] ?? 0), 0, ',', '.'); ?> &bull;
+                        Inap: Rp <?= number_format((float) ($tkRow['total_penginapan'] ?? 0), 0, ',', '.'); ?>
+                      </td>
+                      <td class="text-right text-nowrap">
+                        <div class="font-weight-bold text-success">
+                          Rp <?= number_format((float) ($tkRow['total_penghasilan'] ?? 0), 0, ',', '.'); ?>
+                        </div>
+                        <div class="small text-muted">
+                          LK: Rp <?= number_format((float) ($tkRow['total_penghasilan_luar_kota'] ?? 0), 0, ',', '.'); ?> &bull;
+                          DK: Rp <?= number_format((float) ($tkRow['total_penghasilan_dalam_kota'] ?? 0), 0, ',', '.'); ?>
+                        </div>
+                      </td>
+                      <td class="text-center align-middle">
+                        <div class="d-flex align-items-center" style="gap: 6px;">
+                          <div class="progress flex-fill mb-0" style="height: 7px; background: #e2e8f0;">
+                            <div class="progress-bar bg-teal" role="progressbar" style="width: <?= $barWidth; ?>%; background-color: #0d9488 !important;" aria-valuenow="<?= $barWidth; ?>" aria-valuemin="0" aria-valuemax="100"></div>
+                          </div>
+                          <span class="small font-weight-bold text-dark" style="min-width: 42px; text-align: right;"><?= number_format($porsi, 1, ',', '.'); ?>%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+                <tfoot style="background: #f1f5f9;">
+                  <tr class="font-weight-bold">
+                    <td colspan="2" class="text-right">Total Keseluruhan</td>
+                    <td class="text-center"><?= number_format((int) ($timKerjaGrandTotal['total_pegawai'] ?? 0), 0, ',', '.'); ?> Orang</td>
+                    <td class="text-center">
+                      <?= number_format((int) ($timKerjaGrandTotal['total_penugasan'] ?? 0), 0, ',', '.'); ?> kali
+                      &bull; <?= number_format((int) ($timKerjaGrandTotal['total_hari'] ?? 0), 0, ',', '.'); ?> hr
+                    </td>
+                    <td class="text-right small">
+                      Transport: Rp <?= number_format((float) ($timKerjaGrandTotal['total_transport'] ?? 0), 0, ',', '.'); ?> &bull;
+                      Harian: Rp <?= number_format((float) ($timKerjaGrandTotal['total_harian'] ?? 0), 0, ',', '.'); ?> &bull;
+                      Inap: Rp <?= number_format((float) ($timKerjaGrandTotal['total_penginapan'] ?? 0), 0, ',', '.'); ?>
+                    </td>
+                    <td class="text-right text-nowrap">
+                      <div class="text-success">
+                        Rp <?= number_format((float) ($timKerjaGrandTotal['total_penghasilan'] ?? 0), 0, ',', '.'); ?>
+                      </div>
+                      <div class="small text-muted font-weight-normal">
+                        LK: Rp <?= number_format((float) ($timKerjaGrandTotal['total_penghasilan_luar_kota'] ?? 0), 0, ',', '.'); ?> &bull;
+                        DK: Rp <?= number_format((float) ($timKerjaGrandTotal['total_penghasilan_dalam_kota'] ?? 0), 0, ',', '.'); ?>
                       </div>
                     </td>
+                    <td class="text-center">100,0%</td>
                   </tr>
-                <?php endforeach; ?>
-              </tbody>
-              <tfoot style="background: #f1f5f9;">
-                <tr class="font-weight-bold">
-                  <td colspan="2" class="text-right">Total Keseluruhan</td>
-                  <td class="text-center"><?= number_format((int) ($timKerjaGrandTotal['total_pegawai'] ?? 0), 0, ',', '.'); ?> Orang</td>
-                  <td class="text-center">
-                    <?= number_format((int) ($timKerjaGrandTotal['total_penugasan'] ?? 0), 0, ',', '.'); ?> kali
-                    &bull; <?= number_format((int) ($timKerjaGrandTotal['total_hari'] ?? 0), 0, ',', '.'); ?> hari
-                  </td>
-                  <td class="text-right small">
-                    Transport: Rp <?= number_format((float) ($timKerjaGrandTotal['total_transport'] ?? 0), 0, ',', '.'); ?> &bull;
-                    Harian: Rp <?= number_format((float) ($timKerjaGrandTotal['total_harian'] ?? 0), 0, ',', '.'); ?> &bull;
-                    Inap: Rp <?= number_format((float) ($timKerjaGrandTotal['total_penginapan'] ?? 0), 0, ',', '.'); ?>
-                  </td>
-                  <td class="text-right text-success text-nowrap">
-                    Rp <?= number_format((float) ($timKerjaGrandTotal['total_penghasilan'] ?? 0), 0, ',', '.'); ?>
-                  </td>
-                  <td class="text-center">100,0%</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        <?php else : ?>
-          <div class="text-center text-muted small py-2">
-            Belum ada data Dinas Luar berstatus Disetujui pada rentang tanggal yang dipilih.
-          </div>
-        <?php endif; ?>
+                </tfoot>
+              </table>
+            </div>
+          <?php else : ?>
+            <div class="text-center text-muted small py-2">
+              Belum ada data Dinas Luar berstatus Disetujui pada rentang tanggal yang dipilih.
+            </div>
+          <?php endif; ?>
+        </div>
       </div>
     </div>
 
     <!-- Tabel Peringkat Perorangan -->
     <div class="mdl-card">
-      <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center py-2 px-3" style="gap: 8px;">
+      <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center py-2 px-3 mdl-card-header-flex" style="gap: 8px;">
         <div>
           <h5 class="mb-0 font-weight-bold" style="font-size: 0.98rem;">
             Peringkat Dinas Luar Perorangan
@@ -414,7 +521,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
             Diurutkan mulai nomor 1 berdasarkan <?= $sortMode === 'penghasilan' ? 'total penghasilan terbanyak' : 'frekuensi Dinas Luar terbanyak'; ?>.
           </small>
         </div>
-        <div class="mdl-sort-pills">
+        <div class="mdl-sort-pills ml-auto">
           <a href="<?= esc($buildQueryUrl(['sort' => 'penghasilan']), 'attr'); ?>" class="mdl-sort-pill <?= $sortMode === 'penghasilan' ? 'active' : ''; ?>">
             <i class="fas fa-money-bill-wave mr-1"></i> #1 Penghasilan Terbanyak
           </a>
@@ -472,7 +579,9 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
                       <?= (int) $row['jumlah_dl']; ?> Kali
                     </div>
                     <div class="small text-muted"><?= (int) $row['total_hari']; ?> Hari</div>
-                    <span class="badge badge-info" style="font-size: 0.68rem;">Rank #<?= (int) $row['rank_frekuensi']; ?> Sering</span>
+                    <div class="small text-muted" style="font-size: 0.72rem;">
+                      LK: <?= (int) ($row['jumlah_dl_luar_kota'] ?? 0); ?> &bull; DK: <?= (int) ($row['jumlah_dl_dalam_kota'] ?? 0); ?>
+                    </div>
                   </td>
                   <td class="text-right small">
                     <div>Transport: <strong>Rp <?= number_format((float) $row['total_transport'], 0, ',', '.'); ?></strong></div>
@@ -483,7 +592,10 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
                     <div class="font-weight-bold text-success" style="font-size: 0.92rem;">
                       Rp <?= number_format((float) $row['total_penghasilan'], 0, ',', '.'); ?>
                     </div>
-                    <span class="badge badge-success" style="font-size: 0.68rem;">Rank #<?= (int) $row['rank_penghasilan']; ?> Penghasilan</span>
+                    <div class="small text-muted" style="font-size: 0.72rem; line-height: 1.25;">
+                      Luar Kota: <strong>Rp <?= number_format((float) ($row['penghasilan_luar_kota'] ?? 0), 0, ',', '.'); ?></strong><br>
+                      Dalam Kota: <strong>Rp <?= number_format((float) ($row['penghasilan_dalam_kota'] ?? 0), 0, ',', '.'); ?></strong>
+                    </div>
                   </td>
                   <td class="text-right small" data-order="<?= (float) $row['rata_rata_penghasilan']; ?>">
                     <div><strong>Rp <?= number_format((float) $row['rata_rata_penghasilan'], 0, ',', '.'); ?></strong></div>
@@ -636,6 +748,16 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
 
     $('#modalRiwayatDl, #modalAksesMonitoringDl').appendTo('body');
 
+    $(document).on('change', '.mdl-auto-filter', function() {
+      var form = document.getElementById('formFilterMonitoringDl');
+      if (!form) return;
+      if (this.type === 'date' && this.value && !/^\d{4}-\d{2}-\d{2}$/.test(this.value)) {
+        return;
+      }
+      $('#overlay').show();
+      form.submit();
+    });
+
     if ($.fn.DataTable) {
       $('#tableMonitoringDl').DataTable({
         responsive: true,
@@ -697,10 +819,13 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           if (r.tgl_pulang && r.tgl_pulang !== r.tgl_pergi) {
             tglLabel += ' s.d. ' + r.tgl_pulang;
           }
+          var jenisBadge = r.jenis_perjalanan === 'dalam_kota'
+            ? '<span class="badge badge-secondary ml-1">Dalam Kota</span>'
+            : '<span class="badge badge-info ml-1">Luar Kota</span>';
           tbody += '<tr>' +
             '<td class="text-center">' + (i + 1) + '</td>' +
             '<td class="text-nowrap">' + escapeHtml(tglLabel) + '</td>' +
-            '<td>' + escapeHtml(r.nama_kegiatan || '-') + '</td>' +
+            '<td>' + escapeHtml(r.nama_kegiatan || '-') + ' ' + jenisBadge + '</td>' +
             '<td>' + escapeHtml(r.tempat_perjalanan || '-') + '</td>' +
             '<td class="text-center">' + (r.hari || 1) + ' hr</td>' +
             '<td class="text-right">' + formatRupiah(r.transport) + '</td>' +
