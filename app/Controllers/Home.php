@@ -83,6 +83,7 @@ class Home extends BaseController
         $username = (string) session()->get('username');
         $sessionIdUser = (int) session()->get('id_user');
         $isAdminRole = (session()->get('role') == 'Admin');
+        $data['justLoggedInSppdHighlight'] = (bool) session()->getFlashdata('show_sppd_srikandi_highlight');
         $this->releaseSessionLock();
         $db = \Config\Database::connect();
 

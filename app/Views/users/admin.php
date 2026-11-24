@@ -1064,7 +1064,7 @@ if (!empty($absenHariIni)) {
             </div>
             <div class="sh-module-body">
               <div class="sh-module-head">
-                <h5 class="sh-module-name">SINADI</h5>
+                <h5 class="sh-module-name">SINADI <span class="badge badge-success ml-1" style="font-size: 0.65rem; vertical-align: middle;">SPPD Srikandi Baru</span></h5>
                 <i class="fas fa-chevron-right sh-module-arrow"></i>
               </div>
               <p class="sh-module-desc">Sistem Informasi Perjalanan Dinas untuk nominator, kuitansi, pengeluaran riil, dan SPPD dalam/luar kota.</p>
@@ -1713,5 +1713,7 @@ if (!empty($absenHariIni)) {
     });
   })();
 </script>
+
+<?= view('home/_popup_highlight_sppd_srikandi', ['justLoggedInSppdHighlight' => $justLoggedInSppdHighlight ?? false]); ?>
 
 <?= $this->endSection(); ?>

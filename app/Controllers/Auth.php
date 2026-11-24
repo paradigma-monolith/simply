@@ -222,6 +222,7 @@ class Auth extends BaseController
           $this->checkBirthdayFromNIP($data['nip'], $data['nama']);
         }
         
+        session()->setFlashdata('show_sppd_srikandi_highlight', true);
         session()->set($ses_data);
         // dd(session()->get('nama')); // pemanggilan session
         // return redirect()->to('/admin');
