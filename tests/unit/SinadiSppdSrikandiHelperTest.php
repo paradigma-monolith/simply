@@ -56,7 +56,7 @@ final class SinadiSppdSrikandiHelperTest extends TestCase
         $this->assertSame('26 November 2026', $res['stops'][0]['tgl_berangkat_label']);
         $this->assertNull($res['stops'][0]['pejabat']);
 
-        for ($i = 1; $i <= 3; $i++) {
+        for ($i = 1; $i <= 2; $i++) {
             $this->assertFalse($res['stops'][$i]['active']);
             $this->assertSame('', $res['stops'][$i]['tiba_di']);
             $this->assertNull($res['stops'][$i]['pejabat']);
@@ -95,7 +95,7 @@ final class SinadiSppdSrikandiHelperTest extends TestCase
         $this->assertSame('${ttd_pengirim5}', $res['stops'][2]['pejabat']['placeholder']);
         $this->assertSame('Pejabat Tiga', $res['stops'][2]['pejabat']['nama']);
 
-        $this->assertFalse($res['stops'][3]['active']);
+        $this->assertCount(3, $res['stops']);
     }
 
     public function testTwoPejabatAutoDatesOverFourDaysAndOneDayThreePejabat(): void
@@ -148,7 +148,7 @@ final class SinadiSppdSrikandiHelperTest extends TestCase
         $this->assertSame('${ttd_pengirim3}', $res['stops'][0]['pejabat']['placeholder']);
     }
 
-    public function testFourPejabatAutoDatesOverFourDays(): void
+    public function testMaxThreePejabatClampingAndStops(): void
     {
         $config = SinadiSppdSrikandiHelper::parse([
             'mode_tanggal'   => 'auto',
@@ -161,20 +161,17 @@ final class SinadiSppdSrikandiHelperTest extends TestCase
         $peserta = $this->samplePeserta(['tgl_pergi' => '2026-11-25', 'tgl_pulang' => '2026-11-28']);
         $res = SinadiSppdSrikandiHelper::buildBackPageStops($peserta, $config, true);
 
-        $this->assertSame(4, $res['filled_pejabat_count']);
-        $this->assertSame(4, $res['active_stop_count']);
+        $this->assertSame(3, $res['filled_pejabat_count']);
+        $this->assertSame(3, $res['active_stop_count']);
+        $this->assertCount(3, $res['stops']);
         $this->assertSame('${ttd_pengirim3}', $res['stops'][0]['pejabat']['placeholder']);
         $this->assertSame('${ttd_pengirim4}', $res['stops'][1]['pejabat']['placeholder']);
         $this->assertSame('${ttd_pengirim5}', $res['stops'][2]['pejabat']['placeholder']);
-        $this->assertSame('${ttd_pengirim6}', $res['stops'][3]['pejabat']['placeholder']);
         $this->assertSame('25 November 2026', $res['stops'][0]['tgl_tiba_label']);
-        $this->assertSame('26 November 2026', $res['stops'][1]['tgl_tiba_label']);
-        $this->assertSame('27 November 2026', $res['stops'][2]['tgl_tiba_label']);
-        $this->assertSame('28 November 2026', $res['stops'][3]['tgl_tiba_label']);
-        $this->assertSame('Kota Bandung', $res['stops'][3]['ke']);
+        $this->assertSame('Kota Bandung', $res['stops'][2]['ke']);
     }
 
-    public function testDompdfLayoutAndPageCountStayIdenticalZeroThroughFourPejabat(): void
+    public function testDompdfLayoutAndPageCountStayIdenticalZeroThroughThreePejabat(): void
     {
         $cases = [
             0 => ['mode_tanggal' => 'auto', 'jumlah_baris' => '1'],
@@ -200,23 +197,6 @@ final class SinadiSppdSrikandiHelperTest extends TestCase
                     'Dr. Pejabat Satu|198001012005011001',
                     'Dr. Pejabat Dua|198102022006012002',
                     'Dr. Pejabat Tiga|198203032007011003',
-                ],
-            ],
-            4 => [
-                'mode_tanggal'   => 'auto',
-                'jumlah_baris'   => '4',
-                'lokasi_tujuan'  => ['Kab. Sukabumi', 'Kota Sukabumi', 'Kab. Cianjur', 'Kab. Bandung Barat'],
-                'jabatan_tujuan' => [
-                    'Kepala Dinas Kesehatan Kabupaten Sukabumi',
-                    'Kepala Dinas Kesehatan Kota Sukabumi',
-                    'Kepala Dinas Kesehatan Kabupaten Cianjur',
-                    'Kepala Dinas Kesehatan Kabupaten Bandung Barat',
-                ],
-                'pegawai_tujuan' => [
-                    'Dr. Pejabat Satu|198001012005011001',
-                    'Dr. Pejabat Dua|198102022006012002',
-                    'Dr. Pejabat Tiga|198203032007011003',
-                    'Dr. Pejabat Empat|198304042008012004',
                 ],
             ],
         ];

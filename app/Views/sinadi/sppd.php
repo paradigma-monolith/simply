@@ -201,13 +201,27 @@
       white-space: nowrap;
     }
 
-    .sppd-pejabat-left {
-      height: 82px;
+    .sppd-pejabat-box {
+      height: 128px;
+      text-align: center;
       overflow: hidden;
     }
 
-    .sppd-pejabat-right {
-      height: 68px;
+    .sppd-pejabat-jabatan {
+      height: 22px;
+      line-height: 11px;
+      overflow: hidden;
+      font-weight: bold;
+    }
+
+    .sppd-pejabat-ttd {
+      height: 80px;
+      text-align: center;
+    }
+
+    .sppd-pejabat-identity {
+      height: 26px;
+      line-height: 12px;
       overflow: hidden;
     }
   </style>
@@ -519,17 +533,18 @@
                 <span style="margin-left: 25px; display: inline-block; width: 102px;">Pada Tanggal</span>
                 <span>: <?= esc($stop['tgl_tiba_label']); ?></span>
               </div>
+              <div class="sppd-stop-line">&nbsp;</div>
               <?php if ($pejabat !== null) : ?>
-                <div class="sppd-pejabat-left" style="text-align: center;">
-                  <div style="font-weight: bold; height: 22px; line-height: 11px; overflow: hidden;"><?= esc($pejabat['jabatan']); ?></div>
-                  <div style="height: 34px; line-height: 34px;"><?= $pejabat['placeholder']; ?></div>
-                  <div style="height: 26px; line-height: 12px; overflow: hidden;">
-                    <div style="font-weight: bold;"><u><?= esc($pejabat['nama']); ?></u></div>
+                <div class="sppd-pejabat-box">
+                  <div class="sppd-pejabat-jabatan"><?= esc($pejabat['jabatan']); ?></div>
+                  <div class="sppd-pejabat-ttd"><br><br><?= $pejabat['placeholder']; ?></div>
+                  <div class="sppd-pejabat-identity">
+                    <div><strong><u><?= esc($pejabat['nama']); ?></u></strong></div>
                     <div><?= $pejabat['nip'] !== '' ? 'NIP. ' . esc($pejabat['nip']) : '&nbsp;'; ?></div>
                   </div>
                 </div>
               <?php else: ?>
-                <div class="sppd-pejabat-left">&nbsp;</div>
+                <div class="sppd-pejabat-box">&nbsp;</div>
               <?php endif; ?>
             </td>
             <td style="width: 50%;">
@@ -546,23 +561,23 @@
                 <span>: <?= esc($stop['tgl_berangkat_label']); ?></span>
               </div>
               <?php if ($pejabat !== null) : ?>
-                <div class="sppd-pejabat-right" style="text-align: center;">
-                  <div style="font-weight: bold; height: 22px; line-height: 11px; overflow: hidden;"><?= esc($pejabat['jabatan']); ?></div>
-                  <div style="height: 20px; line-height: 20px;"><?= $pejabat['placeholder']; ?></div>
-                  <div style="height: 26px; line-height: 12px; overflow: hidden;">
-                    <div style="font-weight: bold;"><u><?= esc($pejabat['nama']); ?></u></div>
+                <div class="sppd-pejabat-box">
+                  <div class="sppd-pejabat-jabatan"><?= esc($pejabat['jabatan']); ?></div>
+                  <div class="sppd-pejabat-ttd"><br><br><?= $pejabat['placeholder']; ?></div>
+                  <div class="sppd-pejabat-identity">
+                    <div><strong><u><?= esc($pejabat['nama']); ?></u></strong></div>
                     <div><?= $pejabat['nip'] !== '' ? 'NIP. ' . esc($pejabat['nip']) : '&nbsp;'; ?></div>
                   </div>
                 </div>
               <?php else: ?>
-                <div class="sppd-pejabat-right">&nbsp;</div>
+                <div class="sppd-pejabat-box">&nbsp;</div>
               <?php endif; ?>
             </td>
           </tr>
         <?php endforeach; ?>
         <tr>
           <td style="width: 50%;">
-            <span style="margin-right: 8px; position: absolute;">VI</span>
+            <span style="margin-right: 8px; position: absolute;">V</span>
             <div style="display: inline; margin-left: 25px; padding-right: 69px;">Tiba di</div>
             <div style="display: inline;">: <?= $data['kota_asal']; ?></div>
             <div></div>
@@ -595,13 +610,13 @@
         </tr>
         <tr>
           <td colspan="2" style="padding-top: 5px; padding-bottom: 5px;">
-            <span style="margin-right: 8px; position: absolute;">VII</span>
+            <span style="margin-right: 8px; position: absolute;">VI</span>
             <div style="display: inline; margin-left: 25px; padding-right: 69px;">CATATAN LAIN-LAIN</div>
           </td>
         </tr>
         <tr>
           <td colspan="2" style="padding-top: 5px; padding-bottom: 5px; border: unset;">
-            <span style="margin-right: 8px; position: absolute;">VIII</span>
+            <span style="margin-right: 8px; position: absolute;">VII</span>
             <div style="margin-left: 25px; padding-right: 69px;"><u>PERHATIAN</u></div>
             <div style="padding-left: 15px; padding-top: 5px;">PPK yang menerbitkan SPD, pegawai yang melakukan perjalanan dinas, para pejabat yang mengesahkan tanggal berangkat / tiba, serta bendahara pengeluaran bertanggung jawab berdasarkan peraturan - peraturan Keuangan Negawa apabila negara menderita rugi akibat kesalahan, kelalaian, dan kealpaannya.</div>
           </td>
