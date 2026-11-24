@@ -183,34 +183,32 @@
       padding-bottom: 10px;
     }
 
-    .sppd-back.sppd-compact-1 td {
-      padding-top: 7px;
-      padding-bottom: 7px;
+    .sppd-back {
+      width: 100%;
+      table-layout: fixed;
     }
 
-    .sppd-back.sppd-compact-2 td {
-      padding-top: 4px;
-      padding-bottom: 4px;
+    .sppd-back td {
+      padding-top: 5px;
+      padding-bottom: 5px;
+      vertical-align: top;
     }
 
-    .sppd-back.sppd-compact-2 td div,
-    .sppd-back.sppd-compact-2 td span,
-    .sppd-back.sppd-compact-2 td div strong,
-    .sppd-back.sppd-compact-2 td div u {
-      font-size: 8.5pt;
+    .sppd-stop-line {
+      height: 14px;
+      line-height: 14px;
+      overflow: hidden;
+      white-space: nowrap;
     }
 
-    .sppd-back.sppd-compact-3 td {
-      padding-top: 2px;
-      padding-bottom: 2px;
+    .sppd-pejabat-left {
+      height: 82px;
+      overflow: hidden;
     }
 
-    .sppd-back.sppd-compact-3 td div,
-    .sppd-back.sppd-compact-3 td span,
-    .sppd-back.sppd-compact-3 td div strong,
-    .sppd-back.sppd-compact-3 td div u {
-      font-size: 8pt;
-      line-height: 1.15;
+    .sppd-pejabat-right {
+      height: 68px;
+      overflow: hidden;
     }
   </style>
 </head>
@@ -469,68 +467,9 @@
         $isBorangMode
     );
     $stopRows = $backStopsInfo['stops'];
-    $filledPejabatCount = (int) ($backStopsInfo['filled_pejabat_count'] ?? 0);
-
-    if ($filledPejabatCount >= 3) {
-        $backCompactClass = 'sppd-compact-3';
-        $backMarginTop = 14;
-        $row1TtdHeight = 58;
-        $row1Breaks = '<br><br>';
-        $pejabatTitleHeight = 20;
-        $pejabatTtdHeight = 50;
-        $pejabatMarginTop = 3;
-        $pejabatBreaks = '<br>';
-        $emptySpacerA = 14;
-        $emptySpacerB = 10;
-        $row6LabelHeight = 22;
-        $row6TtdHeight = 50;
-        $row6Breaks = '<br>';
-    } elseif ($filledPejabatCount === 2) {
-        $backCompactClass = 'sppd-compact-2';
-        $backMarginTop = 20;
-        $row1TtdHeight = 76;
-        $row1Breaks = '<br><br><br>';
-        $pejabatTitleHeight = 22;
-        $pejabatTtdHeight = 68;
-        $pejabatMarginTop = 6;
-        $pejabatBreaks = '<br><br>';
-        $emptySpacerA = 20;
-        $emptySpacerB = 14;
-        $row6LabelHeight = 28;
-        $row6TtdHeight = 62;
-        $row6Breaks = '<br>';
-    } elseif ($filledPejabatCount === 1) {
-        $backCompactClass = 'sppd-compact-1';
-        $backMarginTop = 26;
-        $row1TtdHeight = 100;
-        $row1Breaks = '<br><br><br><br>';
-        $pejabatTitleHeight = 24;
-        $pejabatTtdHeight = 95;
-        $pejabatMarginTop = 8;
-        $pejabatBreaks = '<br><br><br>';
-        $emptySpacerA = 26;
-        $emptySpacerB = 20;
-        $row6LabelHeight = 36;
-        $row6TtdHeight = 76;
-        $row6Breaks = '<br><br>';
-    } else {
-        $backCompactClass = '';
-        $backMarginTop = 35;
-        $row1TtdHeight = 120;
-        $row1Breaks = '<br><br><br><br><br>';
-        $pejabatTitleHeight = 25;
-        $pejabatTtdHeight = 110;
-        $pejabatMarginTop = 15;
-        $pejabatBreaks = '<br><br><br>';
-        $emptySpacerA = 38;
-        $emptySpacerB = 30;
-        $row6LabelHeight = 45;
-        $row6TtdHeight = 90;
-        $row6Breaks = '<br><br>';
-    }
     ?>
-    <div style="margin-top: <?= $backMarginTop; ?>px;">
-      <table class="no-hight sppd-back <?= $backCompactClass; ?>" style="width: 100%;">
+    <div style="margin-top: 35px;">
+      <table class="no-hight sppd-back" style="width: 100%; table-layout: fixed;">
         <tr>
           <td style="width: 50%;">&nbsp;</td>
           <td style="width: 50%;">
@@ -544,9 +483,9 @@
             <div style="display: inline; padding-right: 90px;">Ke</div>
             <div style="display: inline;">: <?= $data['kota']; ?></div>
             <div style="width: 200px;">Kepala <?= $data['nama_kantor']; ?></div>
-            <div style="height: <?= $row1TtdHeight; ?>px; text-align: left; vertical-align: middle; padding-left: 30px;">
+            <div style="height: 110px; text-align: left; vertical-align: middle; padding-left: 30px;">
               <?php if ($isBorangMode) : ?>
-                <?= $row1Breaks; ?>${ttd_pengirim2}
+                <br><br><br><br>${ttd_pengirim2}
               <?php endif; ?>
             </div>
 
@@ -571,51 +510,52 @@
         ?>
           <tr>
             <td style="width: 50%;">
-              <span style="margin-right: 8px; position: absolute"><?= $stop['roman']; ?></span>
-              <div style="display: inline; margin-left: 25px; padding-right: 69px;"> Tiba di</div>
-              <div style="display: inline;">: <?= esc($stop['tiba_di']); ?></div>
-              <div></div>
-              <div style="display: inline; padding-right: 30px; margin-left: 25px;">Pada Tanggal</div>
-              <div style="display: inline;">: <?= esc($stop['tgl_tiba_label']); ?></div>
+              <div class="sppd-stop-line">
+                <span style="margin-right: 8px; position: absolute"><?= $stop['roman']; ?></span>
+                <span style="margin-left: 25px; display: inline-block; width: 102px;">Tiba di</span>
+                <span>: <?= esc($stop['tiba_di']); ?></span>
+              </div>
+              <div class="sppd-stop-line">
+                <span style="margin-left: 25px; display: inline-block; width: 102px;">Pada Tanggal</span>
+                <span>: <?= esc($stop['tgl_tiba_label']); ?></span>
+              </div>
               <?php if ($pejabat !== null) : ?>
-                <div style="text-align: center;">
-                  <div style="font-weight: bold; min-height: <?= $pejabatTitleHeight; ?>px;"><?= esc($pejabat['jabatan']); ?></div>
-                  <div style="height: <?= $pejabatTtdHeight; ?>px; margin-top: <?= $pejabatMarginTop; ?>px; vertical-align: middle;">
-                    <?= $pejabatBreaks . $pejabat['placeholder']; ?>
+                <div class="sppd-pejabat-left" style="text-align: center;">
+                  <div style="font-weight: bold; height: 22px; line-height: 11px; overflow: hidden;"><?= esc($pejabat['jabatan']); ?></div>
+                  <div style="height: 34px; line-height: 34px;"><?= $pejabat['placeholder']; ?></div>
+                  <div style="height: 26px; line-height: 12px; overflow: hidden;">
+                    <div style="font-weight: bold;"><u><?= esc($pejabat['nama']); ?></u></div>
+                    <div><?= $pejabat['nip'] !== '' ? 'NIP. ' . esc($pejabat['nip']) : '&nbsp;'; ?></div>
                   </div>
-                  <div style="font-weight: bold;"><u><?= esc($pejabat['nama']); ?></u></div>
-                  <div><?= $pejabat['nip'] !== '' ? 'NIP. ' . esc($pejabat['nip']) : '&nbsp;'; ?></div>
                 </div>
               <?php else: ?>
-                <div style="width: 200px; margin-left: 18px; height: <?= $emptySpacerA; ?>px;"></div>
-                <div style="height: <?= $emptySpacerB; ?>px;"></div>
-                <div style="margin-left: 18px;">&nbsp;</div>
-                <div style="margin-left: 18px;">&nbsp;</div>
+                <div class="sppd-pejabat-left">&nbsp;</div>
               <?php endif; ?>
             </td>
             <td style="width: 50%;">
-              <div style="display: inline; padding-right: 25px;">Berangkat dari</div>
-              <div style="display: inline;">: <?= esc($stop['berangkat_dari']); ?></div>
-              <div></div>
-              <div style="display: inline; padding-right: 88.5px;">Ke</div>
-              <div style="display: inline;">: <?= esc($stop['ke']); ?></div>
-              <div></div>
-              <div style="display: inline; padding-right: 28.5px; ">Pada Tanggal</div>
-              <div style="display: inline;">: <?= esc($stop['tgl_berangkat_label']); ?></div>
+              <div class="sppd-stop-line">
+                <span style="display: inline-block; width: 102px;">Berangkat dari</span>
+                <span>: <?= esc($stop['berangkat_dari']); ?></span>
+              </div>
+              <div class="sppd-stop-line">
+                <span style="display: inline-block; width: 102px;">Ke</span>
+                <span>: <?= esc($stop['ke']); ?></span>
+              </div>
+              <div class="sppd-stop-line">
+                <span style="display: inline-block; width: 102px;">Pada Tanggal</span>
+                <span>: <?= esc($stop['tgl_berangkat_label']); ?></span>
+              </div>
               <?php if ($pejabat !== null) : ?>
-                <div style="text-align: center;">
-                  <div style="font-weight: bold; min-height: <?= $pejabatTitleHeight; ?>px;"><?= esc($pejabat['jabatan']); ?></div>
-                  <div style="height: <?= $pejabatTtdHeight; ?>px; margin-top: <?= $pejabatMarginTop; ?>px; vertical-align: middle;">
-                    <?= $pejabatBreaks . $pejabat['placeholder']; ?>
+                <div class="sppd-pejabat-right" style="text-align: center;">
+                  <div style="font-weight: bold; height: 22px; line-height: 11px; overflow: hidden;"><?= esc($pejabat['jabatan']); ?></div>
+                  <div style="height: 20px; line-height: 20px;"><?= $pejabat['placeholder']; ?></div>
+                  <div style="height: 26px; line-height: 12px; overflow: hidden;">
+                    <div style="font-weight: bold;"><u><?= esc($pejabat['nama']); ?></u></div>
+                    <div><?= $pejabat['nip'] !== '' ? 'NIP. ' . esc($pejabat['nip']) : '&nbsp;'; ?></div>
                   </div>
-                  <div style="font-weight: bold;"><u><?= esc($pejabat['nama']); ?></u></div>
-                  <div><?= $pejabat['nip'] !== '' ? 'NIP. ' . esc($pejabat['nip']) : '&nbsp;'; ?></div>
                 </div>
               <?php else: ?>
-                <div style="width: 200px; height: <?= max(12, $emptySpacerA - 12); ?>px;">&nbsp;</div>
-                <div style="height: <?= $emptySpacerB; ?>px;"></div>
-                <div>&nbsp;</div>
-                <div>&nbsp;</div>
+                <div class="sppd-pejabat-right">&nbsp;</div>
               <?php endif; ?>
             </td>
           </tr>
@@ -630,14 +570,11 @@
             <!--<div style="display: inline;">: <?//= mediumdate_indo($data['tgl_pelaksanaan_akhir']); ?></div>-->
             <div style="display: inline;">: <?= mediumdate_indo($data['tgl_pulang']); ?></div>
             <div>&nbsp;</div>
-            <?php if ($filledPejabatCount < 2) : ?>
-              <div>&nbsp;</div>
-              <div>&nbsp;</div>
-            <?php endif; ?>
-            <div style="width: 200px; margin-left: 18px; height: <?= $row6LabelHeight; ?>px;">Pejabat Pembuat Komitmen</div>
-            <div style="height: <?= $row6TtdHeight; ?>px; text-align: left; vertical-align: middle; margin-left: 18px; padding-left: 30px;">
+            <div>&nbsp;</div>
+            <div style="width: 200px; margin-left: 18px; height: 40px;">Pejabat Pembuat Komitmen</div>
+            <div style="height: 80px; text-align: left; vertical-align: middle; margin-left: 18px; padding-left: 30px;">
               <?php if ($isBorangMode) : ?>
-                <?= $row6Breaks; ?>${ttd_pengirim1}
+                <br><br>${ttd_pengirim1}
               <?php endif; ?>
             </div>
             <div style="margin-left: 18px;"><strong><?= name_capitalize($data['ppk']); ?></strong></div>
@@ -646,10 +583,10 @@
           <td>
             <div>Telah diperiksa dengan keterangan bahwa perjalanan tersebut di atas benar dilakukan atas perintahnya dan semata-mata untuk kepentingan jabatan dalam waktu yang sesingkat-singkatnya</div>
             <div>&nbsp;</div>
-            <div style="width: 200px; height: <?= $row6LabelHeight; ?>px;">Pejabat Pembuat Komitmen</div>
-            <div style="height: <?= $row6TtdHeight; ?>px; text-align: left; vertical-align: middle; padding-left: 30px;">
+            <div style="width: 200px; height: 40px;">Pejabat Pembuat Komitmen</div>
+            <div style="height: 80px; text-align: left; vertical-align: middle; padding-left: 30px;">
               <?php if ($isBorangMode) : ?>
-                <?= $row6Breaks; ?>${ttd_pengirim1}
+                <br><br>${ttd_pengirim1}
               <?php endif; ?>
             </div>
             <div><strong><?= name_capitalize($data['ppk']); ?></strong></div>

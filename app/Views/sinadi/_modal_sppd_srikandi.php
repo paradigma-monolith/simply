@@ -22,14 +22,14 @@ $pegawaiOptions = is_array($all_pegawai ?? null) ? $all_pegawai : [];
         <input type="hidden" id="id_perjalanan_srikandi" value="<?= (int) ($getData['id_perjalanan'] ?? 0); ?>">
         <div class="modal-body">
           <div class="alert alert-info mb-3" style="font-size: 13px;">
-            <i class="fas fa-info-circle"></i> <strong>Catatan:</strong> Kosongkan form pejabat dan langsung klik <b>Cetak SPPD Srikandi</b> jika belum ada Pejabat Tujuan. Anda dapat menambahkan hingga <strong>3 Pejabat Tujuan</strong> (Baris <strong>II</strong>, <strong>III</strong>, dan <strong>IV</strong>).
+            <i class="fas fa-info-circle"></i> <strong>Catatan:</strong> Kosongkan form pejabat dan langsung klik <b>Cetak SPPD Srikandi</b> jika belum ada Pejabat Tujuan. Anda dapat menambahkan hingga <strong>4 Pejabat Tujuan</strong> (Baris <strong>II</strong>, <strong>III</strong>, <strong>IV</strong>, dan <strong>V</strong>).
           </div>
 
           <div class="card card-outline card-success mb-3">
             <div class="card-body py-2 px-3">
               <div class="d-flex flex-wrap align-items-center justify-content-between" style="gap: 10px;">
                 <div>
-                  <div class="font-weight-bold mb-1" style="font-size: 13.5px;">Pengaturan Tanggal (Tiba / Berangkat Baris II–IV)</div>
+                  <div class="font-weight-bold mb-1" style="font-size: 13.5px;">Pengaturan Tanggal (Tiba / Berangkat Baris II–V)</div>
                   <div class="d-flex flex-wrap align-items-center" style="gap: 16px;">
                     <div class="custom-control custom-radio">
                       <input class="custom-control-input" type="radio" id="srikandiModeAuto" name="srikandi_mode_tanggal" value="auto" checked>
@@ -54,9 +54,9 @@ $pegawaiOptions = is_array($all_pegawai ?? null) ? $all_pegawai : [];
 
           <div class="d-flex justify-content-between align-items-center mt-2">
             <button type="button" class="btn btn-outline-success btn-sm" id="btnTambahPejabatSrikandi">
-              <i class="fas fa-plus mr-1"></i> Tambah Pejabat Tujuan (Maks. 3: Baris II–IV)
+              <i class="fas fa-plus mr-1"></i> Tambah Pejabat Tujuan (Maks. 4: Baris II–V)
             </button>
-            <small class="text-muted" id="srikandiRowCounterInfo">1 dari 3 baris aktif</small>
+            <small class="text-muted" id="srikandiRowCounterInfo">1 dari 4 baris aktif</small>
           </div>
         </div>
         <div class="modal-footer">
@@ -84,8 +84,8 @@ $pegawaiOptions = is_array($all_pegawai ?? null) ? $all_pegawai : [];
 
 <script>
 (function() {
-  var MAX_PEJABAT = 3;
-  var ROMAN_LABELS = ['II', 'III', 'IV'];
+  var MAX_PEJABAT = 4;
+  var ROMAN_LABELS = ['II', 'III', 'IV', 'V'];
   var META = <?= json_encode($srikandiMeta, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
   var BULAN_INDO = [
     '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -280,7 +280,7 @@ $pegawaiOptions = is_array($all_pegawai ?? null) ? $all_pegawai : [];
       }
     });
 
-    $('#srikandiRowCounterInfo').text(count + ' dari ' + MAX_PEJABAT + ' baris aktif (Baris II–IV)');
+    $('#srikandiRowCounterInfo').text(count + ' dari ' + MAX_PEJABAT + ' baris aktif (Baris II–V)');
     $('#btnTambahPejabatSrikandi').prop('disabled', count >= MAX_PEJABAT).toggle(count < MAX_PEJABAT);
   }
 

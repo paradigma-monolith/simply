@@ -148,7 +148,33 @@ final class SinadiSppdSrikandiHelperTest extends TestCase
         $this->assertSame('${ttd_pengirim3}', $res['stops'][0]['pejabat']['placeholder']);
     }
 
-    public function testDompdfPageCountRemainsTwoPagesForZeroThroughThreePejabat(): void
+    public function testFourPejabatAutoDatesOverFourDays(): void
+    {
+        $config = SinadiSppdSrikandiHelper::parse([
+            'mode_tanggal'   => 'auto',
+            'jumlah_baris'   => '4',
+            'lokasi_tujuan'  => ['Dinkes Kab. Sukabumi', 'RSUD Sekarwangi', 'Puskesmas Cibadak', 'Labkesda Sukabumi'],
+            'jabatan_tujuan' => ['Pejabat 1', 'Pejabat 2', 'Pejabat 3', 'Pejabat 4'],
+            'pegawai_tujuan' => ['Nama 1|101', 'Nama 2|102', 'Nama 3|103', 'Nama 4|104'],
+        ]);
+
+        $peserta = $this->samplePeserta(['tgl_pergi' => '2026-11-25', 'tgl_pulang' => '2026-11-28']);
+        $res = SinadiSppdSrikandiHelper::buildBackPageStops($peserta, $config, true);
+
+        $this->assertSame(4, $res['filled_pejabat_count']);
+        $this->assertSame(4, $res['active_stop_count']);
+        $this->assertSame('${ttd_pengirim3}', $res['stops'][0]['pejabat']['placeholder']);
+        $this->assertSame('${ttd_pengirim4}', $res['stops'][1]['pejabat']['placeholder']);
+        $this->assertSame('${ttd_pengirim5}', $res['stops'][2]['pejabat']['placeholder']);
+        $this->assertSame('${ttd_pengirim6}', $res['stops'][3]['pejabat']['placeholder']);
+        $this->assertSame('25 November 2026', $res['stops'][0]['tgl_tiba_label']);
+        $this->assertSame('26 November 2026', $res['stops'][1]['tgl_tiba_label']);
+        $this->assertSame('27 November 2026', $res['stops'][2]['tgl_tiba_label']);
+        $this->assertSame('28 November 2026', $res['stops'][3]['tgl_tiba_label']);
+        $this->assertSame('Kota Bandung', $res['stops'][3]['ke']);
+    }
+
+    public function testDompdfLayoutAndPageCountStayIdenticalZeroThroughFourPejabat(): void
     {
         $cases = [
             0 => ['mode_tanggal' => 'auto', 'jumlah_baris' => '1'],
@@ -176,9 +202,27 @@ final class SinadiSppdSrikandiHelperTest extends TestCase
                     'Dr. Pejabat Tiga|198203032007011003',
                 ],
             ],
+            4 => [
+                'mode_tanggal'   => 'auto',
+                'jumlah_baris'   => '4',
+                'lokasi_tujuan'  => ['Kab. Sukabumi', 'Kota Sukabumi', 'Kab. Cianjur', 'Kab. Bandung Barat'],
+                'jabatan_tujuan' => [
+                    'Kepala Dinas Kesehatan Kabupaten Sukabumi',
+                    'Kepala Dinas Kesehatan Kota Sukabumi',
+                    'Kepala Dinas Kesehatan Kabupaten Cianjur',
+                    'Kepala Dinas Kesehatan Kabupaten Bandung Barat',
+                ],
+                'pegawai_tujuan' => [
+                    'Dr. Pejabat Satu|198001012005011001',
+                    'Dr. Pejabat Dua|198102022006012002',
+                    'Dr. Pejabat Tiga|198203032007011003',
+                    'Dr. Pejabat Empat|198304042008012004',
+                ],
+            ],
         ];
 
-        $perjalanan = [$this->samplePeserta(['tgl_pulang' => '2026-11-27'])];
+        $perjalanan = [$this->samplePeserta(['tgl_pulang' => '2026-11-28'])];
+        $baselineCatatanY = null;
 
         foreach ($cases as $count => $query) {
             $srikandi_config = SinadiSppdSrikandiHelper::parse($query);
@@ -189,7 +233,19 @@ final class SinadiSppdSrikandiHelperTest extends TestCase
             include APPPATH . 'Views/sinadi/sppd.php';
             $html = (string) ob_get_clean();
 
+            $catatanY = null;
             $dompdf = new Dompdf();
+            $dompdf->setCallbacks([
+                'measureCatatan' => [
+                    'event' => 'end_frame',
+                    'f' => static function ($frame) use (&$catatanY): void {
+                        if ($catatanY === null && strpos($frame->get_node()->textContent ?? '', 'CATATAN LAIN-LAIN') !== false && $frame->get_node()->nodeName === '#text') {
+                            $pos = $frame->get_position();
+                            $catatanY = (float) ($pos['y'] ?? 0.0);
+                        }
+                    },
+                ],
+            ]);
             $dompdf->loadHtml($html);
             $dompdf->setPaper([0, 0, 595, 935], 'portrait');
             $dompdf->render();
@@ -199,6 +255,18 @@ final class SinadiSppdSrikandiHelperTest extends TestCase
                 $dompdf->getCanvas()->get_page_count(),
                 "Expected 2 pages for {$count} pejabat, got " . $dompdf->getCanvas()->get_page_count()
             );
+
+            $this->assertNotNull($catatanY, "CATATAN LAIN-LAIN frame should be measured for {$count} pejabat");
+            if ($baselineCatatanY === null) {
+                $baselineCatatanY = $catatanY;
+            } else {
+                $this->assertEqualsWithDelta(
+                    $baselineCatatanY,
+                    $catatanY,
+                    0.5,
+                    "Table height changed at {$count} pejabat: baseline={$baselineCatatanY}, actual={$catatanY}"
+                );
+            }
         }
     }
 }

@@ -6,12 +6,12 @@ use CodeIgniter\HTTP\IncomingRequest;
 use DateTimeImmutable;
 
 /**
- * Helper untuk mengelola konfigurasi multi-pejabat tujuan (Baris II–IV)
+ * Helper untuk mengelola konfigurasi multi-pejabat tujuan (Baris II–V)
  * dan perhitungan tanggal otomatis/manual pada SPPD Srikandi.
  */
 class SinadiSppdSrikandiHelper
 {
-    public const MAX_PEJABAT_ROWS = 3;
+    public const MAX_PEJABAT_ROWS = 4;
     private const BACK_PAGE_STOP_SLOTS = 4;
     private const ROMAN_NUMERALS = ['II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 
