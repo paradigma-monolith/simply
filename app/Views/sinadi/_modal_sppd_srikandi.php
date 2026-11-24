@@ -225,11 +225,24 @@ if (empty($pegawaiOptions)) {
   }
 
   function initSelect2ForElement($select) {
-    try {
-      if ($select.data('select2')) {
+    if (!$select || !$select.length) return;
+
+    var $formGroup = $select.closest('.form-group');
+    var $existingContainers = $formGroup.find('.select2-container');
+
+    // Jika sudah diinisialisasi dan tepat ada 1 container, jangan buat ulang
+    if ($select.hasClass('select2-hidden-accessible') && $existingContainers.length === 1) {
+      return;
+    }
+
+    // Bersihkan container lama jika ada duplikasi
+    if ($existingContainers.length > 0) {
+      try {
         $select.select2('destroy');
-      }
-    } catch (e) {}
+      } catch (e) {}
+      $formGroup.find('.select2-container').remove();
+      $select.removeClass('select2-hidden-accessible');
+    }
 
     $select.select2({
       dropdownParent: $('#modalSppdSrikandi'),
@@ -356,7 +369,7 @@ if (empty($pegawaiOptions)) {
     }
     refreshRowsUI(false);
 
-    $('#modalSppdSrikandi').on('show.bs.modal shown.bs.modal', function() {
+    $('#modalSppdSrikandi').on('shown.bs.modal', function() {
       var $rows = $('#srikandiPejabatContainer .srikandi-pejabat-row');
       if ($rows.length === 0) {
         createRowCard(0);
@@ -365,16 +378,11 @@ if (empty($pegawaiOptions)) {
         $rows.each(function() {
           var $card = $(this);
           var $sel = $card.find('.srikandi-pegawai-select');
-          var $src = $('#srikandiPegawaiOptionsSource');
-          var curVal = $sel.val();
 
-          if ($sel.children('option').length < $src.children('option').length) {
+          if ($sel.children('option').length === 0) {
             populateSelectOptions($sel);
           }
           initSelect2ForElement($sel);
-          if (curVal) {
-            $sel.val(curVal).trigger('change.select2');
-          }
         });
       }
     });
