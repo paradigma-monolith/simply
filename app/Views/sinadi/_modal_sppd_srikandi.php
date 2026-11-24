@@ -17,6 +17,20 @@ if (empty($pegawaiOptions)) {
 }
 ?>
 <!-- Modal SPPD Srikandi -->
+<style>
+  #modalSppdSrikandi .select2-container {
+    width: 100% !important;
+  }
+  #modalSppdSrikandi .select2-container--default .select2-selection--single {
+    height: 38px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 5px 8px;
+  }
+  #modalSppdSrikandi .select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 36px;
+  }
+</style>
 <div class="modal fade" id="modalSppdSrikandi" role="dialog" aria-labelledby="modalSppdSrikandiLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
@@ -193,6 +207,36 @@ if (empty($pegawaiOptions)) {
     return $('input[name="srikandi_mode_tanggal"]:checked').val() === 'manual' ? 'manual' : 'auto';
   }
 
+  function populateSelectOptions($select) {
+    var curVal = $select.val();
+    $select.empty();
+    var $source = $('#srikandiPegawaiOptionsSource');
+    if ($source.length && $source.children('option').length > 0) {
+      $select.append($source.children('option').clone());
+    } else {
+      var sourceHtml = $source.html() || $('#srikandiPegawaiOptionsTemplate').html() || '';
+      if (sourceHtml) {
+        $select.html(sourceHtml);
+      }
+    }
+    if (curVal) {
+      $select.val(curVal);
+    }
+  }
+
+  function initSelect2ForElement($select) {
+    try {
+      if ($select.data('select2')) {
+        $select.select2('destroy');
+      }
+    } catch (e) {}
+
+    $select.select2({
+      dropdownParent: $('#modalSppdSrikandi'),
+      width: '100%'
+    });
+  }
+
   function createRowCard(idx) {
     var kotaList = getKotaList();
     var defaultKota = kotaList[idx] || (kotaList.length ? kotaList[kotaList.length - 1] : '');
@@ -245,15 +289,7 @@ if (empty($pegawaiOptions)) {
     );
 
     var $select = $card.find('.srikandi-pegawai-select');
-    var $source = $('#srikandiPegawaiOptionsSource');
-    if ($source.length && $source.children('option').length > 0) {
-      $select.append($source.children('option').clone());
-    } else {
-      var sourceHtml = $source.html() || $('#srikandiPegawaiOptionsTemplate').html() || '';
-      if (sourceHtml) {
-        $select.html(sourceHtml);
-      }
-    }
+    populateSelectOptions($select);
 
     $select.on('change', function() {
       var isManualPeg = $(this).val() === 'manual';
@@ -269,10 +305,7 @@ if (empty($pegawaiOptions)) {
     });
 
     $('#srikandiPejabatContainer').append($card);
-    $select.select2({
-      dropdownParent: $('#modalSppdSrikandi'),
-      width: '100%'
-    });
+    initSelect2ForElement($select);
   }
 
   function refreshRowsUI(fillEmptyManualDates) {
@@ -323,17 +356,27 @@ if (empty($pegawaiOptions)) {
     }
     refreshRowsUI(false);
 
-    $('#modalSppdSrikandi').on('shown.bs.modal', function() {
-      $('#srikandiPejabatContainer .srikandi-pejabat-row').each(function() {
-        var $sel = $(this).find('.srikandi-pegawai-select');
-        if ($sel.children('option').length === 0) {
+    $('#modalSppdSrikandi').on('show.bs.modal shown.bs.modal', function() {
+      var $rows = $('#srikandiPejabatContainer .srikandi-pejabat-row');
+      if ($rows.length === 0) {
+        createRowCard(0);
+        refreshRowsUI(false);
+      } else {
+        $rows.each(function() {
+          var $card = $(this);
+          var $sel = $card.find('.srikandi-pegawai-select');
           var $src = $('#srikandiPegawaiOptionsSource');
-          if ($src.length && $src.children('option').length > 0) {
-            $sel.append($src.children('option').clone());
+          var curVal = $sel.val();
+
+          if ($sel.children('option').length < $src.children('option').length) {
+            populateSelectOptions($sel);
           }
-          $sel.trigger('change.select2');
-        }
-      });
+          initSelect2ForElement($sel);
+          if (curVal) {
+            $sel.val(curVal).trigger('change.select2');
+          }
+        });
+      }
     });
 
     $('#btnTambahPejabatSrikandi').on('click', function() {
