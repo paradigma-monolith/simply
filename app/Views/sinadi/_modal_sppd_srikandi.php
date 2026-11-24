@@ -7,6 +7,14 @@ $srikandiMeta = [
     'kota_asal'  => (string) ($firstPeserta['kota_asal'] ?? ''),
 ];
 $pegawaiOptions = is_array($all_pegawai ?? null) ? $all_pegawai : [];
+if (empty($pegawaiOptions)) {
+    try {
+        $pegawaiModel = new \App\Models\Master\DataPegawaiModel();
+        $pegawaiOptions = $pegawaiModel->select('nama, nip')->orderBy('nama', 'ASC')->findAll();
+    } catch (\Throwable $e) {
+        $pegawaiOptions = [];
+    }
+}
 ?>
 <!-- Modal SPPD Srikandi -->
 <div class="modal fade" id="modalSppdSrikandi" role="dialog" aria-labelledby="modalSppdSrikandiLabel" aria-hidden="true">
@@ -68,16 +76,32 @@ $pegawaiOptions = is_array($all_pegawai ?? null) ? $all_pegawai : [];
   </div>
 </div>
 
+<select id="srikandiPegawaiOptionsSource" style="display: none;" aria-hidden="true">
+  <option value="">-- Pilih Pegawai --</option>
+  <option value="manual">&gt;&gt; Ketik Manual &lt;&lt;</option>
+  <?php foreach ($pegawaiOptions as $peg) : ?>
+    <?php
+    $pegNama = trim((string) ($peg['nama'] ?? ''));
+    $pegNip  = trim((string) ($peg['nip'] ?? ''));
+    if ($pegNama === '' && $pegNip === '') continue;
+    ?>
+    <option value="<?= esc($pegNama . '|' . $pegNip, 'attr'); ?>">
+      <?= esc($pegNama); ?><?= $pegNip !== '' ? (' - ' . esc($pegNip)) : ''; ?>
+    </option>
+  <?php endforeach; ?>
+</select>
+
 <template id="srikandiPegawaiOptionsTemplate">
   <option value="">-- Pilih Pegawai --</option>
   <option value="manual">&gt;&gt; Ketik Manual &lt;&lt;</option>
   <?php foreach ($pegawaiOptions as $peg) : ?>
     <?php
-    $pegNama = (string) ($peg['nama'] ?? '');
-    $pegNip  = (string) ($peg['nip'] ?? '');
+    $pegNama = trim((string) ($peg['nama'] ?? ''));
+    $pegNip  = trim((string) ($peg['nip'] ?? ''));
+    if ($pegNama === '' && $pegNip === '') continue;
     ?>
     <option value="<?= esc($pegNama . '|' . $pegNip, 'attr'); ?>">
-      <?= esc($pegNama); ?> - <?= esc($pegNip); ?>
+      <?= esc($pegNama); ?><?= $pegNip !== '' ? (' - ' . esc($pegNip)) : ''; ?>
     </option>
   <?php endforeach; ?>
 </template>
@@ -170,7 +194,6 @@ $pegawaiOptions = is_array($all_pegawai ?? null) ? $all_pegawai : [];
   }
 
   function createRowCard(idx) {
-    var optionsHtml = $('#srikandiPegawaiOptionsTemplate').html();
     var kotaList = getKotaList();
     var defaultKota = kotaList[idx] || (kotaList.length ? kotaList[kotaList.length - 1] : '');
     var kotaPlaceholder = defaultKota ? ('Otomatis: ' + defaultKota) : 'Contoh: Kab. Sukabumi';
@@ -205,7 +228,7 @@ $pegawaiOptions = is_array($all_pegawai ?? null) ? $all_pegawai : [];
           '</div>' +
           '<div class="form-group mb-2">' +
             '<label class="mb-1 small font-weight-bold">Pilih Pegawai dari Database (Nama &amp; NIP)</label>' +
-            '<select class="form-control srikandi-pegawai-select" style="width: 100%;">' + optionsHtml + '</select>' +
+            '<select class="form-control srikandi-pegawai-select" style="width: 100%;"></select>' +
           '</div>' +
           '<div class="srikandi-manual-pegawai-wrapper row" style="display: none;">' +
             '<div class="col-md-6 form-group mb-2">' +
@@ -222,6 +245,16 @@ $pegawaiOptions = is_array($all_pegawai ?? null) ? $all_pegawai : [];
     );
 
     var $select = $card.find('.srikandi-pegawai-select');
+    var $source = $('#srikandiPegawaiOptionsSource');
+    if ($source.length && $source.children('option').length > 0) {
+      $select.append($source.children('option').clone());
+    } else {
+      var sourceHtml = $source.html() || $('#srikandiPegawaiOptionsTemplate').html() || '';
+      if (sourceHtml) {
+        $select.html(sourceHtml);
+      }
+    }
+
     $select.on('change', function() {
       var isManualPeg = $(this).val() === 'manual';
       $card.find('.srikandi-manual-pegawai-wrapper').toggle(isManualPeg);
@@ -289,6 +322,19 @@ $pegawaiOptions = is_array($all_pegawai ?? null) ? $all_pegawai : [];
       createRowCard(0);
     }
     refreshRowsUI(false);
+
+    $('#modalSppdSrikandi').on('shown.bs.modal', function() {
+      $('#srikandiPejabatContainer .srikandi-pejabat-row').each(function() {
+        var $sel = $(this).find('.srikandi-pegawai-select');
+        if ($sel.children('option').length === 0) {
+          var $src = $('#srikandiPegawaiOptionsSource');
+          if ($src.length && $src.children('option').length > 0) {
+            $sel.append($src.children('option').clone());
+          }
+          $sel.trigger('change.select2');
+        }
+      });
+    });
 
     $('#btnTambahPejabatSrikandi').on('click', function() {
       var currentCount = $('#srikandiPejabatContainer .srikandi-pejabat-row').length;
