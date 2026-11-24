@@ -19,62 +19,50 @@ if (empty($pegawaiOptions)) {
 <!-- Modal SPPD Srikandi -->
 <style>
   #modalSppdSrikandi {
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
-  #modalSppdSrikandi .modal-dialog-scrollable {
-    max-height: calc(100% - 1rem);
-  }
-  @media (min-width: 576px) {
-    #modalSppdSrikandi .modal-dialog-scrollable {
-      max-height: calc(100% - 3.5rem);
-    }
-  }
-  #modalSppdSrikandi .modal-dialog-scrollable .modal-content {
-    max-height: calc(100vh - 1rem);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-  @media (min-width: 576px) {
-    #modalSppdSrikandi .modal-dialog-scrollable .modal-content {
-      max-height: calc(100vh - 3.5rem);
-    }
-  }
-  #modalSppdSrikandi .modal-dialog-scrollable .modal-header,
-  #modalSppdSrikandi .modal-dialog-scrollable .modal-footer {
-    flex-shrink: 0;
-  }
-  #modalSppdSrikandi .modal-dialog-scrollable .modal-body {
-    overflow-y: auto;
+    position: fixed !important;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1055 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
-    flex: 1 1 auto;
-    min-height: 0;
-    max-height: calc(100vh - 150px);
   }
-  @media (min-width: 576px) {
-    #modalSppdSrikandi .modal-dialog-scrollable .modal-body {
-      max-height: calc(100vh - 190px);
-    }
+  #modalSppdSrikandi .modal-dialog {
+    max-height: none !important;
+    height: auto !important;
+    margin: 1.25rem auto 2.5rem auto !important;
   }
-  #modalSppdSrikandi > .select2-container--open {
+  #modalSppdSrikandi .modal-content {
+    position: relative;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  #modalSppdSrikandi .modal-body {
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  #modalSppdSrikandi .modal-content > .select2-container--open {
     z-index: 1060;
   }
   #modalSppdSrikandi .select2-container {
     width: 100% !important;
   }
   #modalSppdSrikandi .select2-container--default .select2-selection--single {
-    height: 38px;
+    height: 36px;
     border: 1px solid #ced4da;
     border-radius: 4px;
-    padding: 5px 8px;
+    padding: 4px 8px;
   }
   #modalSppdSrikandi .select2-container--default .select2-selection--single .select2-selection__arrow {
-    height: 36px;
+    height: 34px;
   }
 </style>
 <div class="modal fade" id="modalSppdSrikandi" role="dialog" aria-labelledby="modalSppdSrikandiLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+  <div class="modal-dialog modal-lg" role="document">
     <form id="formSppdSrikandi" class="modal-content" onsubmit="event.preventDefault();">
       <div class="modal-header bg-success">
         <h5 class="modal-title" id="modalSppdSrikandiLabel">Cetak SPPD Srikandi</h5>
@@ -84,11 +72,11 @@ if (empty($pegawaiOptions)) {
       </div>
       <input type="hidden" id="id_perjalanan_srikandi" value="<?= (int) ($getData['id_perjalanan'] ?? 0); ?>">
       <div class="modal-body">
-          <div class="alert alert-info mb-3" style="font-size: 13px;">
+          <div class="alert alert-info mb-2 py-2" style="font-size: 13px;">
             <i class="fas fa-info-circle"></i> <strong>Catatan:</strong> Kosongkan form pejabat dan langsung klik <b>Cetak SPPD Srikandi</b> jika belum ada Pejabat Tujuan. Anda dapat menambahkan hingga <strong>3 Pejabat Tujuan</strong> (Baris <strong>II</strong>, <strong>III</strong>, dan <strong>IV</strong>).
           </div>
 
-          <div class="card card-outline card-success mb-3">
+          <div class="card card-outline card-success mb-2">
             <div class="card-body py-2 px-3">
               <div class="d-flex flex-wrap align-items-center justify-content-between" style="gap: 10px;">
                 <div>
@@ -114,17 +102,18 @@ if (empty($pegawaiOptions)) {
           </div>
 
           <div id="srikandiPejabatContainer"></div>
-
-          <div class="d-flex justify-content-between align-items-center mt-2">
-            <button type="button" class="btn btn-outline-success btn-sm" id="btnTambahPejabatSrikandi">
-              <i class="fas fa-plus mr-1"></i> Tambah Pejabat Tujuan (Maks. 3: Baris II–IV)
-            </button>
-            <small class="text-muted" id="srikandiRowCounterInfo">1 dari 3 baris aktif</small>
-          </div>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
-        <button type="button" class="btn btn-success" onclick="cetakSppdSrikandi()">Cetak SPPD Srikandi</button>
+      <div class="modal-footer d-flex flex-wrap justify-content-between align-items-center" style="gap: 8px;">
+        <div class="d-flex align-items-center flex-wrap" style="gap: 8px;">
+          <button type="button" class="btn btn-outline-success btn-sm" id="btnTambahPejabatSrikandi">
+            <i class="fas fa-plus mr-1"></i> Tambah Pejabat Tujuan (Maks. 3: Baris II–IV)
+          </button>
+          <small class="text-muted" id="srikandiRowCounterInfo">1 dari 3 baris aktif (Baris II–IV)</small>
+        </div>
+        <div class="d-flex align-items-center" style="gap: 8px;">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+          <button type="button" class="btn btn-success" onclick="cetakSppdSrikandi()">Cetak SPPD Srikandi</button>
+        </div>
       </div>
     </form>
   </div>
@@ -285,7 +274,7 @@ if (empty($pegawaiOptions)) {
     }
 
     $select.select2({
-      dropdownParent: $('#modalSppdSrikandi'),
+      dropdownParent: $('#modalSppdSrikandi .modal-content'),
       width: '100%'
     });
   }
@@ -296,8 +285,8 @@ if (empty($pegawaiOptions)) {
     var kotaPlaceholder = defaultKota ? ('Otomatis: ' + defaultKota) : 'Contoh: Kab. Sukabumi';
 
     var $card = $(
-      '<div class="card border mb-3 srikandi-pejabat-row" data-index="' + idx + '">' +
-        '<div class="card-header py-2 px-3 bg-light d-flex justify-content-between align-items-center">' +
+      '<div class="card border mb-2 srikandi-pejabat-row" data-index="' + idx + '">' +
+        '<div class="card-header py-1 px-3 bg-light d-flex justify-content-between align-items-center">' +
           '<span class="font-weight-bold srikandi-row-title">Baris ' + (ROMAN_LABELS[idx] || '') + ' &mdash; Pejabat Tujuan ' + (idx + 1) + '</span>' +
           '<button type="button" class="btn btn-xs btn-outline-danger srikandi-btn-remove" title="Hapus Baris"><i class="fas fa-trash-alt mr-1"></i>Hapus</button>' +
         '</div>' +
@@ -347,6 +336,7 @@ if (empty($pegawaiOptions)) {
     $select.on('change', function() {
       var isManualPeg = $(this).val() === 'manual';
       $card.find('.srikandi-manual-pegawai-wrapper').toggle(isManualPeg);
+      $('#modalSppdSrikandi').modal('handleUpdate');
     });
 
     $card.find('.srikandi-btn-remove').on('click', function() {
@@ -416,13 +406,8 @@ if (empty($pegawaiOptions)) {
     }
     refreshRowsUI(false);
 
-    $modal.find('.modal-body').on('scroll', function() {
-      if ($modal.children('.select2-container--open').length) {
-        $modal.find('.srikandi-pegawai-select.select2-hidden-accessible').select2('close');
-      }
-    });
-
     $modal.on('shown.bs.modal', function() {
+      $('body').addClass('modal-open');
       var $rows = $('#srikandiPejabatContainer .srikandi-pejabat-row');
       if ($rows.length === 0) {
         createRowCard(0);
@@ -446,10 +431,7 @@ if (empty($pegawaiOptions)) {
       if (currentCount < MAX_PEJABAT) {
         createRowCard(currentCount);
         refreshRowsUI(getDateMode() === 'manual');
-        var $modalBody = $modal.find('.modal-body');
-        if ($modalBody.length) {
-          $modalBody.stop(true).animate({ scrollTop: $modalBody[0].scrollHeight }, 200);
-        }
+        $modal.stop(true).animate({ scrollTop: $modal[0].scrollHeight }, 220);
         $modal.modal('handleUpdate');
       }
     });
