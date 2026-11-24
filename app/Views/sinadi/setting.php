@@ -106,7 +106,7 @@
     <?php if (!empty($canManageMonitoringDl)) : ?>
     <div class="card card-success collapsed-card">
       <div class="card-header">
-        <h3 class="card-title">Akses Monitoring Dinas Luar <small class="ml-1">(Super Admin: Mohamad Dahlan Fazhry)</small></h3>
+        <h3 class="card-title">Akses Monitoring Perjalanan Dinas <small class="ml-1">(Super Admin: Mohamad Dahlan Fazhry)</small></h3>
         <div class="card-tools">
           <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-plus"></i></button>
         </div>
@@ -623,7 +623,7 @@
           if (response && response.data === 'sukses') {
             Toast.fire({
               icon: 'success',
-              text: checked ? 'Akses Monitoring Dinas Luar diberikan!' : 'Akses Monitoring Dinas Luar dicabut!'
+              text: checked ? 'Akses Monitoring Perjalanan Dinas diberikan!' : 'Akses Monitoring Perjalanan Dinas dicabut!'
             });
           } else {
             Toast.fire({

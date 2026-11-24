@@ -233,7 +233,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     <div class="mdl-hero">
       <div>
         <h4 class="mdl-hero-title">
-          <i class="fas fa-chart-bar mr-2"></i>Monitoring Dinas Luar
+          <i class="fas fa-chart-bar mr-2"></i>Monitoring Perjalanan Dinas
         </h4>
         <p class="mdl-hero-sub">
           Peringkat penghasilan &amp; frekuensi perjalanan Dinas Luar perorangan &bull;
@@ -656,13 +656,13 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
 </div>
 
 <?php if ($canManageAccess) : ?>
-<!-- Modal Pengaturan Akses User Monitoring Dinas Luar -->
+<!-- Modal Pengaturan Akses User Monitoring Perjalanan Dinas -->
 <div class="modal fade" id="modalAksesMonitoringDl" tabindex="-1" role="dialog" aria-labelledby="modalAksesMonitoringDlLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
     <div class="modal-content">
       <div class="modal-header bg-success py-2">
         <h5 class="modal-title" id="modalAksesMonitoringDlLabel">
-          <i class="fas fa-user-shield mr-1"></i> Pengaturan Akses User — Monitoring Dinas Luar
+          <i class="fas fa-user-shield mr-1"></i> Pengaturan Akses User — Monitoring Perjalanan Dinas
         </h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
@@ -671,7 +671,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
       <div class="modal-body bg-light">
         <div class="alert alert-info py-2 px-3 small mb-3">
           <i class="fas fa-info-circle mr-1"></i>
-          Secara default hanya <strong>Super Admin Monitoring DL (Mohamad Dahlan Fazhry &bull; 199404082022031001)</strong> yang dapat mengakses dan mengatur halaman <strong>Monitoring Dinas Luar</strong>. Aktifkan switch di bawah untuk memberi izin kepada user lain.
+          Secara default hanya <strong>Super Admin Monitoring DL (Mohamad Dahlan Fazhry &bull; 199404082022031001)</strong> yang dapat mengakses dan mengatur halaman <strong>Monitoring Perjalanan Dinas</strong>. Aktifkan switch di bawah untuk memberi izin kepada user lain.
         </div>
         <div class="input-group input-group-sm mb-3">
           <div class="input-group-prepend">
@@ -769,14 +769,14 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
             extend: 'excelHtml5',
             text: '<i class="fas fa-file-excel mr-1"></i> Excel',
             className: 'btn btn-xs btn-success ml-2',
-            title: 'Monitoring Dinas Luar (<?= esc($startDate, 'js'); ?> sd <?= esc($endDate, 'js'); ?>)',
+            title: 'Monitoring Perjalanan Dinas (<?= esc($startDate, 'js'); ?> sd <?= esc($endDate, 'js'); ?>)',
             exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6] }
           },
           {
             extend: 'print',
             text: '<i class="fas fa-print mr-1"></i> Cetak',
             className: 'btn btn-xs btn-secondary ml-1',
-            title: 'Monitoring Dinas Luar',
+            title: 'Monitoring Perjalanan Dinas',
             exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6] }
           }
         ],
@@ -863,7 +863,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
             if (typeof Toast !== 'undefined') {
               Toast.fire({
                 icon: 'success',
-                text: checked ? 'Akses Monitoring Dinas Luar diberikan!' : 'Akses Monitoring Dinas Luar dicabut!'
+                text: checked ? 'Akses Monitoring Perjalanan Dinas diberikan!' : 'Akses Monitoring Perjalanan Dinas dicabut!'
               });
             }
           } else {

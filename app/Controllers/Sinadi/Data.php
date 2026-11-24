@@ -630,7 +630,7 @@ class Data extends BaseController
     }
 
     if (!\App\Libraries\SinadiMonitoringDlHelper::canAccess($username, is_array($aksesRow) ? $aksesRow : null)) {
-      return redirect()->to('/home')->with('error', 'Anda tidak memiliki akses ke halaman Monitoring Dinas Luar.');
+      return redirect()->to('/home')->with('error', 'Anda tidak memiliki akses ke halaman Monitoring Perjalanan Dinas.');
     }
 
     $dateRange = \App\Libraries\SinadiMonitoringDlHelper::resolveDateRange(
@@ -729,7 +729,7 @@ class Data extends BaseController
     }
 
     $data = [
-      'title'           => 'Sinadi | Monitoring Dinas Luar',
+      'title'           => 'Sinadi | Monitoring Perjalanan Dinas',
       'activeMenu'      => 'sinadiSaya',
       'startDate'       => $dateRange['start'],
       'endDate'         => $dateRange['end'],
