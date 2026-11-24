@@ -614,64 +614,139 @@ class Data extends BaseController
   }
   public function perjalananSaya()
   {
-    $data['title'] = "Sinadi | Perjalanan Saya"; // kelola_data_cuti
-    $data['activeMenu'] = "sinadiSaya";
+    \App\Models\SinadiAksesModel::ensureMonitoringDlColumn();
+    \App\Libraries\SinadiVerifikatorHelper::ensureSinadiIndexes();
 
-    // Mengambil data dari tabel sinadi_perjalanan_dinas beserta jumlah baris terkait dari tabel sinadi_perjalanan_dinas_peserta
-    // Di bagian kode controller atau tempat Anda menggunakan model
+    $role = (string) session()->get('role');
+    $username = (string) session()->get('username');
 
-    // Mengambil data dari tabel sinadi_perjalanan_dinas
-
-    $userSaya = $this->dataPegawaiModel->join('user', 'user.id_user=data_pegawai.id_user')
-      ->where('username', session()->get('username'))->first();
-
-    if ($userSaya) {
-      $perjalanan = $this->sinadiPerjalananDinasModel
-        ->join('sinadi_perjalanan_dinas_peserta', 'sinadi_perjalanan_dinas_peserta.id_perjalanan=sinadi_perjalanan_dinas.id_perjalanan')
-        ->join('user', 'sinadi_perjalanan_dinas.updated_by=user.id_user')
-        ->where('sinadi_perjalanan_dinas_peserta.nip_pegawai', $userSaya['nip'])
-        ->groupBy('sinadi_perjalanan_dinas.id_perjalanan')
-        ->orderBy('sinadi_perjalanan_dinas_peserta.tgl_pulang', 'DESC')
-        ->findAll();
-
-      // Menghitung jumlah peserta untuk setiap entri perjalanan dan menyimpannya dalam array baru
-      $data['perjalanan'] = [];
-      $totalPendapatan = 0;
-      foreach ($perjalanan as $perjalananItem) {
-        $jumlahPeserta = $this->sinadiPerjalananDinasPesertaModel
-          ->where('id_perjalanan', $perjalananItem['id_perjalanan'])
-          ->countAllResults();
-        $totalPendapatan += $perjalananItem['jumlah_transfer'];
-        $perjalananItem['jumlah_peserta'] = $jumlahPeserta;
-        $data['perjalanan'][] = $perjalananItem;
-      }
-      $data['totalPendapatan'] = $totalPendapatan;
-    } else {
-      $perjalanan = $this->sinadiPerjalananDinasModel
-        ->join('sinadi_perjalanan_dinas_peserta', 'sinadi_perjalanan_dinas_peserta.id_perjalanan=sinadi_perjalanan_dinas.id_perjalanan')
-        ->join('user', 'sinadi_perjalanan_dinas.updated_by=user.id_user')
-        ->where('sinadi_perjalanan_dinas_peserta.nama_pegawai', session()->get('nama'))
-        ->orderBy('sinadi_perjalanan_dinas_peserta.tgl_pulang', 'DESC')
-        ->findAll();
-
-      // Menghitung jumlah peserta untuk setiap entri perjalanan dan menyimpannya dalam array baru
-      $data['perjalanan'] = [];
-      $totalPendapatan = 0;
-      foreach ($perjalanan as $perjalananItem) {
-        $jumlahPeserta = $this->sinadiPerjalananDinasPesertaModel
-          ->where('id_perjalanan', $perjalananItem['id_perjalanan'])
-          ->countAllResults();
-        $totalPendapatan += $perjalananItem['jumlah_transfer'];
-        $perjalananItem['jumlah_peserta'] = $jumlahPeserta;
-        $data['perjalanan'][] = $perjalananItem;
-      }
-      $data['totalPendapatan'] = $totalPendapatan;
+    $aksesRow = null;
+    if ($username !== '') {
+      $aksesRow = $this->userModel
+        ->select('user.id_user, sinadi_akses.status, sinadi_akses.akses_tim, sinadi_akses.akses_monitoring_dl')
+        ->join('sinadi_akses', 'sinadi_akses.id_user = user.id_user', 'LEFT')
+        ->where('user.username', $username)
+        ->first();
     }
+
+    if (!\App\Libraries\SinadiMonitoringDlHelper::canAccess($role, is_array($aksesRow) ? $aksesRow : null)) {
+      return redirect()->to('/home')->with('error', 'Anda tidak memiliki akses ke halaman Monitoring Dinas Luar.');
+    }
+
+    $dateRange = \App\Libraries\SinadiMonitoringDlHelper::resolveDateRange(
+      (string) $this->request->getGet('start_date'),
+      (string) $this->request->getGet('end_date')
+    );
+    $timKerjaFilter = trim((string) ($this->request->getGet('tim_kerja') ?? 'all'));
+    if ($timKerjaFilter === '') {
+      $timKerjaFilter = 'all';
+    }
+    $sortMode = \App\Libraries\SinadiMonitoringDlHelper::normalizeSort(
+      (string) $this->request->getGet('sort')
+    );
+
+    $db = \Config\Database::connect();
+
+    // 1. Ambil seluruh baris peserta Dinas Luar pada rentang tanggal filter
+    $pesertaRows = $db->table('sinadi_perjalanan_dinas_peserta AS p')
+      ->select(
+        'p.id_peserta, p.id_perjalanan, p.nip_pegawai, p.nama_pegawai, p.jabatan_pegawai, p.golongan, '
+        . 'p.tgl_pergi, p.tgl_pulang, p.kota, p.kota_asal, '
+        . 'p.transport_jumlah, p.harian_jumlah, p.penginapan_jumlah, p.jumlah_transfer, '
+        . 'd.nama_kegiatan, d.tgl_pelaksanaan, d.tgl_pelaksanaan_akhir, d.tempat_perjalanan, d.status_surat, d.sumber_anggaran'
+      )
+      ->join('sinadi_perjalanan_dinas AS d', 'd.id_perjalanan = p.id_perjalanan')
+      ->groupStart()
+        ->where("LOWER(TRIM(COALESCE(d.jenis_perjalanan_dinas, '')))", 'luar kota')
+        ->orGroupStart()
+          ->where("TRIM(COALESCE(d.jenis_perjalanan_dinas, ''))", '')
+          ->where("TRIM(COALESCE(p.kota, '')) !=", '')
+          ->where("TRIM(COALESCE(p.kota, '')) != TRIM(COALESCE(p.kota_asal, ''))", null, false)
+        ->groupEnd()
+      ->groupEnd()
+      ->where('d.tgl_pelaksanaan >=', $dateRange['start'])
+      ->where('d.tgl_pelaksanaan <=', $dateRange['end'])
+      ->get()
+      ->getResultArray();
+
+    // 2. Lookup map Tim Kerja pegawai (terpisah agar NIP ganda di data_pegawai tidak menggandakan DL)
+    $pegawaiLookup = $db->table('data_pegawai AS dp')
+      ->select('dp.nip, dp.nama, dp.id_tim_kerja, tk.nama_tim_kerja, jb.jabatan, gl.golongan')
+      ->join('tim_kerja AS tk', 'tk.id_tim_kerja = dp.id_tim_kerja', 'LEFT')
+      ->join('jabatan AS jb', 'jb.id_jabatan = dp.id_jabatan', 'LEFT')
+      ->join('golongan AS gl', 'gl.id_golongan = dp.id_golongan', 'LEFT')
+      ->orderBy('dp.id_data_pegawai', 'DESC')
+      ->get()
+      ->getResultArray();
+
+    $pegawaiTimMap = \App\Libraries\SinadiMonitoringDlHelper::buildPegawaiTimMap($pegawaiLookup);
+    $aggregated = \App\Libraries\SinadiMonitoringDlHelper::aggregate(
+      $pesertaRows,
+      $pegawaiTimMap,
+      $timKerjaFilter,
+      $sortMode
+    );
+
+    $timKerjaList = $db->table('tim_kerja')
+      ->select('id_tim_kerja, nama_tim_kerja')
+      ->orderBy('nama_tim_kerja', 'ASC')
+      ->get()
+      ->getResultArray();
+
+    $canManageAccess = \App\Libraries\SinadiMonitoringDlHelper::canManageAccess(
+      $role,
+      is_array($aksesRow) ? $aksesRow : null
+    );
+
+    $accessUsers = [];
+    if ($canManageAccess) {
+      $accessUsers = $this->userModel
+        ->select('user.id_user, user.nama, user.username, role_access.role, sinadi_akses.id_sinadi_akses, sinadi_akses.status, sinadi_akses.akses_monitoring_dl')
+        ->join('role_access', 'role_access.id_role_access = user.id_role_access', 'LEFT')
+        ->join('sinadi_akses', 'sinadi_akses.id_user = user.id_user', 'LEFT')
+        ->orderBy('user.nama', 'ASC')
+        ->findAll();
+    }
+
+    $selectedTimNama = 'Semua Tim Kerja';
+    if ($timKerjaFilter === 'none') {
+      $selectedTimNama = 'Tanpa Tim Kerja';
+    } elseif ($timKerjaFilter !== 'all') {
+      foreach ($timKerjaList as $tk) {
+        if ((string) ($tk['id_tim_kerja'] ?? '') === $timKerjaFilter) {
+          $selectedTimNama = (string) ($tk['nama_tim_kerja'] ?? 'Semua Tim Kerja');
+          break;
+        }
+      }
+    }
+
+    $data = [
+      'title'           => 'Sinadi | Monitoring Dinas Luar',
+      'activeMenu'      => 'sinadiSaya',
+      'startDate'       => $dateRange['start'],
+      'endDate'         => $dateRange['end'],
+      'timKerjaFilter'  => $timKerjaFilter,
+      'selectedTimNama' => $selectedTimNama,
+      'sortMode'        => $sortMode,
+      'timKerjaList'    => $timKerjaList,
+      'rankingRows'     => $aggregated['rows'],
+      'summary'         => $aggregated['summary'],
+      'topFrekuensi'    => $aggregated['top_frekuensi'],
+      'topPenghasilan'  => $aggregated['top_penghasilan'],
+      'canManageAccess' => $canManageAccess,
+      'accessUsers'     => $accessUsers,
+      'defaultStart'    => date('Y-01-01'),
+      'defaultEnd'      => date('Y-m-d'),
+    ];
 
     return view('sinadi/sinadi_perjalanan_saya', $data);
   }
   public function pengaturan()
   {
+    \App\Models\SinadiAksesModel::ensureMonitoringDlColumn();
+    $role = (string) session()->get('role');
+    $isSuperAdmin = \App\Libraries\SinadiMonitoringDlHelper::isSuperAdmin($role);
+
     $data['title'] = "Sinadi | Pengaturan Akses"; // kelola_data_cuti
     $data['activeMenu'] = "sinadiPengaturan";
     $data['akses'] = $this->userModel
@@ -679,17 +754,16 @@ class Data extends BaseController
       ->where("user.username", session()->get('username'))
       ->first();
 
-    if ($data['akses']['id_sinadi_akses']) {
-      if ($data['akses']['status'] == 'Akses Diblokir') {
-        $data['activeMenu'] = "sinadiBlockir";
-      }
-    } else {
+    $hasSinadiSuperUser = !empty($data['akses']['id_sinadi_akses']) && ($data['akses']['status'] ?? '') === 'Akses Diterima';
+    if (!$hasSinadiSuperUser && !$isSuperAdmin) {
       $data['activeMenu'] = "sinadiBlockir";
     }
-
+    $data['isSuperAdmin'] = $isSuperAdmin;
+    $data['hasSinadiSuperUser'] = $hasSinadiSuperUser;
 
     $data['user'] = $this->userModel
-      ->select('user.id_user,user.nama, user.id_user, sinadi_akses.id_sinadi_akses, sinadi_akses.status, sinadi_akses.akses_tim')
+      ->select('user.id_user, user.nama, role_access.role, sinadi_akses.id_sinadi_akses, sinadi_akses.status, sinadi_akses.akses_tim, sinadi_akses.akses_monitoring_dl')
+      ->join('role_access', 'role_access.id_role_access=user.id_role_access', 'LEFT')
       ->join('sinadi_akses', 'sinadi_akses.id_user=user.id_user', 'LEFT')
       ->orderBy("user.nama", "ASC")
       ->findAll();

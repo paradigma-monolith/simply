@@ -1466,4 +1466,68 @@ class Crud extends BaseController
       echo json_encode($msg);
     }
   }
+
+  public function insertAksesMonitoringDl()
+  {
+    $this->updateAksesMonitoringDl(1);
+  }
+
+  public function removeAksesMonitoringDl()
+  {
+    $this->updateAksesMonitoringDl(0);
+  }
+
+  private function updateAksesMonitoringDl(int $flag): void
+  {
+    if (!$this->request->isAJAX()) {
+      return;
+    }
+
+    \App\Models\SinadiAksesModel::ensureMonitoringDlColumn();
+
+    $akses = $this->userModel
+      ->select('user.id_user, sinadi_akses.status')
+      ->join('sinadi_akses', 'sinadi_akses.id_user = user.id_user', 'LEFT')
+      ->where('user.username', session()->get('username'))
+      ->first();
+
+    $role = (string) session()->get('role');
+    if (!\App\Libraries\SinadiMonitoringDlHelper::canManageAccess($role, is_array($akses) ? $akses : null)) {
+      echo json_encode(['data' => 'error']);
+      return;
+    }
+
+    $actorId = (int) ($akses['id_user'] ?? 0);
+    $targetUserId = (int) $this->request->getVar('id');
+    if ($targetUserId <= 0) {
+      echo json_encode(['data' => 'error']);
+      return;
+    }
+
+    $cek = $this->sinadiAksesModel->where('id_user', $targetUserId)->first();
+    if ($cek) {
+      $payload = [
+        'id_sinadi_akses'     => $cek['id_sinadi_akses'],
+        'akses_monitoring_dl' => $flag,
+        'updated_by'          => $actorId,
+      ];
+    } else {
+      $payload = [
+        'id_user'             => $targetUserId,
+        'status'              => 'Akses Diblokir',
+        'akses_tim'           => 0,
+        'akses_monitoring_dl' => $flag,
+        'created_by'          => $actorId,
+        'updated_by'          => $actorId,
+      ];
+    }
+
+    if ($this->sinadiAksesModel->save($payload)) {
+      session()->remove('_sidebar_sinadi_cache_v2');
+      echo json_encode(['data' => 'sukses']);
+      return;
+    }
+
+    echo json_encode(['data' => 'error']);
+  }
 }

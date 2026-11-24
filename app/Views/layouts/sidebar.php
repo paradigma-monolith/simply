@@ -423,18 +423,48 @@ $activeMenu = $activeMenu ?? '';
         </p>
       </a>
       <ul class="nav nav-treeview">
+        <?php
+        \App\Models\SinadiAksesModel::ensureMonitoringDlColumn();
+        $sinadiCache = session()->get('_sidebar_sinadi_cache_v2');
+        $sinadiUsername = (string) session()->get('username');
+        $sinadiRole = (string) session()->get('role');
+        if (
+          is_array($sinadiCache)
+          && ($sinadiCache['u'] ?? '') === $sinadiUsername
+          && (time() - (int) ($sinadiCache['ts'] ?? 0)) < 180
+        ) {
+          $sinadiAkses = $sinadiCache['data'] ?? null;
+        } else {
+          $userModel = new \App\Models\Master\UserModel();
+          $sinadiAkses = $userModel->select('sinadi_akses.status, sinadi_akses.akses_monitoring_dl')
+            ->join('sinadi_akses', 'sinadi_akses.id_user=user.id_user', 'LEFT')
+            ->where("user.username", $sinadiUsername)
+            ->first();
+          session()->set('_sidebar_sinadi_cache_v2', [
+            'u'    => $sinadiUsername,
+            'ts'   => time(),
+            'data' => $sinadiAkses,
+          ]);
+        }
+        $canAccessMonitoringDl = \App\Libraries\SinadiMonitoringDlHelper::canAccess(
+          $sinadiRole,
+          is_array($sinadiAkses) ? $sinadiAkses : null
+        );
+        ?>
         <!-- <li class="nav-item">
           <a href="/sinadi/formulirPerjalananDinas" class="nav-link  <?= in_array($activeMenu, ['formulirPerjalananDinas']) ? "active" : ""; ?>">
             <i class="far fa-circle nav-icon"></i>
             <p>Perjalanan Dinas</p>
           </a>
         </li> -->
-        <li class="nav-item">
-          <a href="/sinadi/perjalananSaya" class="nav-link  <?= in_array($activeMenu, ['sinadiSaya']) ? "active" : ""; ?>">
-            <i class="far fa-circle nav-icon"></i>
-            <p>Perjalanan Saya</p>
-          </a>
-        </li>
+        <?php if ($canAccessMonitoringDl) : ?>
+          <li class="nav-item">
+            <a href="/sinadi/perjalananSaya" class="nav-link  <?= in_array($activeMenu, ['sinadiSaya']) ? "active" : ""; ?>">
+              <i class="far fa-circle nav-icon"></i>
+              <p>Monitoring Dinas Luar</p>
+            </a>
+          </li>
+        <?php endif; ?>
         <li class="nav-header">Pengelolaan Data</li>
         <li class="nav-item">
           <a href="/sinadi/dinasDalamKota" class="nav-link  <?= in_array($activeMenu, ['dinasDalamKota']) ? "active" : ""; ?>">
@@ -472,29 +502,7 @@ $activeMenu = $activeMenu ?? '';
             <p>Tracing TB</p>
           </a>
         </li>
-        <?php
-        $sinadiCache = session()->get('_sidebar_sinadi_cache');
-        $sinadiUsername = (string) session()->get('username');
-        if (
-          is_array($sinadiCache)
-          && ($sinadiCache['u'] ?? '') === $sinadiUsername
-          && (time() - (int) ($sinadiCache['ts'] ?? 0)) < 180
-        ) {
-          $sinadiAkses = $sinadiCache['data'] ?? null;
-        } else {
-          $userModel = new \App\Models\Master\UserModel();
-          $sinadiAkses = $userModel->select('sinadi_akses.status')
-            ->join('sinadi_akses', 'sinadi_akses.id_user=user.id_user')
-            ->where("user.username", $sinadiUsername)
-            ->first();
-          session()->set('_sidebar_sinadi_cache', [
-            'u'    => $sinadiUsername,
-            'ts'   => time(),
-            'data' => $sinadiAkses,
-          ]);
-        }
-        ?>
-        <?php if ($sinadiAkses && $sinadiAkses['status'] == "Akses Diterima") : ?>
+        <?php if ($sinadiAkses && ($sinadiAkses['status'] ?? '') == "Akses Diterima") : ?>
           <li class="nav-item">
             <a href="#" class="nav-link" data-toggle="modal" data-target="#modal-export-sinadi">
               <i class="far fa-circle nav-icon"></i>

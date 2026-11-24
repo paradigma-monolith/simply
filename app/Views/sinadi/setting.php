@@ -67,7 +67,7 @@
           <?php foreach ($user as $data) : ?>
             <div class="col-xl-3 col-lg-4 col-sm-6">
               <div class="custom-control custom-switch border">
-                <input type="checkbox" class="custom-control-input aksesPenggunaCheckboxSinadi <?= $akses['id_sinadi_akses'] ? ($akses['status'] == 'Akses Diblokir' ? '' : 'aksesPenggunaCheckboxSinadi') : ''; ?>" id="customSwitch<?= $data['id_user']; ?>" <?= $data['id_sinadi_akses'] != null && $data['status'] == 'Akses Diterima' ? 'checked' : ''; ?> value="<?= $data['id_user']; ?>" <?= stripos($data['nama'], $isData) !== false  || $akses['status'] == 'Akses Diblokir' ? 'disabled' : ''; ?>>
+                <input type="checkbox" class="custom-control-input <?= !empty($hasSinadiSuperUser) ? 'aksesPenggunaCheckboxSinadi' : ''; ?>" id="customSwitch<?= $data['id_user']; ?>" <?= $data['id_sinadi_akses'] != null && $data['status'] == 'Akses Diterima' ? 'checked' : ''; ?> value="<?= $data['id_user']; ?>" <?= stripos($data['nama'], $isData) !== false || empty($hasSinadiSuperUser) ? 'disabled' : ''; ?>>
                 <label class="custom-control-label" for="customSwitch<?= $data['id_user']; ?>">
                   <?= (strlen(name_capitalize($data['nama'])) > 16) ? substr(name_capitalize($data['nama']), 0, 16) . '...' : name_capitalize($data['nama']); ?>
                 </label>
@@ -91,9 +91,45 @@
           <?php foreach ($user as $data) : ?>
             <div class="col-xl-3 col-lg-4 col-sm-6">
               <div class="custom-control custom-switch border">
-                <input type="checkbox" class="custom-control-input aksesTimCheckboxSinadi" id="customSwitchTim<?= $data['id_user']; ?>" <?= $data['id_sinadi_akses'] != null && $data['akses_tim'] == 1 ? 'checked' : ''; ?> value="<?= $data['id_user']; ?>" <?= stripos($data['nama'], $isData) !== false  || $akses['status'] == 'Akses Diblokir' ? 'disabled' : ''; ?>>
+                <input type="checkbox" class="custom-control-input <?= !empty($hasSinadiSuperUser) ? 'aksesTimCheckboxSinadi' : ''; ?>" id="customSwitchTim<?= $data['id_user']; ?>" <?= $data['id_sinadi_akses'] != null && $data['akses_tim'] == 1 ? 'checked' : ''; ?> value="<?= $data['id_user']; ?>" <?= stripos($data['nama'], $isData) !== false || empty($hasSinadiSuperUser) ? 'disabled' : ''; ?>>
                 <label class="custom-control-label" for="customSwitchTim<?= $data['id_user']; ?>">
                   <?= (strlen(name_capitalize($data['nama'])) > 16) ? substr(name_capitalize($data['nama']), 0, 16) . '...' : name_capitalize($data['nama']); ?>
+                </label>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      </div>
+    </div>
+    <!-- /.card -->
+
+    <div class="card card-success collapsed-card">
+      <div class="card-header">
+        <h3 class="card-title">Akses Monitoring Dinas Luar <small class="ml-1">(Default: Hanya Super Admin)</small></h3>
+        <div class="card-tools">
+          <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-plus"></i></button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="input-group input-group-sm mb-3" style="max-width: 340px;">
+          <div class="input-group-prepend">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+          </div>
+          <input type="text" id="searchSettingAksesMonitoringDl" class="form-control" placeholder="Cari nama user...">
+        </div>
+        <div class="row">
+          <?php foreach ($user as $data) :
+            $isRowSuperAdmin = \App\Libraries\SinadiMonitoringDlHelper::isSuperAdmin((string) ($data['role'] ?? ''));
+            $hasMonAccess = $isRowSuperAdmin || (!empty($data['id_sinadi_akses']) && (int) ($data['akses_monitoring_dl'] ?? 0) === 1);
+          ?>
+            <div class="col-xl-3 col-lg-4 col-sm-6 setting-akses-mon-dl-item" data-nama="<?= esc(strtolower((string) ($data['nama'] ?? '')), 'attr'); ?>">
+              <div class="custom-control custom-switch border py-1 px-2 mb-2 rounded">
+                <input type="checkbox" class="custom-control-input <?= $isRowSuperAdmin ? '' : 'aksesMonitoringDlCheckboxSinadi'; ?>" id="customSwitchMonitoringDl<?= $data['id_user']; ?>" <?= $hasMonAccess ? 'checked' : ''; ?> value="<?= $data['id_user']; ?>" <?= $isRowSuperAdmin ? 'disabled' : ''; ?>>
+                <label class="custom-control-label" for="customSwitchMonitoringDl<?= $data['id_user']; ?>">
+                  <?= (strlen(name_capitalize($data['nama'])) > 16) ? substr(name_capitalize($data['nama']), 0, 16) . '...' : name_capitalize($data['nama']); ?>
+                  <?php if ($isRowSuperAdmin) : ?>
+                    <span class="badge badge-danger ml-1" style="font-size: 9px;">Super Admin</span>
+                  <?php endif; ?>
                 </label>
               </div>
             </div>
@@ -558,6 +594,53 @@
           }
         });
       }
+    });
+
+    $(document).on('input keyup', '#searchSettingAksesMonitoringDl', function() {
+      var q = String($(this).val() || '').toLowerCase().trim();
+      $('.setting-akses-mon-dl-item').each(function() {
+        var nama = String($(this).data('nama') || '');
+        $(this).toggle(q === '' || nama.indexOf(q) !== -1);
+      });
+    });
+
+    $(document).on('change', '.aksesMonitoringDlCheckboxSinadi', function() {
+      var elemen = $(this);
+      var checked = elemen.prop('checked');
+      var targetUrl = checked ? '/sinadi/insertAksesMonitoringDl' : '/sinadi/removeAksesMonitoringDl';
+
+      $.ajax({
+        url: targetUrl,
+        data: { id: elemen.val() },
+        method: 'post',
+        dataType: 'json',
+        beforeSend: function() {
+          $("#overlay").show();
+        },
+        success: function(response) {
+          if (response && response.data === 'sukses') {
+            Toast.fire({
+              icon: 'success',
+              text: checked ? 'Akses Monitoring Dinas Luar diberikan!' : 'Akses Monitoring Dinas Luar dicabut!'
+            });
+          } else {
+            Toast.fire({
+              icon: 'warning',
+              text: 'Akses gagal diperbaharui!'
+            });
+            elemen.prop('checked', !checked);
+          }
+          $("#overlay").hide();
+        },
+        error: function() {
+          elemen.prop('checked', !checked);
+          $("#overlay").hide();
+          ToastError.fire({
+            icon: 'error',
+            text: 'Kegagalan sistem!'
+          });
+        }
+      });
     });
 
   </script>
