@@ -33,16 +33,6 @@
           <div class="col text-center">
             <img  src="/dist/img/logo-bkk.png" alt="Logo" width="250">
             <ul class="list-group" style="max-height: 250px; overflow-y: auto;">
-              <li class="list-group-item d-flex justify-content-between align-items-center text-left">
-                <div>
-                  <strong>SPPD Srikandi Multi-Pejabat (Baris II–IV)</strong>
-                  <div class="small text-muted">Cetak Srikandi 3 pejabat tujuan, opsi tanggal &amp; pegawai database/manual</div>
-                </div>
-                <div class="d-flex align-items-center" style="gap: 6px; flex-shrink: 0;">
-                  <span class="badge badge-success badge-pill">Terbaru</span>
-                  <button type="button" class="btn btn-xs btn-outline-success" onclick="$('#modal-lg').modal('hide'); setTimeout(function(){ if (typeof window.openSppdSrikandiHighlight === 'function') window.openSppdSrikandiHighlight(); }, 250);">Lihat Preview</button>
-                </div>
-              </li>
               <li class="list-group-item d-flex justify-content-between align-items-center">
                 Fitur Peminjaman Kendaraan
                 <span class="badge badge-primary badge-pill">19 September 2024</span>
