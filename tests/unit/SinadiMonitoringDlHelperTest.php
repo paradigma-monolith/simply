@@ -272,17 +272,16 @@ final class SinadiMonitoringDlHelperTest extends TestCase
 
     public function testResolveCostComponentsDefaultsToAllTrueAndRespectsUnchecked(): void
     {
-        // Default pertama dibuka: Transport & Uang Harian aktif, Penginapan unchecked
+        // Default pertama dibuka: Transport, Uang Harian, dan Penginapan seluruhnya aktif (checked)
         $default = SinadiMonitoringDlHelper::resolveCostComponents([]);
-        $this->assertSame(['transport' => true, 'harian' => true, 'penginapan' => false], $default);
+        $this->assertSame(['transport' => true, 'harian' => true, 'penginapan' => true], $default);
 
-        $withPenginapan = SinadiMonitoringDlHelper::resolveCostComponents([
-            'biaya_applied'  => '1',
-            'inc_transport'  => '1',
-            'inc_harian'     => '1',
-            'inc_penginapan' => '1',
+        $withoutPenginapan = SinadiMonitoringDlHelper::resolveCostComponents([
+            'biaya_applied' => '1',
+            'inc_transport' => '1',
+            'inc_harian'    => '1',
         ]);
-        $this->assertSame(['transport' => true, 'harian' => true, 'penginapan' => true], $withPenginapan);
+        $this->assertSame(['transport' => true, 'harian' => true, 'penginapan' => false], $withoutPenginapan);
 
         $onlyHarian = SinadiMonitoringDlHelper::resolveCostComponents([
             'biaya_applied' => '1',

@@ -17,7 +17,7 @@ $endDate = (string) ($endDate ?? date('Y-m-d'));
 $timKerjaFilter = (string) ($timKerjaFilter ?? 'all');
 $selectedTimNama = (string) ($selectedTimNama ?? 'Semua Tim Kerja');
 $canManageAccess = !empty($canManageAccess);
-$costComponents = is_array($costComponents ?? null) ? $costComponents : ['transport' => true, 'harian' => true, 'penginapan' => false];
+$costComponents = is_array($costComponents ?? null) ? $costComponents : ['transport' => true, 'harian' => true, 'penginapan' => true];
 $incTransport = !empty($costComponents['transport']);
 $incHarian = !empty($costComponents['harian']);
 $incPenginapan = !empty($costComponents['penginapan']);

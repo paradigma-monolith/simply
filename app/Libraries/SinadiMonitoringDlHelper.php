@@ -99,7 +99,7 @@ class SinadiMonitoringDlHelper
 
     /**
      * Menormalkan ceklis komponen biaya (Transport, Uang Harian, Penginapan) dari query parameter.
-     * Default saat pertama dibuka (biaya_applied tidak ada): Transport & Uang Harian aktif, Penginapan unchecked.
+     * Default saat pertama dibuka (biaya_applied tidak ada): Transport, Uang Harian, dan Penginapan seluruhnya aktif (checked).
      *
      * @return array{transport: bool, harian: bool, penginapan: bool}
      */
@@ -110,7 +110,7 @@ class SinadiMonitoringDlHelper
             return [
                 'transport'  => true,
                 'harian'     => true,
-                'penginapan' => false,
+                'penginapan' => true,
             ];
         }
 
