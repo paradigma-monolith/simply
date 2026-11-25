@@ -196,6 +196,51 @@ foreach ($allDateRows as $r) {
   .rma-pic-row-filter:hover {
     background-color: #f0fdfa !important;
   }
+  .rma-rkks-picker {
+    position: relative;
+  }
+  .rma-rkks-dropdown {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 2px);
+    z-index: 1065;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.18);
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .rma-rkks-dropdown-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 5px 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #475569;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .rma-rkks-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: 0;
+    border-bottom: 1px solid #f1f5f9;
+    background: #fff;
+    padding: 7px 10px;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    color: #0f172a;
+    cursor: pointer;
+  }
+  .rma-rkks-item:hover,
+  .rma-rkks-item.is-active {
+    background: #f0fdfa;
+    color: #0f766e;
+  }
 </style>
 
 <section class="content rma-page">
@@ -525,7 +570,7 @@ foreach ($allDateRows as $r) {
           <input type="hidden" id="formIdMonitoring" value="">
           <div class="p-2 mb-3 rounded border bg-light">
             <div class="d-flex justify-content-between align-items-center mb-1">
-              <label for="formRkksRekapSelect" class="font-weight-bold small mb-0 text-teal">
+              <label for="formRkksRekapSearch" class="font-weight-bold small mb-0 text-teal">
                 <i class="fas fa-sitemap mr-1"></i>
                 Ambil dari Rekap RO &amp; Subkomponen RKKS (<?= count($rkksRekapOptions ?? []) ?>)
                 <?php if (!empty($rkksDokumen)): ?>
@@ -536,14 +581,20 @@ foreach ($allDateRows as $r) {
                 <a href="/relaxtime/rkks" class="small text-teal font-weight-bold">Import RKKS &rarr;</a>
               <?php endif; ?>
             </div>
-            <select class="form-control form-control-sm" id="formRkksRekapSelect">
-              <option value="">-- Pilih kegiatan dari Rekap RO &amp; Subkomponen RKKS (opsional) --</option>
-              <?php foreach (($rkksRekapOptions ?? []) as $rkIdx => $rkOpt): ?>
-                <option value="<?= (int) $rkIdx ?>">
-                  [<?= esc($rkOpt['ro_komponen']) ?> · Sub <?= esc($rkOpt['subkomponen_kode']) ?>] <?= esc($rkOpt['kegiatan']) ?> (Akun <?= esc($rkOpt['akun']) ?> · Pagu Rp <?= number_format((int) $rkOpt['pagu'], 0, ',', '.') ?>)
-                </option>
-              <?php endforeach; ?>
-            </select>
+            <div class="rma-rkks-picker position-relative" id="rkksPickerWrap">
+              <div class="input-group input-group-sm">
+                <div class="input-group-prepend">
+                  <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                </div>
+                <input type="text" class="form-control" id="formRkksRekapSearch" autocomplete="off" placeholder="-- Klik atau ketik RO, Subkomponen, Akun, atau Kegiatan RKKS --">
+                <div class="input-group-append">
+                  <button type="button" class="btn btn-outline-secondary d-none" id="btnClearRkksPicker" title="Bersihkan pilihan RKKS"><i class="fas fa-times"></i></button>
+                  <button type="button" class="btn btn-outline-secondary" id="btnToggleRkksPicker" title="Tampilkan daftar RKKS"><i class="fas fa-chevron-down"></i></button>
+                </div>
+              </div>
+              <input type="hidden" id="formRkksRekapValue" value="">
+              <div class="rma-rkks-dropdown d-none" id="rkksPickerDropdown" role="listbox"></div>
+            </div>
             <div id="formRkksPaguInfo" class="small text-muted mt-1 d-none"></div>
           </div>
           <div class="row">
@@ -675,7 +726,7 @@ foreach ($allDateRows as $r) {
 document.addEventListener('DOMContentLoaded', function () {
   const ALL_ROWS_INITIAL = <?= json_encode($allRowsJson, JSON_UNESCAPED_UNICODE) ?>;
   let ALL_ROWS = ALL_ROWS_INITIAL;
-  const RKKS_REKAP_OPTIONS = <?= json_encode($rkksRekapOptions ?? [], JSON_UNESCAPED_UNICODE) ?>;
+  const RKKS_REKAP_OPTIONS = <?= json_encode(array_values($rkksRekapOptions ?? []), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE) ?: '[]' ?>;
   const Toast = Swal.mixin({
     toast: true,
     position: 'top-end',
@@ -1222,27 +1273,65 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  // Init Select2 pada pilihan Rekap RO & Subkomponen RKKS
-  const $rkksSelect = $('#formRkksRekapSelect');
-  if ($rkksSelect.length && $.fn.select2) {
-    $rkksSelect.select2({
-      theme: 'bootstrap4',
-      dropdownParent: $('#modalManualAnggaran'),
-      placeholder: '-- Cari RO, Subkomponen, atau Kegiatan RKKS --',
-      allowClear: true,
-      width: '100%'
-    });
+  // Searchable Picker Rekap RO & Subkomponen RKKS (tanpa dependensi Select2)
+  const rkksWrap = document.getElementById('rkksPickerWrap');
+  const rkksSearch = document.getElementById('formRkksRekapSearch');
+  const rkksValue = document.getElementById('formRkksRekapValue');
+  const rkksDropdown = document.getElementById('rkksPickerDropdown');
+  const rkksClearBtn = document.getElementById('btnClearRkksPicker');
+  const rkksToggleBtn = document.getElementById('btnToggleRkksPicker');
+  const rkksPaguInfo = document.getElementById('formRkksPaguInfo');
+  let rkksActiveIndex = -1;
+
+  const RKKS_PICKER_ITEMS = (Array.isArray(RKKS_REKAP_OPTIONS) ? RKKS_REKAP_OPTIONS : []).map(function (opt, idx) {
+    const ro = String(opt.ro_komponen || '');
+    const sub = String(opt.subkomponen_kode || '-');
+    const keg = String(opt.kegiatan || '-');
+    const akun = String(opt.akun || '');
+    const sd = String(opt.sumber_dana || '');
+    const label = '[' + ro + ' · Sub ' + sub + '] ' + keg;
+    return {
+      idx: idx,
+      opt: opt,
+      label: label,
+      haystack: [ro, sub, keg, akun, sd].join(' ').toLowerCase()
+    };
+  });
+
+  function closeRkksDropdown() {
+    if (rkksDropdown) rkksDropdown.classList.add('d-none');
+    rkksActiveIndex = -1;
   }
 
-  $rkksSelect.on('change', function () {
-    const rawIdx = this.value;
-    const infoEl = document.getElementById('formRkksPaguInfo');
-    if (rawIdx === '' || !RKKS_REKAP_OPTIONS[parseInt(rawIdx, 10)]) {
-      if (infoEl) infoEl.classList.add('d-none');
-      return;
-    }
+  function resetRkksPicker() {
+    if (rkksValue) rkksValue.value = '';
+    if (rkksSearch) rkksSearch.value = '';
+    if (rkksClearBtn) rkksClearBtn.classList.add('d-none');
+    if (rkksPaguInfo) rkksPaguInfo.classList.add('d-none');
+    closeRkksDropdown();
+  }
 
-    const opt = RKKS_REKAP_OPTIONS[parseInt(rawIdx, 10)];
+  function highlightRkksActiveItem() {
+    if (!rkksDropdown) return;
+    const btns = rkksDropdown.querySelectorAll('.rma-rkks-item');
+    btns.forEach(function (btn, i) {
+      btn.classList.toggle('is-active', i === rkksActiveIndex);
+    });
+    if (rkksActiveIndex >= 0 && btns[rkksActiveIndex]) {
+      btns[rkksActiveIndex].scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  function selectRkksOption(idx) {
+    const entry = RKKS_PICKER_ITEMS[idx];
+    if (!entry) return;
+    const opt = entry.opt;
+
+    if (rkksValue) rkksValue.value = String(idx);
+    if (rkksSearch) rkksSearch.value = entry.label;
+    if (rkksClearBtn) rkksClearBtn.classList.remove('d-none');
+    closeRkksDropdown();
+
     document.getElementById('formRo').value = opt.ro_komponen || '';
     if (['51', '52', '53'].includes(String(opt.akun || ''))) {
       document.getElementById('formAkun').value = String(opt.akun);
@@ -1258,15 +1347,142 @@ document.addEventListener('DOMContentLoaded', function () {
       picEl.value = 'ADUM';
     }
 
-    if (infoEl) {
-      infoEl.innerHTML = 'Pagu RKKS Tahunan: <strong class="text-teal">' + formatRupiah(opt.pagu || 0) + '</strong>'
+    if (rkksPaguInfo) {
+      rkksPaguInfo.innerHTML = 'Pagu RKKS Tahunan: <strong class="text-teal">' + formatRupiah(opt.pagu || 0) + '</strong>'
         + ' | Subkomponen: <strong>' + escapeHtml(opt.subkomponen_kode || '-') + '</strong>'
         + ' | SD: <strong>' + escapeHtml(opt.sumber_dana || '-') + '</strong>'
         + ' <span class="text-muted">(nilai rencana di bawah dapat disesuaikan)</span>';
-      infoEl.classList.remove('d-none');
+      rkksPaguInfo.classList.remove('d-none');
     }
     updateManualPreview();
+  }
+
+  function openRkksDropdown(query) {
+    if (!rkksDropdown) return;
+    if (RKKS_PICKER_ITEMS.length === 0) {
+      rkksDropdown.innerHTML = '<div class="p-3 text-center text-muted small">Belum ada data Rekap RO &amp; Subkomponen RKKS. Silakan import data di menu <strong>RKKS</strong> terlebih dahulu.</div>';
+      rkksDropdown.classList.remove('d-none');
+      rkksActiveIndex = -1;
+      return;
+    }
+
+    const tokens = String(query || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const matches = tokens.length === 0
+      ? RKKS_PICKER_ITEMS
+      : RKKS_PICKER_ITEMS.filter(function (entry) {
+          return tokens.every(function (tok) { return entry.haystack.indexOf(tok) !== -1; });
+        });
+
+    if (matches.length === 0) {
+      rkksDropdown.innerHTML = '<div class="rma-rkks-dropdown-header">0 dari ' + RKKS_PICKER_ITEMS.length + ' item RKKS</div>'
+        + '<div class="p-3 text-center text-muted small">Tidak ada kegiatan RKKS yang cocok dengan "' + escapeHtml(query) + '".</div>';
+      rkksDropdown.classList.remove('d-none');
+      rkksActiveIndex = -1;
+      return;
+    }
+
+    rkksActiveIndex = 0;
+    rkksDropdown.innerHTML = '<div class="rma-rkks-dropdown-header">Menampilkan ' + matches.length + ' dari ' + RKKS_PICKER_ITEMS.length + ' item RKKS</div>'
+      + matches.map(function (entry, i) {
+          const o = entry.opt;
+          return '<button type="button" class="rma-rkks-item' + (i === 0 ? ' is-active' : '') + '" role="option" data-rkks-idx="' + entry.idx + '">' +
+            '<div class="d-flex justify-content-between align-items-center mb-1">' +
+              '<span><strong class="text-teal">' + escapeHtml(o.ro_komponen || '-') + '</strong> <span class="badge badge-light border">Sub ' + escapeHtml(o.subkomponen_kode || '-') + '</span> <span class="badge badge-info">Akun ' + escapeHtml(o.akun || '-') + '</span></span>' +
+              '<span class="font-weight-bold text-dark">' + formatRupiah(o.pagu || 0) + '</span>' +
+            '</div>' +
+            '<div class="text-secondary">' + escapeHtml(o.kegiatan || '-') + '</div>' +
+          '</button>';
+        }).join('');
+    rkksDropdown.classList.remove('d-none');
+  }
+
+  if (rkksSearch && rkksDropdown) {
+    rkksSearch.addEventListener('focus', function () {
+      const q = (rkksValue && rkksValue.value !== '') ? '' : this.value;
+      openRkksDropdown(q);
+    });
+    rkksSearch.addEventListener('click', function () {
+      const q = (rkksValue && rkksValue.value !== '') ? '' : this.value;
+      openRkksDropdown(q);
+    });
+    rkksSearch.addEventListener('input', function () {
+      if (rkksValue) rkksValue.value = '';
+      if (rkksPaguInfo) rkksPaguInfo.classList.add('d-none');
+      if (rkksClearBtn) rkksClearBtn.classList.toggle('d-none', this.value === '');
+      openRkksDropdown(this.value);
+    });
+    rkksSearch.addEventListener('keydown', function (e) {
+      if (rkksDropdown.classList.contains('d-none')) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          openRkksDropdown(rkksValue && rkksValue.value !== '' ? '' : this.value);
+        }
+        return;
+      }
+      const btns = rkksDropdown.querySelectorAll('.rma-rkks-item');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (btns.length > 0) {
+          rkksActiveIndex = Math.min(btns.length - 1, rkksActiveIndex + 1);
+          highlightRkksActiveItem();
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (btns.length > 0) {
+          rkksActiveIndex = Math.max(0, rkksActiveIndex - 1);
+          highlightRkksActiveItem();
+        }
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (btns.length > 0) {
+          const targetBtn = btns[Math.max(0, rkksActiveIndex)] || btns[0];
+          const idx = parseInt(targetBtn.getAttribute('data-rkks-idx'), 10);
+          if (!Number.isNaN(idx)) selectRkksOption(idx);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeRkksDropdown();
+      }
+    });
+
+    rkksDropdown.addEventListener('mousedown', function (e) {
+      const itemBtn = e.target.closest('.rma-rkks-item');
+      if (!itemBtn) return;
+      e.preventDefault();
+      const idx = parseInt(itemBtn.getAttribute('data-rkks-idx'), 10);
+      if (!Number.isNaN(idx)) selectRkksOption(idx);
+    });
+  }
+
+  if (rkksToggleBtn) {
+    rkksToggleBtn.addEventListener('click', function () {
+      if (!rkksDropdown) return;
+      if (rkksDropdown.classList.contains('d-none')) {
+        openRkksDropdown('');
+        if (rkksSearch) rkksSearch.focus();
+      } else {
+        closeRkksDropdown();
+      }
+    });
+  }
+
+  if (rkksClearBtn) {
+    rkksClearBtn.addEventListener('click', function () {
+      resetRkksPicker();
+      openRkksDropdown('');
+      if (rkksSearch) rkksSearch.focus();
+    });
+  }
+
+  document.addEventListener('mousedown', function (e) {
+    if (rkksWrap && !rkksWrap.contains(e.target)) {
+      closeRkksDropdown();
+    }
   });
+
+  if (typeof $ !== 'undefined') {
+    $('#modalManualAnggaran').on('hidden.bs.modal', closeRkksDropdown);
+  }
 
   // Open Input Manual Modal
   document.getElementById('btnInputManual').addEventListener('click', function () {
@@ -1276,8 +1492,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('formBulan').value = '<?= date('Y-m') ?>';
     document.getElementById('formAkun').value = '52';
     document.getElementById('formRealisasi').value = '0';
-    $rkksSelect.val('').trigger('change.select2');
-    document.getElementById('formRkksPaguInfo').classList.add('d-none');
+    resetRkksPicker();
     updateManualPreview();
     $('#modalManualAnggaran').modal('show');
   });
@@ -1343,8 +1558,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       document.getElementById('formIdMonitoring').value = item.id;
       document.getElementById('modalManualTitle').innerHTML = '<i class="fas fa-edit mr-1"></i> Edit Data Monitoring Anggaran';
-      $rkksSelect.val('').trigger('change.select2');
-      document.getElementById('formRkksPaguInfo').classList.add('d-none');
+      resetRkksPicker();
       document.getElementById('formBulan').value = (item.tanggal || '').slice(0, 7);
       document.getElementById('formRo').value = item.ro;
       document.getElementById('formAkun').value = item.akun;
