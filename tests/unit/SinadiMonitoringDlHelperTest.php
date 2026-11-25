@@ -97,6 +97,8 @@ final class SinadiMonitoringDlHelperTest extends TestCase
 
     public function testDukConfigContainsValidNinetySixEntries(): void
     {
+        $this->assertSame('Keadaan November 2026', \App\Config\SinadiDukPegawai::PERIODE_LABEL);
+
         $items = \App\Config\SinadiDukPegawai::ITEMS;
         $this->assertCount(96, $items);
 
@@ -110,6 +112,13 @@ final class SinadiMonitoringDlHelperTest extends TestCase
 
         $whitelist = SinadiMonitoringDlHelper::buildDukWhitelist(\App\Libraries\SinadiMonitoringDlHelper::loadDukRows());
         $this->assertSame(96, $whitelist['total']);
+
+        // Verifikasi pembaruan DUK Keadaan November 2026
+        $this->assertSame('Administrator Kesehatan Ahli Muda (JFT)', $whitelist['by_nip']['197606191999031001']['jabatan']);
+        $this->assertSame('III/c', $whitelist['by_nip']['198910072010121005']['golongan']);
+        $this->assertSame('Pembimbing Kesehatan Kerja Ahli Muda (JFT)', $whitelist['by_nip']['198310152008121002']['jabatan']);
+        $this->assertSame('Pranata Laboratorium Kesehatan Mahir (JFT)', $whitelist['by_nip']['198007102003122002']['jabatan']);
+        $this->assertSame('Perawat Ahli Pertama (JFT)', $whitelist['by_nip']['198204152014022001']['jabatan']);
     }
 
     public function testAggregateFiltersStrictlyToDukWhitelistAndNormalizesFormattedNips(): void

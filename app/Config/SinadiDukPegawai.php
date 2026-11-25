@@ -4,12 +4,12 @@ namespace App\Config;
 
 /**
  * Daftar Urut Kepangkatan (DUK) Pegawai BKK Kelas I Bandung.
- * Sumber: DUK PEGAWAI.xlsx (Keadaan Oktober 2026).
+ * Sumber: Laporan DUK Keadaan November 2026.
  * Hanya memuat data non-sensitif (NIP, nama, golongan, jabatan) untuk filter Monitoring Dinas Luar.
  */
 class SinadiDukPegawai
 {
-    public const PERIODE_LABEL = 'Keadaan Oktober 2026';
+    public const PERIODE_LABEL = 'Keadaan November 2026';
 
     public const ITEMS = [
         ['nip' => '197107301993032001', 'nama' => 'YANI DWIYULI SETIANI, SKM, MKM', 'golongan' => 'IV/c', 'jabatan' => 'Epidemiolog Kesehatan Ahli Madya (JFT)'],
@@ -17,7 +17,7 @@ class SinadiDukPegawai
         ['nip' => '197605202005012003', 'nama' => 'dr. AMRIYAH SUCI NURANI', 'golongan' => 'IV/b', 'jabatan' => 'Dokter Ahli Madya (JFT)'],
         ['nip' => '197111191998032001', 'nama' => 'FITRI MAYAWATI, SKM', 'golongan' => 'IV/b', 'jabatan' => 'Epidemiolog Kesehatan Ahli Madya (JFT)'],
         ['nip' => '197407022006042013', 'nama' => 'dr. ELLY FARIDA', 'golongan' => 'IV/a', 'jabatan' => 'Dokter Ahli Madya (JFT)'],
-        ['nip' => '197606191999031001', 'nama' => 'WARTONI, SKM, MPH', 'golongan' => 'IV/a', 'jabatan' => 'Kepala Subbagian Administrasi Umum Balai Kekarantinaan Kesehatan Kelas I Bandung'],
+        ['nip' => '197606191999031001', 'nama' => 'WARTONI, SKM, MPH', 'golongan' => 'IV/a', 'jabatan' => 'Administrator Kesehatan Ahli Muda (JFT)'],
         ['nip' => '198006302006041003', 'nama' => 'EDDY HARIANTO, SKM, M.Epid', 'golongan' => 'IV/a', 'jabatan' => 'Epidemiolog Kesehatan Ahli Madya (JFT)'],
         ['nip' => '196610121988031005', 'nama' => 'BOYKE TANAKA, SKM', 'golongan' => 'IV/a', 'jabatan' => 'Sanitarian Ahli Madya (JFT)'],
         ['nip' => '198103152010121003', 'nama' => 'dr. NANANG LIONCU, M.K.M', 'golongan' => 'IV/a', 'jabatan' => 'Dokter Ahli Madya (JFT)'],
@@ -41,7 +41,7 @@ class SinadiDukPegawai
         ['nip' => '197708132001122001', 'nama' => 'DEDEH SUPRIATIN, AMK', 'golongan' => 'III/d', 'jabatan' => 'Perawat Penyelia (JFT)'],
         ['nip' => '197306081995031002', 'nama' => 'J U H A N A', 'golongan' => 'III/d', 'jabatan' => 'Sanitarian Penyelia (JFT)'],
         ['nip' => '197905202006041009', 'nama' => 'DUDY AFFIANDY, SKM., M.Si', 'golongan' => 'III/d', 'jabatan' => 'Entomolog Kesehatan Ahli Muda (JFT)'],
-        ['nip' => '198007102003122002', 'nama' => 'RAHMAWATI JATI MURWANI', 'golongan' => 'III/c', 'jabatan' => 'Pranata Laboratorium Kesehatan Terampil (JFT)'],
+        ['nip' => '198007102003122002', 'nama' => 'RAHMAWATI JATI MURWANI', 'golongan' => 'III/c', 'jabatan' => 'Pranata Laboratorium Kesehatan Mahir (JFT)'],
         ['nip' => '198308122015031002', 'nama' => 'IGNATIUS SILDANI KRISTI DAMOPOLII, S.IP', 'golongan' => 'III/c', 'jabatan' => 'Perencana Ahli Pertama (JFT)'],
         ['nip' => '198806032015031004', 'nama' => 'MUHAMMAD DANI SUARMAN, SE', 'golongan' => 'III/c', 'jabatan' => 'Analis Pengelolaan Keuangan APBN Ahli Muda (JFT)'],
         ['nip' => '199206092015032005', 'nama' => 'AMANDA CHERKAYANI SEJATI, SKM, MPH', 'golongan' => 'III/c', 'jabatan' => 'Epidemiolog Kesehatan Ahli Muda (JFT)'],
@@ -51,21 +51,21 @@ class SinadiDukPegawai
         ['nip' => '198209292009021001', 'nama' => 'ASEP SAEPULOH, S.Kep., Ners.', 'golongan' => 'III/c', 'jabatan' => 'Perawat Ahli Muda (JFT)'],
         ['nip' => '198609102020122003', 'nama' => 'dr. NADINDRA MADHYASTHA, M.M.', 'golongan' => 'III/c', 'jabatan' => 'Dokter Ahli Muda (JFT)'],
         ['nip' => '198404172006041002', 'nama' => 'MOH. IMANUDDIN SALAM, SKM', 'golongan' => 'III/c', 'jabatan' => 'Epidemiolog Kesehatan Ahli Muda (JFT)'],
-        ['nip' => '198310152008121002', 'nama' => 'YUSEP NUROHMAN, SKM', 'golongan' => 'III/c', 'jabatan' => 'Penata Kelola Layanan Kesehatan (JFU)'],
+        ['nip' => '198310152008121002', 'nama' => 'YUSEP NUROHMAN, SKM', 'golongan' => 'III/c', 'jabatan' => 'Pembimbing Kesehatan Kerja Ahli Muda (JFT)'],
         ['nip' => '197907072008122001', 'nama' => 'DIAN INDRIASARI, SKM', 'golongan' => 'III/c', 'jabatan' => 'Penata Kelola Layanan Kesehatan (JFU)'],
+        ['nip' => '198910072010121005', 'nama' => 'TRIADI ANUGERAH, SKM', 'golongan' => 'III/c', 'jabatan' => 'Epidemiolog Kesehatan Ahli Muda (JFT)'],
         ['nip' => '198202272005011001', 'nama' => 'KIKI ATANTIO BAGIYADI', 'golongan' => 'III/b', 'jabatan' => 'Pranata Sumber Daya Manusia Aparatur Mahir (JFT)'],
         ['nip' => '197105311993032003', 'nama' => 'EUIS HERWATI', 'golongan' => 'III/b', 'jabatan' => 'Operator Layanan Kesehatan (JFU)'],
         ['nip' => '198601162010012004', 'nama' => 'YENNI RISSA, SKM', 'golongan' => 'III/b', 'jabatan' => 'Epidemiolog Kesehatan Mahir (JFT)'],
         ['nip' => '198711032009122001', 'nama' => 'VHANIE VHALENTINE WIM BENY, S.Ak.', 'golongan' => 'III/b', 'jabatan' => 'Analis Anggaran Ahli Pertama (JFT)'],
         ['nip' => '198205092006041003', 'nama' => 'MUHAMMAD NURDIN, SKM', 'golongan' => 'III/b', 'jabatan' => 'Penata Kelola Layanan Kesehatan (JFU)'],
-        ['nip' => '198910072010121005', 'nama' => 'TRIADI ANUGERAH, SKM', 'golongan' => 'III/b', 'jabatan' => 'Epidemiolog Kesehatan Ahli Muda (JFT)'],
         ['nip' => '198206162012122001', 'nama' => 'MARINA MAKBUL, SKM, M.Kes.', 'golongan' => 'III/b', 'jabatan' => 'Entomolog Kesehatan Ahli Pertama (JFT)'],
         ['nip' => '198010292010121002', 'nama' => 'AWALUDIN, S.KM', 'golongan' => 'III/b', 'jabatan' => 'Perawat Mahir (JFT)'],
         ['nip' => '199005102010122001', 'nama' => 'HILDA FUZIDA ASRI, S.A.B', 'golongan' => 'III/b', 'jabatan' => 'Pranata Keuangan APBN Mahir (JFT)'],
         ['nip' => '198601262010122001', 'nama' => 'ANIS YUSLICHAH, S.K.M.', 'golongan' => 'III/b', 'jabatan' => 'Perawat Mahir (JFT)'],
         ['nip' => '198704072010122002', 'nama' => 'PUTRI GARNADITHIA, S.A.P', 'golongan' => 'III/b', 'jabatan' => 'Arsiparis Ahli Pertama (JFT)'],
         ['nip' => '198804092012121001', 'nama' => 'SULAEMAN, S.K.M', 'golongan' => 'III/b', 'jabatan' => 'Sanitarian Mahir (JFT)'],
-        ['nip' => '198204152014022001', 'nama' => 'INDAH DINAR APRIYANTI, S.Kep., Ners', 'golongan' => 'III/b', 'jabatan' => 'Perawat Mahir (JFT)'],
+        ['nip' => '198204152014022001', 'nama' => 'INDAH DINAR APRIYANTI, S.Kep., Ners', 'golongan' => 'III/b', 'jabatan' => 'Perawat Ahli Pertama (JFT)'],
         ['nip' => '199111292014022003', 'nama' => 'EVA LISMAWATI, S.Kep, Ners', 'golongan' => 'III/b', 'jabatan' => 'Perawat Mahir (JFT)'],
         ['nip' => '198907252015031002', 'nama' => 'RYAN JULIANSYAH, S.K.M.', 'golongan' => 'III/b', 'jabatan' => 'Entomolog Kesehatan Ahli Pertama (JFT)'],
         ['nip' => '199110112015032002', 'nama' => 'DEWI PATMAWATI, S.K.M.', 'golongan' => 'III/b', 'jabatan' => 'Entomolog Kesehatan Ahli Pertama (JFT)'],

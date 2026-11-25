@@ -238,12 +238,16 @@ class SinadiMonitoringDlHelper
      */
     /**
      * Memuat daftar pegawai sesuai DUK.
-     * Jika file DUK PEGAWAI.xlsx tersedia di root proyek, baca secara dinamis (dengan cache),
-     * dan jika tidak ada, gunakan fallback konfigurasi App\Config\SinadiDukPegawai::ITEMS.
+     * Secara default mengembalikan konfigurasi terbaru App\Config\SinadiDukPegawai::ITEMS
+     * agar file Excel lama tidak menimpa pembaruan data DUK, serta mendukung pembacaan Excel eksplisit bila $xlsxPath diberikan.
      */
     public static function loadDukRows(?string $xlsxPath = null): array
     {
-        $path = $xlsxPath ?? (ROOTPATH . 'DUK PEGAWAI.xlsx');
+        if ($xlsxPath === null || trim($xlsxPath) === '') {
+            return \App\Config\SinadiDukPegawai::ITEMS;
+        }
+
+        $path = $xlsxPath;
 
         if (is_file($path) && is_readable($path)) {
             $mtime = (string) (@filemtime($path) ?: '0');
@@ -260,13 +264,18 @@ class SinadiMonitoringDlHelper
                 $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($path);
                 $sheet = $spreadsheet->getSheetByName('LAPORAN DUK') ?? $spreadsheet->getActiveSheet();
                 $highestRow = $sheet->getHighestDataRow();
+                $headerColC = strtolower(trim((string) $sheet->getCell('C7')->getValue()));
+                $hasNikColumn = ($headerColC === 'nik');
+                $nipCol = $hasNikColumn ? 'D' : 'C';
+                $golCol = $hasNikColumn ? 'E' : 'D';
+                $jabCol = $hasNikColumn ? 'G' : 'F';
                 $rows = [];
 
                 for ($r = 8; $r <= $highestRow; $r++) {
                     $rawNama = (string) $sheet->getCell("B{$r}")->getValue();
-                    $rawNip  = (string) $sheet->getCell("C{$r}")->getValue();
-                    $rawGol  = (string) $sheet->getCell("D{$r}")->getValue();
-                    $rawJab  = (string) $sheet->getCell("F{$r}")->getValue();
+                    $rawNip  = (string) $sheet->getCell("{$nipCol}{$r}")->getValue();
+                    $rawGol  = (string) $sheet->getCell("{$golCol}{$r}")->getValue();
+                    $rawJab  = (string) $sheet->getCell("{$jabCol}{$r}")->getValue();
 
                     $lines = preg_split('/\r\n|\r|\n/', trim($rawNama));
                     $nama = preg_replace('/\s+/', ' ', trim((string) ($lines[0] ?? ''))) ?? '';
@@ -292,7 +301,7 @@ class SinadiMonitoringDlHelper
                 }
             } catch (\Throwable $e) {
                 if (function_exists('log_message')) {
-                    log_message('warning', 'Gagal membaca DUK PEGAWAI.xlsx, fallback ke SinadiDukPegawai: ' . $e->getMessage());
+                    log_message('warning', 'Gagal membaca DUK Excel, fallback ke SinadiDukPegawai: ' . $e->getMessage());
                 }
             }
         }

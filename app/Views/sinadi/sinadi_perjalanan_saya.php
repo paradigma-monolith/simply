@@ -17,7 +17,7 @@ $endDate = (string) ($endDate ?? date('Y-m-d'));
 $timKerjaFilter = (string) ($timKerjaFilter ?? 'all');
 $selectedTimNama = (string) ($selectedTimNama ?? 'Semua Tim Kerja');
 $canManageAccess = !empty($canManageAccess);
-$costComponents = is_array($costComponents ?? null) ? $costComponents : ['transport' => true, 'harian' => true, 'penginapan' => true];
+$costComponents = is_array($costComponents ?? null) ? $costComponents : ['transport' => true, 'harian' => true, 'penginapan' => false];
 $incTransport = !empty($costComponents['transport']);
 $incHarian = !empty($costComponents['harian']);
 $incPenginapan = !empty($costComponents['penginapan']);
@@ -51,17 +51,20 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     justify-content: space-between;
     gap: 12px;
   }
+
   .mdl-hero-title {
     font-size: 1.22rem;
     font-weight: 800;
     margin: 0 0 4px;
     color: #ffffff;
   }
+
   .mdl-hero-sub {
     font-size: 0.84rem;
     color: rgba(255, 255, 255, 0.9);
     margin: 0;
   }
+
   .mdl-card {
     background: #ffffff;
     border: 1px solid rgba(15, 23, 42, 0.08);
@@ -69,6 +72,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     box-shadow: 0 3px 12px rgba(15, 23, 42, 0.04);
     margin-bottom: 16px;
   }
+
   .mdl-stat-card {
     background: #ffffff;
     border: 1px solid rgba(15, 23, 42, 0.08);
@@ -79,18 +83,23 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     position: relative;
     overflow: hidden;
   }
+
   .mdl-stat-card.accent-gold {
     border-top: 4px solid #f59e0b;
   }
+
   .mdl-stat-card.accent-teal {
     border-top: 4px solid #0d9488;
   }
+
   .mdl-stat-card.accent-indigo {
     border-top: 4px solid #4f46e5;
   }
+
   .mdl-stat-card.accent-emerald {
     border-top: 4px solid #10b981;
   }
+
   .mdl-stat-label {
     font-size: 0.74rem;
     font-weight: 700;
@@ -99,6 +108,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     color: #64748b;
     margin-bottom: 6px;
   }
+
   .mdl-stat-value {
     font-size: 1.05rem;
     font-weight: 800;
@@ -106,11 +116,13 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     line-height: 1.25;
     margin-bottom: 4px;
   }
+
   .mdl-stat-sub {
     font-size: 0.78rem;
     color: #475569;
     line-height: 1.35;
   }
+
   .mdl-rank-badge {
     display: inline-flex;
     align-items: center;
@@ -122,26 +134,31 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     font-weight: 800;
     font-size: 0.84rem;
   }
+
   .mdl-rank-1 {
     background: linear-gradient(135deg, #fef3c7, #fde68a);
     color: #92400e;
     border: 1px solid #f59e0b;
   }
+
   .mdl-rank-2 {
     background: #f1f5f9;
     color: #334155;
     border: 1px solid #94a3b8;
   }
+
   .mdl-rank-3 {
     background: #ffedd5;
     color: #9a3412;
     border: 1px solid #fb923c;
   }
+
   .mdl-rank-other {
     background: #f8fafc;
     color: #475569;
     border: 1px solid #e2e8f0;
   }
+
   .mdl-sort-pills {
     display: inline-flex;
     background: #f1f5f9;
@@ -149,6 +166,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     border-radius: 9px;
     gap: 4px;
   }
+
   .mdl-sort-pill {
     padding: 5px 12px;
     border-radius: 7px;
@@ -158,21 +176,25 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     text-decoration: none !important;
     transition: all 0.15s ease;
   }
+
   .mdl-sort-pill.active {
     background: #0d9488;
     color: #ffffff !important;
     box-shadow: 0 2px 6px rgba(13, 148, 136, 0.25);
   }
+
   #tableMonitoringDl th {
     font-size: 0.78rem;
     white-space: nowrap;
     background: #f8fafc;
     color: #1e293b;
   }
+
   #tableMonitoringDl td {
     vertical-align: middle;
     font-size: 0.82rem;
   }
+
   .mdl-access-item {
     border: 1px solid #e2e8f0;
     border-radius: 9px;
@@ -180,16 +202,19 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     margin-bottom: 8px;
     background: #ffffff;
   }
+
   .mdl-card-header-flex::after {
     display: none !important;
     content: none !important;
   }
+
   .mdl-cost-check-group {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
   }
+
   .mdl-cost-chip {
     display: inline-flex;
     align-items: center;
@@ -208,20 +233,25 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     white-space: nowrap;
     transition: all 0.15s ease;
   }
+
   .mdl-cost-chip:hover {
     border-color: #0d9488;
     background: #f0fdfa;
   }
+
   .mdl-cost-chip input[type="checkbox"] {
     accent-color: #0d9488;
     cursor: pointer;
   }
+
   .mdl-collapse-toggle {
     cursor: pointer;
   }
+
   .mdl-collapse-chevron {
     transition: transform 0.2s ease;
   }
+
   .mdl-collapse-toggle[aria-expanded="true"] .mdl-collapse-chevron {
     transform: rotate(180deg);
   }
@@ -233,14 +263,14 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     <div class="mdl-hero">
       <div>
         <h4 class="mdl-hero-title">
-          <i class="fas fa-chart-bar mr-2"></i>Monitoring Perjalanan Dinas
+          <i class="fas fa-chart-bar mr-2"></i>Monitoring Dinas Luar
         </h4>
         <p class="mdl-hero-sub">
           Peringkat penghasilan &amp; frekuensi perjalanan Dinas Luar perorangan &bull;
           Status: <strong>Disetujui (+7 Kegiatan Haji Khusus)</strong> &bull;
           Periode: <strong><?= esc(mediumdate_indo($startDate)); ?></strong> s.d. <strong><?= esc(mediumdate_indo($endDate)); ?></strong> &bull;
           Tim: <strong><?= esc($selectedTimNama); ?></strong> &bull;
-          Pegawai: <strong>Sesuai DUK (<?= (int) ($dukTotal ?? 0); ?> Pegawai &bull; <?= esc($dukPeriode ?? 'Keadaan Oktober 2026'); ?>)</strong>
+          Pegawai: <strong>Sesuai DUK (<?= (int) ($dukTotal ?? 0); ?> Pegawai &bull; <?= esc($dukPeriode ?? 'Keadaan November 2026'); ?>)</strong>
         </p>
       </div>
       <?php if ($canManageAccess) : ?>
@@ -376,11 +406,11 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     <!-- Ringkasan Total Penghasilan per Tim Kerja (Default Collapsed) -->
     <div class="mdl-card">
       <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center py-2 px-3 mdl-card-header-flex mdl-collapse-toggle"
-           style="gap: 8px;"
-           data-toggle="collapse"
-           data-target="#collapseTimKerjaSummary"
-           aria-expanded="false"
-           aria-controls="collapseTimKerjaSummary">
+        style="gap: 8px;"
+        data-toggle="collapse"
+        data-target="#collapseTimKerjaSummary"
+        aria-expanded="false"
+        aria-controls="collapseTimKerjaSummary">
         <div>
           <h5 class="mb-0 font-weight-bold" style="font-size: 0.98rem;">
             <i class="fas fa-sitemap text-teal mr-1"></i> Total Penghasilan per Tim Kerja
@@ -656,72 +686,71 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
 </div>
 
 <?php if ($canManageAccess) : ?>
-<!-- Modal Pengaturan Akses User Monitoring Perjalanan Dinas -->
-<div class="modal fade" id="modalAksesMonitoringDl" tabindex="-1" role="dialog" aria-labelledby="modalAksesMonitoringDlLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
-    <div class="modal-content">
-      <div class="modal-header bg-success py-2">
-        <h5 class="modal-title" id="modalAksesMonitoringDlLabel">
-          <i class="fas fa-user-shield mr-1"></i> Pengaturan Akses User — Monitoring Perjalanan Dinas
-        </h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body bg-light">
-        <div class="alert alert-info py-2 px-3 small mb-3">
-          <i class="fas fa-info-circle mr-1"></i>
-          Secara default hanya <strong>Super Admin Monitoring DL (Mohamad Dahlan Fazhry &bull; 199404082022031001)</strong> yang dapat mengakses dan mengatur halaman <strong>Monitoring Perjalanan Dinas</strong>. Aktifkan switch di bawah untuk memberi izin kepada user lain.
+  <!-- Modal Pengaturan Akses User Monitoring Dinas Luar -->
+  <div class="modal fade" id="modalAksesMonitoringDl" tabindex="-1" role="dialog" aria-labelledby="modalAksesMonitoringDlLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-success py-2">
+          <h5 class="modal-title" id="modalAksesMonitoringDlLabel">
+            <i class="fas fa-user-shield mr-1"></i> Pengaturan Akses User — Monitoring Dinas Luar
+          </h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
         </div>
-        <div class="input-group input-group-sm mb-3">
-          <div class="input-group-prepend">
-            <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <div class="modal-body bg-light">
+          <div class="alert alert-info py-2 px-3 small mb-3">
+            <i class="fas fa-info-circle mr-1"></i>
+            Secara default hanya <strong>Super Admin Monitoring DL (Mohamad Dahlan Fazhry &bull; 199404082022031001)</strong> yang dapat mengakses dan mengatur halaman <strong>Monitoring Dinas Luar</strong>. Aktifkan switch di bawah untuk memberi izin kepada user lain.
           </div>
-          <input type="text" id="searchUserAksesDl" class="form-control" placeholder="Cari nama atau username user...">
-        </div>
-        <div class="row" id="listUserAksesDl">
-          <?php foreach ($accessUsers as $u) :
-            $isUserSuperAdmin = \App\Libraries\SinadiMonitoringDlHelper::isSuperAdmin((string) ($u['username'] ?? ''));
-            $hasMonitoringAccess = $isUserSuperAdmin || (!empty($u['id_sinadi_akses']) && (int) ($u['akses_monitoring_dl'] ?? 0) === 1);
-            $searchAttr = strtolower(trim((string) ($u['nama'] ?? '') . ' ' . (string) ($u['username'] ?? '') . ' ' . (string) ($u['role'] ?? '')));
-          ?>
-            <div class="col-md-6 user-akses-dl-col" data-search="<?= esc($searchAttr, 'attr'); ?>">
-              <div class="mdl-access-item d-flex justify-content-between align-items-center">
-                <div style="min-width: 0; padding-right: 8px;">
-                  <div class="font-weight-bold text-dark text-truncate" style="font-size: 0.82rem;">
-                    <?= esc(name_capitalize($u['nama'] ?? '')); ?>
+          <div class="input-group input-group-sm mb-3">
+            <div class="input-group-prepend">
+              <span class="input-group-text"><i class="fas fa-search"></i></span>
+            </div>
+            <input type="text" id="searchUserAksesDl" class="form-control" placeholder="Cari nama atau username user...">
+          </div>
+          <div class="row" id="listUserAksesDl">
+            <?php foreach ($accessUsers as $u) :
+              $isUserSuperAdmin = \App\Libraries\SinadiMonitoringDlHelper::isSuperAdmin((string) ($u['username'] ?? ''));
+              $hasMonitoringAccess = $isUserSuperAdmin || (!empty($u['id_sinadi_akses']) && (int) ($u['akses_monitoring_dl'] ?? 0) === 1);
+              $searchAttr = strtolower(trim((string) ($u['nama'] ?? '') . ' ' . (string) ($u['username'] ?? '') . ' ' . (string) ($u['role'] ?? '')));
+            ?>
+              <div class="col-md-6 user-akses-dl-col" data-search="<?= esc($searchAttr, 'attr'); ?>">
+                <div class="mdl-access-item d-flex justify-content-between align-items-center">
+                  <div style="min-width: 0; padding-right: 8px;">
+                    <div class="font-weight-bold text-dark text-truncate" style="font-size: 0.82rem;">
+                      <?= esc(name_capitalize($u['nama'] ?? '')); ?>
+                    </div>
+                    <div class="small text-muted">
+                      <?= esc($u['username'] ?? ''); ?>
+                      <?php if ($isUserSuperAdmin) : ?>
+                        &bull; <span class="badge badge-danger">Super Admin (Default)</span>
+                      <?php elseif (!empty($u['role'])) : ?>
+                        &bull; <span class="badge badge-light border"><?= esc($u['role']); ?></span>
+                      <?php endif; ?>
+                    </div>
                   </div>
-                  <div class="small text-muted">
-                    <?= esc($u['username'] ?? ''); ?>
-                    <?php if ($isUserSuperAdmin) : ?>
-                      &bull; <span class="badge badge-danger">Super Admin (Default)</span>
-                    <?php elseif (!empty($u['role'])) : ?>
-                      &bull; <span class="badge badge-light border"><?= esc($u['role']); ?></span>
-                    <?php endif; ?>
+                  <div class="custom-control custom-switch flex-shrink-0">
+                    <input
+                      type="checkbox"
+                      class="custom-control-input <?= $isUserSuperAdmin ? '' : 'aksesMonitoringDlCheckboxSinadi'; ?>"
+                      id="modalSwitchMonitoringDl<?= (int) $u['id_user']; ?>"
+                      value="<?= (int) $u['id_user']; ?>"
+                      <?= $hasMonitoringAccess ? 'checked' : ''; ?>
+                      <?= $isUserSuperAdmin ? 'disabled' : ''; ?>>
+                    <label class="custom-control-label" for="modalSwitchMonitoringDl<?= (int) $u['id_user']; ?>"></label>
                   </div>
-                </div>
-                <div class="custom-control custom-switch flex-shrink-0">
-                  <input
-                    type="checkbox"
-                    class="custom-control-input <?= $isUserSuperAdmin ? '' : 'aksesMonitoringDlCheckboxSinadi'; ?>"
-                    id="modalSwitchMonitoringDl<?= (int) $u['id_user']; ?>"
-                    value="<?= (int) $u['id_user']; ?>"
-                    <?= $hasMonitoringAccess ? 'checked' : ''; ?>
-                    <?= $isUserSuperAdmin ? 'disabled' : ''; ?>
-                  >
-                  <label class="custom-control-label" for="modalSwitchMonitoringDl<?= (int) $u['id_user']; ?>"></label>
                 </div>
               </div>
-            </div>
-          <?php endforeach; ?>
+            <?php endforeach; ?>
+          </div>
         </div>
-      </div>
-      <div class="modal-footer py-2">
-        <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Tutup</button>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Tutup</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
 <?php endif; ?>
 
 <script>
@@ -760,24 +789,30 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
         autoWidth: false,
         order: [],
         pageLength: 25,
-        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Semua']],
+        lengthMenu: [
+          [10, 25, 50, 100, -1],
+          [10, 25, 50, 100, 'Semua']
+        ],
         dom: "<'row mb-2'<'col-md-6 d-flex align-items-center'lB><'col-md-6'f>>" +
-             "<'row'<'col-sm-12'tr>>" +
-             "<'row mt-2'<'col-md-5'i><'col-md-7'p>>",
-        buttons: [
-          {
+          "<'row'<'col-sm-12'tr>>" +
+          "<'row mt-2'<'col-md-5'i><'col-md-7'p>>",
+        buttons: [{
             extend: 'excelHtml5',
             text: '<i class="fas fa-file-excel mr-1"></i> Excel',
             className: 'btn btn-xs btn-success ml-2',
-            title: 'Monitoring Perjalanan Dinas (<?= esc($startDate, 'js'); ?> sd <?= esc($endDate, 'js'); ?>)',
-            exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6] }
+            title: 'Monitoring Dinas Luar (<?= esc($startDate, 'js'); ?> sd <?= esc($endDate, 'js'); ?>)',
+            exportOptions: {
+              columns: [0, 1, 2, 3, 4, 5, 6]
+            }
           },
           {
             extend: 'print',
             text: '<i class="fas fa-print mr-1"></i> Cetak',
             className: 'btn btn-xs btn-secondary ml-1',
-            title: 'Monitoring Perjalanan Dinas',
-            exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6] }
+            title: 'Monitoring Dinas Luar',
+            exportOptions: {
+              columns: [0, 1, 2, 3, 4, 5, 6]
+            }
           }
         ],
         language: {
@@ -786,7 +821,10 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           info: 'Menampilkan _START_ - _END_ dari _TOTAL_ pegawai',
           infoEmpty: 'Tidak ada data Dinas Luar pada filter ini',
           zeroRecords: 'Tidak ditemukan data yang sesuai',
-          paginate: { previous: 'Sebelumnya', next: 'Berikutnya' }
+          paginate: {
+            previous: 'Sebelumnya',
+            next: 'Berikutnya'
+          }
         }
       });
     }
@@ -815,13 +853,13 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           if (r.tgl_pulang && r.tgl_pulang !== r.tgl_pergi) {
             tglLabel += ' s.d. ' + r.tgl_pulang;
           }
-          var jenisBadge = r.jenis_perjalanan === 'dalam_kota'
-            ? '<span class="badge badge-secondary ml-1">Dalam Kota</span>'
-            : '<span class="badge badge-info ml-1">Luar Kota</span>';
+          var jenisBadge = r.jenis_perjalanan === 'dalam_kota' ?
+            '<span class="badge badge-secondary ml-1">Dalam Kota</span>' :
+            '<span class="badge badge-info ml-1">Luar Kota</span>';
           var statusLower = String(r.status_surat || '').toLowerCase();
-          var statusBadge = statusLower === 'disetujui'
-            ? '<span class="badge badge-success">Disetujui</span>'
-            : '<span class="badge badge-info" title="Masuk perhitungan khusus Monitoring Perjalanan Dinas">' + escapeHtml(r.status_surat || '-') + ' (Dihitung)</span>';
+          var statusBadge = statusLower === 'disetujui' ?
+            '<span class="badge badge-success">Disetujui</span>' :
+            '<span class="badge badge-info" title="Masuk perhitungan khusus Monitoring Perjalanan Dinas">' + escapeHtml(r.status_surat || '-') + ' (Dihitung)</span>';
           tbody += '<tr>' +
             '<td class="text-center">' + (i + 1) + '</td>' +
             '<td class="text-nowrap">' + escapeHtml(tglLabel) + '</td>' +
@@ -833,7 +871,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
             '<td class="text-right">' + formatRupiah(r.penginapan) + '</td>' +
             '<td class="text-right font-weight-bold text-success">' + formatRupiah(r.penghasilan) + '</td>' +
             '<td class="text-center">' + statusBadge + '</td>' +
-          '</tr>';
+            '</tr>';
         });
       }
 
@@ -856,7 +894,9 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
 
       $.ajax({
         url: targetUrl,
-        data: { id: elemen.val() },
+        data: {
+          id: elemen.val()
+        },
         method: 'post',
         dataType: 'json',
         beforeSend: function() {
@@ -867,13 +907,16 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
             if (typeof Toast !== 'undefined') {
               Toast.fire({
                 icon: 'success',
-                text: checked ? 'Akses Monitoring Perjalanan Dinas diberikan!' : 'Akses Monitoring Perjalanan Dinas dicabut!'
+                text: checked ? 'Akses Monitoring Dinas Luar diberikan!' : 'Akses Monitoring Dinas Luar dicabut!'
               });
             }
           } else {
             elemen.prop('checked', !checked);
             if (typeof Toast !== 'undefined') {
-              Toast.fire({ icon: 'warning', text: 'Gagal memperbarui akses!' });
+              Toast.fire({
+                icon: 'warning',
+                text: 'Gagal memperbarui akses!'
+              });
             }
           }
           $('#overlay').hide();
@@ -882,7 +925,10 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           elemen.prop('checked', !checked);
           $('#overlay').hide();
           if (typeof ToastError !== 'undefined') {
-            ToastError.fire({ icon: 'error', text: 'Kegagalan sistem!' });
+            ToastError.fire({
+              icon: 'error',
+              text: 'Kegagalan sistem!'
+            });
           }
         }
       });
