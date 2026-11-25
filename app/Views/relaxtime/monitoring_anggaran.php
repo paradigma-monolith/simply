@@ -7,18 +7,18 @@ $byAkun = $stats['by_akun'] ?? [];
 $byPic = $stats['by_pic'] ?? [];
 $byMonth = $stats['by_month'] ?? [];
 
-$tglMulai = $filters['tgl_mulai'] ?? '';
-$tglSelesai = $filters['tgl_selesai'] ?? '';
+$bulanMulai = $filters['bulan_mulai'] ?? '';
+$bulanSelesai = $filters['bulan_selesai'] ?? '';
 $akunFilter = $filters['akun'] ?? '';
 $picFilter = $filters['pic'] ?? '';
-$allDates = ($filters['all_dates'] ?? '0') === '1';
+$allMonths = ($filters['all_months'] ?? '0') === '1';
 
 $exportQuery = http_build_query([
-    'tgl_mulai' => $tglMulai,
-    'tgl_selesai' => $tglSelesai,
+    'bulan_mulai' => $bulanMulai,
+    'bulan_selesai' => $bulanSelesai,
     'akun' => $akunFilter,
     'pic' => $picFilter,
-    'all_dates' => $allDates ? '1' : '0',
+    'all_months' => $allMonths ? '1' : '0',
 ]);
 
 $allRowsJson = [];
@@ -240,12 +240,12 @@ foreach ($allDateRows as $r) {
     <div class="rma-card p-3">
       <form id="filterForm" method="GET" action="/relaxtime/monitoring-anggaran" class="row align-items-end">
         <div class="col-6 col-md-2 mb-2 mb-md-0">
-          <label for="filterTglMulai" class="rma-filter-label">Tanggal Mulai</label>
-          <input type="date" class="form-control form-control-sm rma-date-input" id="filterTglMulai" name="tgl_mulai" value="<?= esc($tglMulai) ?>">
+          <label for="filterBulanMulai" class="rma-filter-label">Bulan Mulai</label>
+          <input type="month" class="form-control form-control-sm rma-month-input" id="filterBulanMulai" name="bulan_mulai" value="<?= esc($bulanMulai) ?>">
         </div>
         <div class="col-6 col-md-2 mb-2 mb-md-0">
-          <label for="filterTglSelesai" class="rma-filter-label">Tanggal Selesai</label>
-          <input type="date" class="form-control form-control-sm rma-date-input" id="filterTglSelesai" name="tgl_selesai" value="<?= esc($tglSelesai) ?>">
+          <label for="filterBulanSelesai" class="rma-filter-label">Bulan Selesai</label>
+          <input type="month" class="form-control form-control-sm rma-month-input" id="filterBulanSelesai" name="bulan_selesai" value="<?= esc($bulanSelesai) ?>">
         </div>
         <div class="col-6 col-md-2 mb-2 mb-md-0">
           <label for="filterAkun" class="rma-filter-label">Akun</label>
@@ -267,9 +267,9 @@ foreach ($allDateRows as $r) {
           </select>
         </div>
         <div class="col-12 col-md-3 d-flex align-items-center justify-content-md-end" style="gap: 8px;">
-          <input type="hidden" name="all_dates" id="filterAllDates" value="<?= $allDates ? '1' : '0' ?>">
-          <button type="button" class="btn btn-sm <?= $allDates ? 'btn-teal bg-teal text-white' : 'btn-outline-secondary' ?>" id="btnToggleAllDates" title="Tampilkan seluruh tanggal">
-            <i class="far fa-calendar-alt mr-1"></i> Semua Tanggal
+          <input type="hidden" name="all_months" id="filterAllMonths" value="<?= $allMonths ? '1' : '0' ?>">
+          <button type="button" class="btn btn-sm <?= $allMonths ? 'btn-teal bg-teal text-white' : 'btn-outline-secondary' ?>" id="btnToggleAllMonths" title="Tampilkan seluruh bulan">
+            <i class="far fa-calendar-alt mr-1"></i> Semua Bulan
           </button>
           <button type="button" class="btn btn-sm btn-outline-secondary" id="btnResetFilter">
             <i class="fas fa-undo mr-1"></i> Reset
@@ -360,7 +360,7 @@ foreach ($allDateRows as $r) {
         <div class="rma-card p-3 h-100 mb-0">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="font-weight-bold mb-0"><i class="fas fa-chart-bar text-teal mr-1"></i> Tren Rencana vs Realisasi per Bulan</h6>
-            <small class="text-muted" id="chartMonthlySubtitle">Berdasarkan tanggal kegiatan</small>
+            <small class="text-muted" id="chartMonthlySubtitle">Berdasarkan bulan anggaran</small>
           </div>
           <div class="rma-chart-wrap">
             <canvas id="chartMonthly"></canvas>
@@ -443,7 +443,7 @@ foreach ($allDateRows as $r) {
               <tr>
                 <th style="width: 28px;" class="text-center"><input type="checkbox" id="checkAllRows"></th>
                 <th style="width: 40px;" class="text-center">No</th>
-                <th style="width: 96px;">Tanggal</th>
+                <th style="width: 118px;">Bulan</th>
                 <th style="width: 120px;">RO (A)</th>
                 <th style="width: 68px;" class="text-center">Akun (B)</th>
                 <th>Kegiatan (C)</th>
@@ -488,8 +488,8 @@ foreach ($allDateRows as $r) {
           <input type="hidden" id="formIdMonitoring" value="">
           <div class="row">
             <div class="col-md-4 form-group">
-              <label class="font-weight-bold">Tanggal <span class="text-danger">*</span></label>
-              <input type="date" class="form-control" id="formTanggal" name="tanggal" value="<?= date('Y-m-d') ?>" required>
+              <label class="font-weight-bold">Bulan <span class="text-danger">*</span></label>
+              <input type="month" class="form-control" id="formBulan" name="bulan" value="<?= date('Y-m') ?>" required>
             </div>
             <div class="col-md-4 form-group">
               <label class="font-weight-bold">RO (Kolom A) <span class="text-danger">*</span></label>
@@ -582,8 +582,8 @@ foreach ($allDateRows as $r) {
               <input type="number" class="form-control form-control-sm" id="importTahun" name="tahun_anggaran" value="<?= date('Y') ?>" min="2020" max="2099">
             </div>
             <div class="col-md-6 form-group">
-              <label class="font-weight-bold">Tanggal Default</label>
-              <input type="date" class="form-control form-control-sm" id="importTanggalDefault" name="tanggal_default" value="<?= date('Y-m-01') ?>">
+              <label class="font-weight-bold">Bulan Default</label>
+              <input type="month" class="form-control form-control-sm" id="importBulanDefault" name="bulan_default" value="<?= date('Y-m') ?>">
               <small class="text-muted">Dipakai jika sheet/baris tidak mencantumkan bulan.</small>
             </div>
           </div>
@@ -615,6 +615,7 @@ foreach ($allDateRows as $r) {
 document.addEventListener('DOMContentLoaded', function () {
   const ALL_ROWS = <?= json_encode($allRowsJson, JSON_UNESCAPED_UNICODE) ?>;
   const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const MONTHS_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   let dataTableInstance = null;
   let monthlyChartInstance = null;
   let picChartInstance = null;
@@ -647,11 +648,11 @@ document.addEventListener('DOMContentLoaded', function () {
     return clean === '' ? 0 : parseInt(clean, 10);
   }
 
-  function formatTanggalIndo(isoDate) {
-    if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return isoDate || '-';
+  function formatBulanIndo(isoDate) {
+    if (!isoDate || !/^\d{4}-\d{2}/.test(isoDate)) return isoDate || '-';
     const parts = isoDate.split('-');
     const m = parseInt(parts[1], 10) - 1;
-    return parts[2] + ' ' + (MONTHS_SHORT[m] || parts[1]) + ' ' + parts[0];
+    return (MONTHS_FULL[m] || parts[1]) + ' ' + parts[0];
   }
 
   function computeStats(rows) {
@@ -916,7 +917,7 @@ document.addEventListener('DOMContentLoaded', function () {
       return '<tr data-id="' + r.id + '">' +
         '<td class="text-center"><input type="checkbox" class="row-check" value="' + r.id + '"></td>' +
         '<td class="text-center">' + (idx + 1) + '</td>' +
-        '<td data-order="' + escapeHtml(r.tanggal) + '">' + escapeHtml(formatTanggalIndo(r.tanggal)) + '</td>' +
+        '<td data-order="' + escapeHtml((r.tanggal || '').slice(0, 7)) + '">' + escapeHtml(formatBulanIndo(r.tanggal)) + '</td>' +
         '<td class="font-weight-bold">' + escapeHtml(r.ro || '-') + '</td>' +
         '<td class="text-center"><span class="rma-badge-akun ' + badgeAkun + '">' + escapeHtml(r.akun) + '</span></td>' +
         '<td>' + escapeHtml(r.kegiatan) + '</td>' +
@@ -951,14 +952,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Update URL & Export Link
     const params = new URLSearchParams();
-    const tMulai = document.getElementById('filterTglMulai').value;
-    const tSelesai = document.getElementById('filterTglSelesai').value;
-    const allDatesFlag = document.getElementById('filterAllDates').value;
-    if (tMulai) params.set('tgl_mulai', tMulai);
-    if (tSelesai) params.set('tgl_selesai', tSelesai);
+    const bMulai = document.getElementById('filterBulanMulai').value;
+    const bSelesai = document.getElementById('filterBulanSelesai').value;
+    const allMonthsFlag = document.getElementById('filterAllMonths').value;
+    if (bMulai) params.set('bulan_mulai', bMulai);
+    if (bSelesai) params.set('bulan_selesai', bSelesai);
     if (akunVal) params.set('akun', akunVal);
     if (picVal) params.set('pic', picVal);
-    if (allDatesFlag === '1') params.set('all_dates', '1');
+    if (allMonthsFlag === '1') params.set('all_months', '1');
     const qs = params.toString();
     document.getElementById('btnExportExcel').setAttribute('href', '/relaxtime/monitoring-anggaran/export' + (qs ? '?' + qs : ''));
     if (window.history && window.history.replaceState) {
@@ -990,19 +991,19 @@ document.addEventListener('DOMContentLoaded', function () {
     el.addEventListener('change', renderDashboardAndTable);
   });
 
-  document.querySelectorAll('.rma-date-input').forEach(function (el) {
+  document.querySelectorAll('.rma-month-input').forEach(function (el) {
     el.addEventListener('change', function () {
-      document.getElementById('filterAllDates').value = '0';
+      document.getElementById('filterAllMonths').value = '0';
       document.getElementById('filterForm').submit();
     });
   });
 
-  document.getElementById('btnToggleAllDates').addEventListener('click', function () {
-    const inp = document.getElementById('filterAllDates');
+  document.getElementById('btnToggleAllMonths').addEventListener('click', function () {
+    const inp = document.getElementById('filterAllMonths');
     inp.value = inp.value === '1' ? '0' : '1';
     if (inp.value === '1') {
-      document.getElementById('filterTglMulai').value = '';
-      document.getElementById('filterTglSelesai').value = '';
+      document.getElementById('filterBulanMulai').value = '';
+      document.getElementById('filterBulanSelesai').value = '';
     }
     document.getElementById('filterForm').submit();
   });
@@ -1045,7 +1046,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('formIdMonitoring').value = '';
     document.getElementById('modalManualTitle').innerHTML = '<i class="fas fa-plus-circle mr-1"></i> Input Manual Monitoring Anggaran';
     document.getElementById('formManualAnggaran').reset();
-    document.getElementById('formTanggal').value = '<?= date('Y-m-d') ?>';
+    document.getElementById('formBulan').value = '<?= date('Y-m') ?>';
     document.getElementById('formAkun').value = '52';
     document.getElementById('formRealisasi').value = '0';
     updateManualPreview();
@@ -1100,7 +1101,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       document.getElementById('formIdMonitoring').value = item.id;
       document.getElementById('modalManualTitle').innerHTML = '<i class="fas fa-edit mr-1"></i> Edit Data Monitoring Anggaran';
-      document.getElementById('formTanggal').value = item.tanggal;
+      document.getElementById('formBulan').value = (item.tanggal || '').slice(0, 7);
       document.getElementById('formRo').value = item.ro;
       document.getElementById('formAkun').value = item.akun;
       document.getElementById('formKegiatan').value = item.kegiatan;

@@ -68,6 +68,23 @@ final class RelaxtimeMonitoringAnggaranHelperTest extends TestCase
         $empty = RelaxtimeMonitoringAnggaranHelper::normalizeDateRange('', '', true);
         $this->assertSame('', $empty['start']);
         $this->assertSame('', $empty['end']);
+
+        $monthDefault = RelaxtimeMonitoringAnggaranHelper::normalizeMonthRange(null, null, false);
+        $this->assertSame(date('Y') . '-01', $monthDefault['start_month']);
+        $this->assertSame(date('Y') . '-12', $monthDefault['end_month']);
+        $this->assertSame(date('Y') . '-01-01', $monthDefault['start_date']);
+        $this->assertSame(date('Y') . '-12-31', $monthDefault['end_date']);
+
+        $monthSwapped = RelaxtimeMonitoringAnggaranHelper::normalizeMonthRange('2026-09', '2026-02', false);
+        $this->assertSame('2026-02', $monthSwapped['start_month']);
+        $this->assertSame('2026-09', $monthSwapped['end_month']);
+        $this->assertSame('2026-02-01', $monthSwapped['start_date']);
+        $this->assertSame('2026-09-30', $monthSwapped['end_date']);
+
+        $this->assertSame('2026-05-01', RelaxtimeMonitoringAnggaranHelper::normalizeMonthToDate('2026-05', 2026));
+        $this->assertSame('2026-08-01', RelaxtimeMonitoringAnggaranHelper::normalizeMonthToDate('Agustus 2026', 2025));
+        $this->assertSame('2026-03-01', RelaxtimeMonitoringAnggaranHelper::normalizeMonthToDate('3', 2026));
+        $this->assertSame('Januari 2026', RelaxtimeMonitoringAnggaranHelper::formatMonthLabel('2026-01-01'));
     }
 
     public function testParseWorkbookHandlesRekapAndShiftedAndSimpleSheets(): void
@@ -173,8 +190,9 @@ final class RelaxtimeMonitoringAnggaranHelperTest extends TestCase
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Data');
         $sheet->fromArray([
-            ['Tanggal', 'RO', 'Akun', 'Kegiatan', 'Rencana Pencairan Anggaran', 'PIC', 'Realisasi'],
-            ['2026-05-10', '7960.QAH.U02', '52', 'Layanan Pengendalian', '7.040.000', 'timker 2', '6.620.000'],
+            ['Bulan', 'RO', 'Akun', 'Kegiatan', 'Rencana Pencairan Anggaran', 'PIC', 'Realisasi'],
+            ['2026-05', '7960.QAH.U02', '52', 'Layanan Pengendalian', '7.040.000', 'timker 2', '6.620.000'],
+            ['Juli 2026', '4815.EBA.994.001', '51', 'Gaji', '1000000000', 'ADUM', '950000000'],
         ], null, 'A1');
 
         $dir = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'writable' . DIRECTORY_SEPARATOR . 'uploads';
@@ -186,13 +204,16 @@ final class RelaxtimeMonitoringAnggaranHelperTest extends TestCase
         (new Xlsx($spreadsheet))->save($path);
 
         $result = RelaxtimeMonitoringAnggaranHelper::parseWorkbook($path, 2026);
-        $this->assertCount(1, $result['rows']);
-        $this->assertSame('2026-05-10', $result['rows'][0]['tanggal']);
+        $this->assertCount(2, $result['rows']);
+        $this->assertSame('2026-05-01', $result['rows'][0]['tanggal']);
         $this->assertSame('7960.QAH.U02', $result['rows'][0]['ro']);
         $this->assertSame('52', $result['rows'][0]['akun']);
         $this->assertSame('Timker 2', $result['rows'][0]['pic']);
         $this->assertSame(7040000, $result['rows'][0]['rencana']);
         $this->assertSame(6620000, $result['rows'][0]['realisasi']);
+
+        $this->assertSame('2026-07-01', $result['rows'][1]['tanggal']);
+        $this->assertSame('51', $result['rows'][1]['akun']);
     }
 
     public function testBuildDashboardStatsAggregatesCorrectly(): void

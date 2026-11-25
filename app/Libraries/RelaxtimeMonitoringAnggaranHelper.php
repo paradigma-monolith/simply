@@ -267,6 +267,118 @@ class RelaxtimeMonitoringAnggaranHelper
     }
 
     /**
+     * Normalisasi nilai bulan/tanggal (YYYY-MM, nama bulan, angka 1..12, serial Excel, atau YYYY-MM-DD) menjadi YYYY-MM-01.
+     */
+    public static function normalizeMonthToDate($raw, int $defaultYear, ?string $fallback = null): ?string
+    {
+        if ($raw === null) {
+            return $fallback;
+        }
+
+        if (is_int($raw) || (is_string($raw) && preg_match('/^\s*(\d{1,2})\s*$/', $raw))) {
+            $m = (int) trim((string) $raw);
+            if ($m >= 1 && $m <= 12) {
+                return sprintf('%04d-%02d-01', $defaultYear, $m);
+            }
+        }
+
+        $str = trim((string) $raw);
+        if ($str === '') {
+            return $fallback;
+        }
+
+        if (preg_match('/^(\d{4})-(\d{1,2})$/', $str, $m)) {
+            $yr = (int) $m[1];
+            $mo = (int) $m[2];
+            if ($mo >= 1 && $mo <= 12 && $yr >= 1900 && $yr <= 2100) {
+                return sprintf('%04d-%02d-01', $yr, $mo);
+            }
+        }
+
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $str, $m)) {
+            $yr = (int) $m[1];
+            $mo = (int) $m[2];
+            if ($mo >= 1 && $mo <= 12) {
+                return sprintf('%04d-%02d-01', $yr, $mo);
+            }
+        }
+
+        $detectedMonth = self::detectMonthFromText($str);
+        if ($detectedMonth !== null) {
+            $yr = $defaultYear;
+            if (preg_match('/\b(20\d{2}|19\d{2})\b/', $str, $ym)) {
+                $yr = (int) $ym[1];
+            }
+            return sprintf('%04d-%02d-01', $yr, $detectedMonth);
+        }
+
+        $normDate = self::normalizeDate($raw, '');
+        if ($normDate !== '' && preg_match('/^(\d{4})-(\d{2})/', $normDate, $m)) {
+            return $m[1] . '-' . $m[2] . '-01';
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * Normalisasi rentang bulan (YYYY-MM) menjadi rentang bulan dan rentang tanggal SQL.
+     */
+    public static function normalizeMonthRange(?string $startMonth, ?string $endMonth, bool $allowEmpty = false): array
+    {
+        $parseYm = static function (?string $val): string {
+            $str = trim((string) $val);
+            if ($str === '') {
+                return '';
+            }
+            if (preg_match('/^(\d{4})-(\d{2})/', $str, $m)) {
+                $mo = (int) $m[2];
+                if ($mo >= 1 && $mo <= 12) {
+                    return $m[1] . '-' . $m[2];
+                }
+            }
+            $d = self::normalizeDate($str, '');
+            return ($d !== '' && preg_match('/^(\d{4}-\d{2})/', $d, $m)) ? $m[1] : '';
+        };
+
+        $s = $parseYm($startMonth);
+        $e = $parseYm($endMonth);
+
+        if (!$allowEmpty && $s === '' && $e === '') {
+            $year = date('Y');
+            $s = $year . '-01';
+            $e = $year . '-12';
+        }
+
+        if ($s !== '' && $e !== '' && $s > $e) {
+            [$s, $e] = [$e, $s];
+        }
+
+        return [
+            'start_month' => $s,
+            'end_month' => $e,
+            'start_date' => $s !== '' ? $s . '-01' : '',
+            'end_date' => $e !== '' ? date('Y-m-t', strtotime($e . '-01')) : '',
+        ];
+    }
+
+    /**
+     * Format tanggal/bulan (YYYY-MM-DD atau YYYY-MM) menjadi nama bulan lengkap Indonesia (mis. Januari 2026).
+     */
+    public static function formatMonthLabel(?string $dateOrMonth): string
+    {
+        $str = trim((string) $dateOrMonth);
+        if (preg_match('/^(\d{4})-(\d{2})/', $str, $m)) {
+            $yr = (int) $m[1];
+            $mo = (int) $m[2];
+            if (isset(self::MONTH_NAMES[$mo])) {
+                return self::MONTH_NAMES[$mo] . ' ' . $yr;
+            }
+        }
+
+        return '-';
+    }
+
+    /**
      * Parse workbook Excel/CSV (mendukung Template Sederhana dan Rekap Bulanan 14 sheet).
      * Fokus ekstraksi kolom A (RO), B (Akun), C (Kegiatan), D (Rencana), PIC, dan K (Realisasi),
      * dengan deteksi dinamis jika kolom bergeser antar sheet/bulan.
@@ -527,7 +639,7 @@ class RelaxtimeMonitoringAnggaranHelper
                 return null;
             }
             if (
-                strpos($joined, 'TANGGAL') !== false
+                (strpos($joined, 'TANGGAL') !== false || strpos($joined, 'BULAN') !== false || strpos($joined, 'PERIODE') !== false)
                 && strpos($joined, 'KEGIATAN') !== false
                 && strpos($joined, 'RENCANA') !== false
             ) {
@@ -568,7 +680,7 @@ class RelaxtimeMonitoringAnggaranHelper
             if ($h === '') {
                 continue;
             }
-            if (strpos($h, 'TANGGAL') !== false || $h === 'TGL') {
+            if (strpos($h, 'TANGGAL') !== false || $h === 'TGL' || strpos($h, 'BULAN') !== false || strpos($h, 'PERIODE') !== false) {
                 $colMap['tanggal'] = $idx;
             } elseif ($h === 'RO' || strpos($h, 'KODE RO') !== false || strpos($h, 'NO KEGIATAN') !== false) {
                 $colMap['ro'] = $idx;
@@ -605,7 +717,7 @@ class RelaxtimeMonitoringAnggaranHelper
             }
 
             $tglCell = $colMap['tanggal'] !== null ? ($cells[$colMap['tanggal']] ?? null) : null;
-            $tanggal = self::normalizeDate($tglCell, $fallbackDate);
+            $tanggal = self::normalizeMonthToDate($tglCell, $defaultYear, $fallbackDate);
             $akun = self::normalizeAkun($cells[$colMap['akun']] ?? '', '52');
             if ($akun === '') {
                 $akun = '52';

@@ -24,19 +24,21 @@ class MonitoringAnggaran extends BaseController
 
     public function index()
     {
-        $allDates = $this->request->getGet('all_dates') === '1';
-        $range = RelaxtimeMonitoringAnggaranHelper::normalizeDateRange(
-            $this->request->getGet('tgl_mulai'),
-            $this->request->getGet('tgl_selesai'),
-            $allDates
+        $allMonths = $this->request->getGet('all_months') === '1'
+            || $this->request->getGet('all_dates') === '1';
+
+        $range = RelaxtimeMonitoringAnggaranHelper::normalizeMonthRange(
+            $this->request->getGet('bulan_mulai') ?? $this->request->getGet('tgl_mulai'),
+            $this->request->getGet('bulan_selesai') ?? $this->request->getGet('tgl_selesai'),
+            $allMonths
         );
 
         $akunFilter = RelaxtimeMonitoringAnggaranHelper::normalizeAkun($this->request->getGet('akun') ?? '', '');
         $picFilter = RelaxtimeMonitoringAnggaranHelper::normalizePic($this->request->getGet('pic') ?? '');
 
         $dateFilters = [
-            'tgl_mulai' => $allDates ? '' : $range['start'],
-            'tgl_selesai' => $allDates ? '' : $range['end'],
+            'tgl_mulai' => $allMonths ? '' : $range['start_date'],
+            'tgl_selesai' => $allMonths ? '' : $range['end_date'],
         ];
 
         $allDateRows = $this->monitoringModel->getFiltered($dateFilters);
@@ -59,11 +61,11 @@ class MonitoringAnggaran extends BaseController
             'allDateRows' => $allDateRows,
             'stats' => RelaxtimeMonitoringAnggaranHelper::buildDashboardStats($filteredRows),
             'filters' => [
-                'tgl_mulai' => $dateFilters['tgl_mulai'],
-                'tgl_selesai' => $dateFilters['tgl_selesai'],
+                'bulan_mulai' => $allMonths ? '' : $range['start_month'],
+                'bulan_selesai' => $allMonths ? '' : $range['end_month'],
                 'akun' => $akunFilter,
                 'pic' => $picFilter,
-                'all_dates' => $allDates ? '1' : '0',
+                'all_months' => $allMonths ? '1' : '0',
             ],
             'picOptions' => $options['pics'],
             'roOptions' => $options['ros'],
@@ -76,7 +78,6 @@ class MonitoringAnggaran extends BaseController
     {
         $validation = \Config\Services::validation();
         $rules = [
-            'tanggal' => 'required|valid_date[Y-m-d]',
             'ro' => 'required|max_length[50]',
             'akun' => 'required|in_list[51,52,53]',
             'kegiatan' => 'required|max_length[2000]',
@@ -88,6 +89,12 @@ class MonitoringAnggaran extends BaseController
             return $this->respondValidationError($validation->getErrors());
         }
 
+        $bulanRaw = $this->request->getPost('bulan') ?? $this->request->getPost('tanggal');
+        $tanggalDb = RelaxtimeMonitoringAnggaranHelper::normalizeMonthToDate($bulanRaw, (int) date('Y'), '');
+        if ($tanggalDb === '') {
+            return $this->respondValidationError(['bulan' => 'Bulan anggaran harus diisi dengan format yang valid (YYYY-MM).']);
+        }
+
         $rencana = RelaxtimeMonitoringAnggaranHelper::parseAmount($this->request->getPost('rencana'));
         $realisasi = RelaxtimeMonitoringAnggaranHelper::parseAmount($this->request->getPost('realisasi') ?? 0);
 
@@ -96,7 +103,7 @@ class MonitoringAnggaran extends BaseController
         }
 
         $payload = [
-            'tanggal' => (string) $this->request->getPost('tanggal'),
+            'tanggal' => $tanggalDb,
             'ro' => trim((string) $this->request->getPost('ro')),
             'akun' => RelaxtimeMonitoringAnggaranHelper::normalizeAkun($this->request->getPost('akun'), '52'),
             'kegiatan' => trim((string) $this->request->getPost('kegiatan')),
@@ -135,7 +142,6 @@ class MonitoringAnggaran extends BaseController
 
         $validation = \Config\Services::validation();
         $rules = [
-            'tanggal' => 'required|valid_date[Y-m-d]',
             'ro' => 'required|max_length[50]',
             'akun' => 'required|in_list[51,52,53]',
             'kegiatan' => 'required|max_length[2000]',
@@ -147,11 +153,17 @@ class MonitoringAnggaran extends BaseController
             return $this->respondValidationError($validation->getErrors());
         }
 
+        $bulanRaw = $this->request->getPost('bulan') ?? $this->request->getPost('tanggal');
+        $tanggalDb = RelaxtimeMonitoringAnggaranHelper::normalizeMonthToDate($bulanRaw, (int) date('Y'), '');
+        if ($tanggalDb === '') {
+            return $this->respondValidationError(['bulan' => 'Bulan anggaran harus diisi dengan format yang valid (YYYY-MM).']);
+        }
+
         $rencana = RelaxtimeMonitoringAnggaranHelper::parseAmount($this->request->getPost('rencana'));
         $realisasi = RelaxtimeMonitoringAnggaranHelper::parseAmount($this->request->getPost('realisasi') ?? 0);
 
         $payload = [
-            'tanggal' => (string) $this->request->getPost('tanggal'),
+            'tanggal' => $tanggalDb,
             'ro' => trim((string) $this->request->getPost('ro')),
             'akun' => RelaxtimeMonitoringAnggaranHelper::normalizeAkun($this->request->getPost('akun'), '52'),
             'kegiatan' => trim((string) $this->request->getPost('kegiatan')),
@@ -248,9 +260,10 @@ class MonitoringAnggaran extends BaseController
             $tahunAnggaran = (int) date('Y');
         }
 
-        $tanggalDefault = RelaxtimeMonitoringAnggaranHelper::normalizeDate(
-            $this->request->getPost('tanggal_default'),
-            date('Y-m-d')
+        $bulanDefault = RelaxtimeMonitoringAnggaranHelper::normalizeMonthToDate(
+            $this->request->getPost('bulan_default') ?? $this->request->getPost('tanggal_default'),
+            $tahunAnggaran,
+            date('Y-m-01')
         );
         $modeImport = (string) ($this->request->getPost('mode_import') ?: 'replace_period');
 
@@ -264,7 +277,7 @@ class MonitoringAnggaran extends BaseController
         $fullPath = rtrim($uploadDir, '\\/') . DIRECTORY_SEPARATOR . $randomName;
 
         try {
-            $parsed = RelaxtimeMonitoringAnggaranHelper::parseWorkbook($fullPath, $tahunAnggaran, $tanggalDefault);
+            $parsed = RelaxtimeMonitoringAnggaranHelper::parseWorkbook($fullPath, $tahunAnggaran, $bulanDefault);
         } catch (\Throwable $e) {
             log_message('error', 'Error parsing monitoring anggaran Excel: ' . $e->getMessage());
             return $this->response->setJSON([
@@ -355,7 +368,7 @@ class MonitoringAnggaran extends BaseController
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Template Monitoring Anggaran');
 
-        $headers = ['Tanggal', 'RO', 'Akun', 'Kegiatan', 'Rencana Pencairan Anggaran', 'PIC', 'Realisasi'];
+        $headers = ['Bulan', 'RO', 'Akun', 'Kegiatan', 'Rencana Pencairan Anggaran', 'PIC', 'Realisasi'];
         foreach ($headers as $idx => $label) {
             $col = chr(65 + $idx);
             $sheet->setCellValue($col . '1', $label);
@@ -369,9 +382,9 @@ class MonitoringAnggaran extends BaseController
         $sheet->getRowDimension(1)->setRowHeight(24);
 
         $samples = [
-            [date('Y') . '-01-01', '7960.PEA.001', '52', 'Jejaring Terkait Pencegahan Pelanggaran Kekarantinaan Kesehatan', 2380000, 'Timker 1', 1870000],
-            [date('Y') . '-01-01', '4815.EBA.994.001', '51', 'Gaji dan Tunjangan', 435481000, 'ADUM', 435481000],
-            [date('Y') . '-03-01', '4815.EBB.951', '53', 'Pendukung HUMAS/KIE', 20000000, 'ADUM', 19758000],
+            [date('Y') . '-01', '7960.PEA.001', '52', 'Jejaring Terkait Pencegahan Pelanggaran Kekarantinaan Kesehatan', 2380000, 'Timker 1', 1870000],
+            [date('Y') . '-01', '4815.EBA.994.001', '51', 'Gaji dan Tunjangan', 435481000, 'ADUM', 435481000],
+            [date('Y') . '-03', '4815.EBB.951', '53', 'Pendukung HUMAS/KIE', 20000000, 'ADUM', 19758000],
         ];
 
         $r = 2;
@@ -397,10 +410,10 @@ class MonitoringAnggaran extends BaseController
         $guide->setTitle('Panduan');
         $guide->setCellValue('A1', 'Panduan Import Monitoring Anggaran RELAXTIME');
         $guide->getStyle('A1')->getFont()->setBold(true)->setSize(13);
-        $guide->setCellValue('A3', '1. Format Template Sederhana: Gunakan sheet pertama dengan kolom Tanggal (YYYY-MM-DD), RO, Akun (51/52/53), Kegiatan, Rencana Pencairan Anggaran, PIC, dan Realisasi.');
+        $guide->setCellValue('A3', '1. Format Template Sederhana: Gunakan sheet pertama dengan kolom Bulan (YYYY-MM atau mis. Januari 2026), RO, Akun (51/52/53), Kegiatan, Rencana Pencairan Anggaran, PIC, dan Realisasi.');
         $guide->setCellValue('A4', '2. Format Rekap Bulanan Excel: Sistem juga mendukung upload langsung file rekap bulanan (sheet JAN s.d. DESEMBER) dengan fokus kolom A (RO), B (Akun), C (Kegiatan), D (Rencana), PIC, dan K (Realisasi).');
-        $guide->setCellValue('A5', '3. Sheet rekap triwulanan (REKAP TwI, Tw2, TW 3) dan baris Total/KOSONG dilewati otomatis.');
-        $guide->getColumnDimension('A')->setWidth(110);
+        $guide->setCellValue('A5', '3. Sheet rekap triwulanan (REKAP TwI, Tw2, TW 3) dan baris Total/kosong dilewati otomatis.');
+        $guide->getColumnDimension('A')->setWidth(115);
         $spreadsheet->setActiveSheetIndex(0);
 
         return $this->streamSpreadsheet($spreadsheet, 'Template_Monitoring_Anggaran.xlsx');
@@ -408,19 +421,21 @@ class MonitoringAnggaran extends BaseController
 
     public function exportExcel()
     {
-        $allDates = $this->request->getGet('all_dates') === '1';
-        $range = RelaxtimeMonitoringAnggaranHelper::normalizeDateRange(
-            $this->request->getGet('tgl_mulai'),
-            $this->request->getGet('tgl_selesai'),
-            $allDates
+        $allMonths = $this->request->getGet('all_months') === '1'
+            || $this->request->getGet('all_dates') === '1';
+
+        $range = RelaxtimeMonitoringAnggaranHelper::normalizeMonthRange(
+            $this->request->getGet('bulan_mulai') ?? $this->request->getGet('tgl_mulai'),
+            $this->request->getGet('bulan_selesai') ?? $this->request->getGet('tgl_selesai'),
+            $allMonths
         );
 
         $akunFilter = RelaxtimeMonitoringAnggaranHelper::normalizeAkun($this->request->getGet('akun') ?? '', '');
         $picFilter = RelaxtimeMonitoringAnggaranHelper::normalizePic($this->request->getGet('pic') ?? '');
 
         $rows = $this->monitoringModel->getFiltered([
-            'tgl_mulai' => $allDates ? '' : $range['start'],
-            'tgl_selesai' => $allDates ? '' : $range['end'],
+            'tgl_mulai' => $allMonths ? '' : $range['start_date'],
+            'tgl_selesai' => $allMonths ? '' : $range['end_date'],
             'akun' => $akunFilter,
             'pic' => $picFilter,
         ]);
@@ -435,11 +450,13 @@ class MonitoringAnggaran extends BaseController
         $sheet->mergeCells('A1:J1');
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14)->getColor()->setRGB('0F172A');
 
-        $periodeLabel = $allDates
-            ? 'Semua Periode'
-            : (($range['start'] ?: '-') . ' s.d. ' . ($range['end'] ?: '-'));
+        $periodeLabel = $allMonths
+            ? 'Semua Bulan'
+            : (RelaxtimeMonitoringAnggaranHelper::formatMonthLabel($range['start_month'])
+                . ' s.d. '
+                . RelaxtimeMonitoringAnggaranHelper::formatMonthLabel($range['end_month']));
         $filterInfo = sprintf(
-            'Periode: %s | Akun: %s | PIC: %s | Diekspor: %s',
+            'Periode Bulan: %s | Akun: %s | PIC: %s | Diekspor: %s',
             $periodeLabel,
             $akunFilter !== '' ? $akunFilter : 'Semua',
             $picFilter !== '' ? $picFilter : 'Semua',
@@ -449,7 +466,7 @@ class MonitoringAnggaran extends BaseController
         $sheet->mergeCells('A2:J2');
         $sheet->getStyle('A2')->getFont()->setSize(10)->getColor()->setRGB('475569');
 
-        $headers = ['No', 'Tanggal', 'RO', 'Akun', 'Kegiatan', 'PIC', 'Rencana Pencairan', 'Realisasi', 'Sisa', '% Realisasi'];
+        $headers = ['No', 'Bulan', 'RO', 'Akun', 'Kegiatan', 'PIC', 'Rencana Pencairan', 'Realisasi', 'Sisa', '% Realisasi'];
         foreach ($headers as $idx => $h) {
             $col = chr(65 + $idx);
             $sheet->setCellValue($col . '4', $h);
@@ -470,7 +487,7 @@ class MonitoringAnggaran extends BaseController
             $persen = $rencana > 0 ? ($realisasi / $rencana) : 0;
 
             $sheet->setCellValue('A' . $rowNum, $no++);
-            $sheet->setCellValueExplicit('B' . $rowNum, (string) ($item['tanggal'] ?? ''), DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit('B' . $rowNum, RelaxtimeMonitoringAnggaranHelper::formatMonthLabel($item['tanggal'] ?? ''), DataType::TYPE_STRING);
             $sheet->setCellValueExplicit('C' . $rowNum, (string) ($item['ro'] ?? ''), DataType::TYPE_STRING);
             $sheet->setCellValueExplicit('D' . $rowNum, (string) ($item['akun'] ?? ''), DataType::TYPE_STRING);
             $sheet->setCellValue('E' . $rowNum, (string) ($item['kegiatan'] ?? ''));
@@ -514,7 +531,7 @@ class MonitoringAnggaran extends BaseController
         }
 
         $sheet->getStyle("A4:J{$rowNum}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-        foreach (['A' => 6, 'B' => 13, 'C' => 18, 'D' => 8, 'E' => 50, 'F' => 16, 'G' => 20, 'H' => 20, 'I' => 20, 'J' => 13] as $col => $w) {
+        foreach (['A' => 6, 'B' => 16, 'C' => 18, 'D' => 8, 'E' => 50, 'F' => 16, 'G' => 20, 'H' => 20, 'I' => 20, 'J' => 13] as $col => $w) {
             $sheet->getColumnDimension($col)->setWidth($w);
         }
 
