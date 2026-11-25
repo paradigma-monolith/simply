@@ -526,8 +526,8 @@ $activeMenu = $activeMenu ?? '';
     </li>
     <!-- APLIKASI SINADI -->
 
-    <li id="relaxtime" class="nav-item <?= in_array($activeMenu, ['relaxtimeRealisasiTransaksi', 'relaxtimeRealisasiSP2D', 'relaxtimeRealisasiAkrual', 'relaxtimeTargetBulanan', 'relaxtimePengaturan', 'relaxtimePagu', 'relaxtimeRealisasi', 'anggaran_dashboard', 'anggaran_data', 'anggaran_input', 'anggaran_edit', 'hasilRapatMonev']) ? "menu-open" : ""; ?>">
-      <a href="#" class="nav-link <?= in_array($activeMenu, ['relaxtimeRealisasiTransaksi', 'relaxtimeRealisasiSP2D', 'relaxtimeRealisasiAkrual', 'relaxtimeTargetBulanan', 'relaxtimePengaturan', 'relaxtimePagu', 'relaxtimeRealisasi', 'anggaran_dashboard', 'anggaran_data', 'anggaran_input', 'anggaran_edit', 'hasilRapatMonev']) ? "active" : ""; ?>">
+    <li id="relaxtime" class="nav-item <?= in_array($activeMenu, ['relaxtimeMonitoringAnggaran', 'relaxtimeRealisasiTransaksi', 'relaxtimeRealisasiSP2D', 'relaxtimeRealisasiAkrual', 'relaxtimeTargetBulanan', 'relaxtimePengaturan', 'relaxtimePagu', 'relaxtimeRealisasi', 'anggaran_dashboard', 'anggaran_data', 'anggaran_input', 'anggaran_edit', 'hasilRapatMonev']) ? "menu-open" : ""; ?>">
+      <a href="#" class="nav-link <?= in_array($activeMenu, ['relaxtimeMonitoringAnggaran', 'relaxtimeRealisasiTransaksi', 'relaxtimeRealisasiSP2D', 'relaxtimeRealisasiAkrual', 'relaxtimeTargetBulanan', 'relaxtimePengaturan', 'relaxtimePagu', 'relaxtimeRealisasi', 'anggaran_dashboard', 'anggaran_data', 'anggaran_input', 'anggaran_edit', 'hasilRapatMonev']) ? "active" : ""; ?>">
         <i class="nav-icon fas fa-money-check-alt"></i>
         <p>
           RELAXTIME
@@ -583,6 +583,12 @@ $activeMenu = $activeMenu ?? '';
           <hr class="nav-divider-line" />
         </li>
 
+        <li class="nav-item">
+          <a href="/relaxtime/monitoring-anggaran" class="nav-link <?= in_array($activeMenu, ['relaxtimeMonitoringAnggaran']) ? "active" : ""; ?>">
+            <i class="far fa-circle nav-icon"></i>
+            <p>Monitoring Anggaran</p>
+          </a>
+        </li>
         <li class="nav-item">
           <a href="/anggaran/dashboard" class="nav-link <?= in_array($activeMenu, ['anggaran_dashboard']) ? "active" : ""; ?>">
             <i class="far fa-circle nav-icon"></i>

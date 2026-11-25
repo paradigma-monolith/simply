@@ -468,6 +468,15 @@ $routes->delete('/tata_naskah_dinas/template_naskah/hapus_naskah/(:num)', 'Arkab
 
 
 // ROUTES FOR RELAXTIME
+$routes->get('/relaxtime/monitoring-anggaran', 'Relaxtime\MonitoringAnggaran::index');
+$routes->post('/relaxtime/monitoring-anggaran/store', 'Relaxtime\MonitoringAnggaran::store');
+$routes->post('/relaxtime/monitoring-anggaran/update/(:num)', 'Relaxtime\MonitoringAnggaran::update/$1');
+$routes->post('/relaxtime/monitoring-anggaran/delete/(:num)', 'Relaxtime\MonitoringAnggaran::delete/$1');
+$routes->post('/relaxtime/monitoring-anggaran/bulk-delete', 'Relaxtime\MonitoringAnggaran::bulkDelete');
+$routes->post('/relaxtime/monitoring-anggaran/import', 'Relaxtime\MonitoringAnggaran::importExcel');
+$routes->get('/relaxtime/monitoring-anggaran/template', 'Relaxtime\MonitoringAnggaran::downloadTemplate');
+$routes->get('/relaxtime/monitoring-anggaran/export', 'Relaxtime\MonitoringAnggaran::exportExcel');
+
 $routes->get('/relaxtime/hasil_rapat_monev', 'Relaxtime\Data::hasil_rapat_monev');
 $routes->post('/relaxtime/simpan_hasil_rapat', 'Relaxtime\Crud::simpan_hasil_rapat');
 $routes->get('/relaxtime/hapus_hasil_rapat/(:num)', 'Relaxtime\Crud::hapus_hasil_rapat/$1');
