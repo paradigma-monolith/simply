@@ -237,7 +237,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
         </h4>
         <p class="mdl-hero-sub">
           Peringkat penghasilan &amp; frekuensi perjalanan Dinas Luar perorangan &bull;
-          Status: <strong>Disetujui</strong> &bull;
+          Status: <strong>Disetujui (+7 Kegiatan Haji Khusus)</strong> &bull;
           Periode: <strong><?= esc(mediumdate_indo($startDate)); ?></strong> s.d. <strong><?= esc(mediumdate_indo($endDate)); ?></strong> &bull;
           Tim: <strong><?= esc($selectedTimNama); ?></strong> &bull;
           Pegawai: <strong>Sesuai DUK (<?= (int) ($dukTotal ?? 0); ?> Pegawai &bull; <?= esc($dukPeriode ?? 'Keadaan Oktober 2026'); ?>)</strong>
@@ -818,6 +818,10 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           var jenisBadge = r.jenis_perjalanan === 'dalam_kota'
             ? '<span class="badge badge-secondary ml-1">Dalam Kota</span>'
             : '<span class="badge badge-info ml-1">Luar Kota</span>';
+          var statusLower = String(r.status_surat || '').toLowerCase();
+          var statusBadge = statusLower === 'disetujui'
+            ? '<span class="badge badge-success">Disetujui</span>'
+            : '<span class="badge badge-info" title="Masuk perhitungan khusus Monitoring Perjalanan Dinas">' + escapeHtml(r.status_surat || '-') + ' (Dihitung)</span>';
           tbody += '<tr>' +
             '<td class="text-center">' + (i + 1) + '</td>' +
             '<td class="text-nowrap">' + escapeHtml(tglLabel) + '</td>' +
@@ -828,7 +832,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
             '<td class="text-right">' + formatRupiah(r.harian) + '</td>' +
             '<td class="text-right">' + formatRupiah(r.penginapan) + '</td>' +
             '<td class="text-right font-weight-bold text-success">' + formatRupiah(r.penghasilan) + '</td>' +
-            '<td class="text-center"><span class="badge badge-light border">' + escapeHtml(r.status_surat || '-') + '</span></td>' +
+            '<td class="text-center">' + statusBadge + '</td>' +
           '</tr>';
         });
       }
