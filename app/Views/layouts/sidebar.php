@@ -17,7 +17,7 @@ $activeMenu = $activeMenu ?? '';
         </a>
       </li>
     <?php endif; ?>
-    
+
     <!-- Agenda Menu -->
     <li id="agenda" class="nav-item">
       <a href="/home/agenda" class="nav-link <?= in_array($activeMenu, ['agenda']) ? "active" : ""; ?>">
@@ -27,7 +27,7 @@ $activeMenu = $activeMenu ?? '';
         </p>
       </a>
     </li>
-    
+
     <!-- Feedback Menu for All Users -->
     <li id="feedback-user" class="nav-item">
       <a href="/home/feedback" class="nav-link <?= in_array($activeMenu, ['feedback']) ? "active" : ""; ?>">
@@ -37,9 +37,9 @@ $activeMenu = $activeMenu ?? '';
         </p>
       </a>
     </li>
-    
+
     <!-- APLIKASI E-KIP -->
-     
+
     <li id="ekip" class="nav-item <?= in_array($activeMenu, ['ekip_kinerja', 'ekip_perilaku', 'ekip_hasil', 'ekip_pengaturan', 'ekip_penilaian_360']) ? "menu-open" : ""; ?>">
       <a href="#" class="nav-link <?= in_array($activeMenu, ['ekip_kinerja', 'ekip_perilaku', 'ekip_hasil', 'ekip_pengaturan', 'ekip_penilaian_360']) ? "active" : ""; ?>">
         <i class="nav-icon fas fa-chart-line"></i>
@@ -62,17 +62,17 @@ $activeMenu = $activeMenu ?? '';
             <p>Nilai Kinerja Pegawai</p>
           </a>
         </li>
-        <?php if(session()->get('role') == 'Admin'): ?>
-        <li class="nav-item">
-          <a href="/ekip/pengaturan" class="nav-link <?= in_array($activeMenu, ['ekip_pengaturan']) ? "active" : ""; ?>">
-            <i class="fas fa-cogs nav-icon"></i>
-            <p>Pengaturan</p>
-          </a>
-        </li>
+        <?php if (session()->get('role') == 'Admin'): ?>
+          <li class="nav-item">
+            <a href="/ekip/pengaturan" class="nav-link <?= in_array($activeMenu, ['ekip_pengaturan']) ? "active" : ""; ?>">
+              <i class="fas fa-cogs nav-icon"></i>
+              <p>Pengaturan</p>
+            </a>
+          </li>
         <?php endif; ?>
       </ul>
     </li>
-     
+
     <!-- APLIKASI E-KIP -->
 
     <?php if (in_array('Dashboard', $accessMenu, true)) : ?>
@@ -116,20 +116,20 @@ $activeMenu = $activeMenu ?? '';
         </ul>
       </li>
     <?php endif; ?>
-    
+
     <li class="nav-header">APLIKASI PENGELOLAAN</li>
-    
+
     <!-- APLIKASI INFOGRAFIS -->
-      <li id="infografis" class="nav-item <?= in_array($activeMenu, ['infografis_laporan', 'kapal', 'pesawat', 'vaksin', 'infografis_validation_kapal', 'infografis_validation_pesawat']) ? "menu-open" : ""; ?>">
-        <a href="#" class="nav-link <?= in_array($activeMenu, ['infografis_laporan', 'kapal', 'pesawat',  'vaksin', 'infografis_validation_kapal', 'infografis_validation_pesawat']) ? "active" : ""; ?>">
-          <i class="nav-icon fas fa-file-alt"></i>
-          <p>
-            INFOGRAFIS
-            <i class="fas fa-angle-left right"></i>
-            <span class="badge badge-danger right"></span>
-          </p>
-        </a>
-        <ul class="nav nav-treeview">
+    <li id="infografis" class="nav-item <?= in_array($activeMenu, ['infografis_laporan', 'kapal', 'pesawat', 'vaksin', 'infografis_validation_kapal', 'infografis_validation_pesawat']) ? "menu-open" : ""; ?>">
+      <a href="#" class="nav-link <?= in_array($activeMenu, ['infografis_laporan', 'kapal', 'pesawat',  'vaksin', 'infografis_validation_kapal', 'infografis_validation_pesawat']) ? "active" : ""; ?>">
+        <i class="nav-icon fas fa-file-alt"></i>
+        <p>
+          INFOGRAFIS
+          <i class="fas fa-angle-left right"></i>
+          <span class="badge badge-danger right"></span>
+        </p>
+      </a>
+      <ul class="nav nav-treeview">
         <?php if (in_array('Infografis', $accessMenu, true)) : ?>
           <?php if (in_array('Data Infografis', $accessMenu, true)) : ?>
             <li class="nav-item">
@@ -151,17 +151,17 @@ $activeMenu = $activeMenu ?? '';
               </a>
             </li>
           <?php endif; ?>
-          <?php endif; ?>
-          <li class="nav-item">
-            <a href="/infografis/laporan" class="nav-link laporan-infografis-menu">
-              <i class="far fa-circle nav-icon"></i>
-              <p>Laporan Infografis</p>
-            </a>
-          </li>
-        </ul>
-      </li>
+        <?php endif; ?>
+        <li class="nav-item">
+          <a href="/infografis/laporan" class="nav-link laporan-infografis-menu">
+            <i class="far fa-circle nav-icon"></i>
+            <p>Laporan Infografis</p>
+          </a>
+        </li>
+      </ul>
+    </li>
     <!-- APLIKASI INFOGRAFIS -->
-    
+
     <!-- APLIKASI ABS -->
     <?php
     // Cache role verifikator Rawat Kendaraan di Cache Engine (180 dtk) agar tidak mengunci/menulis session di tiap halaman
@@ -173,63 +173,63 @@ $activeMenu = $activeMenu ?? '';
     $rawatCacheKey = 'sidebar_rawat_u' . $userId;
     $rawatCache = null;
     if ($userId > 0) {
-        try {
-            $rawatCache = \Config\Services::cache()->get($rawatCacheKey);
-        } catch (\Throwable $e) {
-            $rawatCache = null;
-        }
+      try {
+        $rawatCache = \Config\Services::cache()->get($rawatCacheKey);
+      } catch (\Throwable $e) {
+        $rawatCache = null;
+      }
     }
     $rawatCacheValid = is_array($rawatCache)
-        && (int) ($rawatCache['uid'] ?? 0) === $userId
-        && (time() - (int) ($rawatCache['ts'] ?? 0)) < 180;
+      && (int) ($rawatCache['uid'] ?? 0) === $userId
+      && (time() - (int) ($rawatCache['ts'] ?? 0)) < 180;
 
     if ($rawatCacheValid) {
-        $isVerifikator1 = !empty($rawatCache['v1']);
-        $isVerifikator2 = !empty($rawatCache['v2']);
-        $countRawatKendaraanPending = (int) ($rawatCache['pending'] ?? 0);
+      $isVerifikator1 = !empty($rawatCache['v1']);
+      $isVerifikator2 = !empty($rawatCache['v2']);
+      $countRawatKendaraanPending = (int) ($rawatCache['pending'] ?? 0);
     } elseif ($userId > 0) {
-        try {
-            $rawatVerifikatorModel = new \App\Models\Abs\RawatVerifikatorModel();
-            $verifRoles = $rawatVerifikatorModel
-                ->select('role')
-                ->where('id_user', $userId)
-                ->whereIn('role', ['verifikator_1', 'verifikator_2'])
-                ->findAll();
+      try {
+        $rawatVerifikatorModel = new \App\Models\Abs\RawatVerifikatorModel();
+        $verifRoles = $rawatVerifikatorModel
+          ->select('role')
+          ->where('id_user', $userId)
+          ->whereIn('role', ['verifikator_1', 'verifikator_2'])
+          ->findAll();
 
-            foreach ($verifRoles as $vr) {
-                if (($vr['role'] ?? '') === 'verifikator_1') {
-                    $isVerifikator1 = true;
-                } elseif (($vr['role'] ?? '') === 'verifikator_2') {
-                    $isVerifikator2 = true;
-                }
-            }
-
-            if ($isVerifikator1 || $isVerifikator2) {
-                $rawatKendaraanModel = new \App\Models\Abs\RawatKendaraanModel();
-                $statuses = [];
-                if ($isVerifikator1) $statuses[] = 'pending';
-                if ($isVerifikator2) $statuses[] = 'verifikasi_2';
-                $countRawatKendaraanPending = (int) $rawatKendaraanModel->whereIn('status', $statuses)->countAllResults();
-            }
-        } catch (\Throwable $th) {
-            // Silent error jika tabel belum tersedia
+        foreach ($verifRoles as $vr) {
+          if (($vr['role'] ?? '') === 'verifikator_1') {
+            $isVerifikator1 = true;
+          } elseif (($vr['role'] ?? '') === 'verifikator_2') {
+            $isVerifikator2 = true;
+          }
         }
 
-        try {
-            \Config\Services::cache()->save($rawatCacheKey, [
-                'uid'     => $userId,
-                'ts'      => time(),
-                'v1'      => $isVerifikator1,
-                'v2'      => $isVerifikator2,
-                'pending' => $countRawatKendaraanPending,
-            ], 180);
-        } catch (\Throwable $e) {
-            // Abaikan kegagalan tulis cache
+        if ($isVerifikator1 || $isVerifikator2) {
+          $rawatKendaraanModel = new \App\Models\Abs\RawatKendaraanModel();
+          $statuses = [];
+          if ($isVerifikator1) $statuses[] = 'pending';
+          if ($isVerifikator2) $statuses[] = 'verifikasi_2';
+          $countRawatKendaraanPending = (int) $rawatKendaraanModel->whereIn('status', $statuses)->countAllResults();
         }
+      } catch (\Throwable $th) {
+        // Silent error jika tabel belum tersedia
+      }
+
+      try {
+        \Config\Services::cache()->save($rawatCacheKey, [
+          'uid'     => $userId,
+          'ts'      => time(),
+          'v1'      => $isVerifikator1,
+          'v2'      => $isVerifikator2,
+          'pending' => $countRawatKendaraanPending,
+        ], 180);
+      } catch (\Throwable $e) {
+        // Abaikan kegagalan tulis cache
+      }
     }
     ?>
-    <li id="abs" class="nav-item <?= in_array($activeMenu, ['abs_pengajuan','abs_gambar', 'managemen_qr_code', 'abs_verifikasi', 'bangunan', 'lokasi', 'abs_rawat_dashboard', 'abs_rawat_pengajuan', 'abs_rawat_kendaraan', 'abs_rawat_pengaturan', 'abs_rawat_verifikasi']) ? "menu-open" : ""; ?>">
-      <a href="#" class="nav-link <?= in_array($activeMenu, ['abs_pengajuan','abs_gambar', 'managemen_qr_code', 'abs_verifikasi', 'bangunan', 'lokasi', 'abs_rawat_dashboard', 'abs_rawat_pengajuan', 'abs_rawat_kendaraan', 'abs_rawat_pengaturan', 'abs_rawat_verifikasi']) ? "active" : ""; ?>">
+    <li id="abs" class="nav-item <?= in_array($activeMenu, ['abs_pengajuan', 'abs_gambar', 'managemen_qr_code', 'abs_verifikasi', 'bangunan', 'lokasi', 'abs_rawat_dashboard', 'abs_rawat_pengajuan', 'abs_rawat_kendaraan', 'abs_rawat_pengaturan', 'abs_rawat_verifikasi']) ? "menu-open" : ""; ?>">
+      <a href="#" class="nav-link <?= in_array($activeMenu, ['abs_pengajuan', 'abs_gambar', 'managemen_qr_code', 'abs_verifikasi', 'bangunan', 'lokasi', 'abs_rawat_dashboard', 'abs_rawat_pengajuan', 'abs_rawat_kendaraan', 'abs_rawat_pengaturan', 'abs_rawat_verifikasi']) ? "active" : ""; ?>">
         <i class="nav-icon fa fa-boxes"></i>
         <p>
           ABS
@@ -242,8 +242,8 @@ $activeMenu = $activeMenu ?? '';
         </p>
       </a>
       <ul class="nav nav-treeview">
-        <li class="nav-item <?= in_array($activeMenu, ['abs_pengajuan','abs_gambar', 'managemen_qr_code', 'abs_verifikasi', 'bangunan', 'lokasi']) ? "menu-open" : ""; ?>">
-          <a href="#" class="nav-link <?= in_array($activeMenu, ['abs_pengajuan','abs_gambar', 'managemen_qr_code', 'abs_verifikasi', 'bangunan', 'lokasi']) ? "active" : ""; ?>">
+        <li class="nav-item <?= in_array($activeMenu, ['abs_pengajuan', 'abs_gambar', 'managemen_qr_code', 'abs_verifikasi', 'bangunan', 'lokasi']) ? "menu-open" : ""; ?>">
+          <a href="#" class="nav-link <?= in_array($activeMenu, ['abs_pengajuan', 'abs_gambar', 'managemen_qr_code', 'abs_verifikasi', 'bangunan', 'lokasi']) ? "active" : ""; ?>">
             <i class="far fa-circle nav-icon"></i>
             <p>
               ABS BMN
@@ -314,104 +314,107 @@ $activeMenu = $activeMenu ?? '';
                 <p>Pengajuan</p>
               </a>
             </li>
-            <?php // Memakai ulang hasil cek $isAdmin, $isVerifikator1, $isVerifikator2 di atas ?>
+            <?php // Memakai ulang hasil cek $isAdmin, $isVerifikator1, $isVerifikator2 di atas 
+            ?>
 
             <?php if ($isAdmin || $isVerifikator1 || $isVerifikator2) : ?>
-            <li class="nav-item">
-              <a href="/abs/rawat_kendaraan/verifikasi_list" class="nav-link <?= in_array($activeMenu, ['abs_rawat_verifikasi']) ? "active" : ""; ?>">
-                <i class="far fa-dot-circle nav-icon"></i>
-                <p>
+              <li class="nav-item">
+                <a href="/abs/rawat_kendaraan/verifikasi_list" class="nav-link <?= in_array($activeMenu, ['abs_rawat_verifikasi']) ? "active" : ""; ?>">
+                  <i class="far fa-dot-circle nav-icon"></i>
+                  <p>
                     Verifikasi Pengajuan
                     <?php if (isset($countRawatKendaraanPending) && $countRawatKendaraanPending > 0) : ?>
-                        <span class="badge badge-danger right"><?= $countRawatKendaraanPending; ?></span>
+                      <span class="badge badge-danger right"><?= $countRawatKendaraanPending; ?></span>
                     <?php endif; ?>
-                </p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="/abs/rawat_kendaraan/kendaraan" class="nav-link <?= in_array($activeMenu, ['abs_rawat_kendaraan']) ? "active" : ""; ?>">
-                <i class="far fa-dot-circle nav-icon"></i>
-                <p>List Kendaraan</p>
-              </a>
-            </li>
+                  </p>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="/abs/rawat_kendaraan/kendaraan" class="nav-link <?= in_array($activeMenu, ['abs_rawat_kendaraan']) ? "active" : ""; ?>">
+                  <i class="far fa-dot-circle nav-icon"></i>
+                  <p>List Kendaraan</p>
+                </a>
+              </li>
             <?php endif; ?>
 
             <?php if ($isAdmin) : ?>
-            <li class="nav-item">
-              <a href="/abs/rawat_kendaraan/pengaturan" class="nav-link <?= in_array($activeMenu, ['abs_rawat_pengaturan']) ? "active" : ""; ?>">
-                <i class="far fa-dot-circle nav-icon"></i>
-                <p>Pengaturan Verifikator</p>
-              </a>
-            </li>
+              <li class="nav-item">
+                <a href="/abs/rawat_kendaraan/pengaturan" class="nav-link <?= in_array($activeMenu, ['abs_rawat_pengaturan']) ? "active" : ""; ?>">
+                  <i class="far fa-dot-circle nav-icon"></i>
+                  <p>Pengaturan Verifikator</p>
+                </a>
+              </li>
             <?php endif; ?>
           </ul>
         </li>
       </ul>
     </li>
     <!-- APLIKASI ABS -->
-    
+
     <!-- APLIKASI SICUTE -->
-    <?php if (false) : // MENU INI DI-HIDE (TIDAK AKAN TAMPIL) ?>
-    <li id="sicuti" class="nav-item <?= in_array($activeMenu, ['pengaturan_cuti', 'kelola_data_cuti', 'validation_data_cuti', 'kelola_data_permohonan', 'validation_data_permohonan']) ? "menu-open" : ""; ?>">
-      <a href="#" class="nav-link <?= in_array($activeMenu, ['pengaturan_cuti', 'kelola_data_cuti', 'validation_data_cuti', 'kelola_data_permohonan', 'validation_data_permohonan']) ? "active" : ""; ?>">
-        <i class="nav-icon fas fa-laptop-house"></i>
-        <p>
-          SICUTE (Cuti/Perizinan)
-          <i class="fas fa-angle-left right"></i>
-          <!-- <span class="badge badge-danger right"></span> -->
-          <!-- <span class="badge badge-warning right view-jumlah-data-cuti-baru"></span>
+    <?php if (false) : // MENU INI DI-HIDE (TIDAK AKAN TAMPIL) 
+    ?>
+      <li id="sicuti" class="nav-item <?= in_array($activeMenu, ['pengaturan_cuti', 'kelola_data_cuti', 'validation_data_cuti', 'kelola_data_permohonan', 'validation_data_permohonan']) ? "menu-open" : ""; ?>">
+        <a href="#" class="nav-link <?= in_array($activeMenu, ['pengaturan_cuti', 'kelola_data_cuti', 'validation_data_cuti', 'kelola_data_permohonan', 'validation_data_permohonan']) ? "active" : ""; ?>">
+          <i class="nav-icon fas fa-laptop-house"></i>
+          <p>
+            SICUTE (Cuti/Perizinan)
+            <i class="fas fa-angle-left right"></i>
+            <!-- <span class="badge badge-danger right"></span> -->
+            <!-- <span class="badge badge-warning right view-jumlah-data-cuti-baru"></span>
                   <span class="badge badge-warning right view-jumlah-data-permohonan-baru"></span> -->
-          <span class="badge badge-warning right view-jumlah-data-baru"></span>
-        </p>
-      </a>
-      <ul class="nav nav-treeview">
-        <li class="nav-item">
-          <a href="/cuti/data_cuti" class="nav-link  <?= in_array($activeMenu, ['kelola_data_cuti']) ? "active" : ""; ?>">
-            <i class="far fa-circle nav-icon"></i>
-            <p>Kelola Data Cuti</p>
-          </a>
-        </li>
-        <li class="nav-item">
-          <!--/cuti/data_permohonan-->
-          <a href="<?= session()->get('role') != 'admin' ? '/cuti/data_permohonan' : '/cuti/data_permohonan'; ?>" class="nav-link  <?= in_array($activeMenu, ['kelola_data_permohonan']) ? "active" : ""; ?>">
-            <i class="far fa-circle nav-icon"></i>
-            <p>Kelola Data Perizinan</p>
-          </a>
-        </li>
-        <div class="setValidationCuti-Permohonan">
-        </div>
-        <li class="nav-item">
-          <hr class="nav-divider-line" />
-        </li>
-        <li class="nav-item setValidationCuti">
-          <a href="/cuti/validation_cuti" class="nav-link  <?= in_array($activeMenu, ['validation_data_cuti']) ? "active" : ""; ?>">
-            <i class="far fa-circle nav-icon"></i>
-            <p>Validation Cuti <span class="badge badge-warning right view-jumlah-data-cuti-baru"></span></p>
-          </a>
-        </li>
-        <li class="nav-item setValidationPermohonan">
-          <a href="/cuti/validation_permohonan" class="nav-link  <?= in_array($activeMenu, ['validation_data_permohonan']) ? "active" : ""; ?>">
-            <i class="far fa-circle nav-icon"></i>
-            <p>Validation Perizinan <span class="badge badge-warning right view-jumlah-data-permohonan-baru"></span></p>
-          </a>
-        </li>
-        <?php if (in_array('Admin', $accessMenu, true)) : ?>
+            <span class="badge badge-warning right view-jumlah-data-baru"></span>
+          </p>
+        </a>
+        <ul class="nav nav-treeview">
           <li class="nav-item">
-            <a href="/cuti/sisa_cuti" class="nav-link <?= in_array($activeMenu, ['pengaturan_cuti']) ? "active" : ""; ?>">
+            <a href="/cuti/data_cuti" class="nav-link  <?= in_array($activeMenu, ['kelola_data_cuti']) ? "active" : ""; ?>">
               <i class="far fa-circle nav-icon"></i>
-              <p>Pengaturan Cuti</p>
+              <p>Kelola Data Cuti</p>
             </a>
           </li>
-        <?php endif; ?>
-      </ul>
-    </li>
-    <?php endif; // MENU INI DI-HIDE (TIDAK AKAN TAMPIL) ?>
+          <li class="nav-item">
+            <!--/cuti/data_permohonan-->
+            <a href="<?= session()->get('role') != 'admin' ? '/cuti/data_permohonan' : '/cuti/data_permohonan'; ?>" class="nav-link  <?= in_array($activeMenu, ['kelola_data_permohonan']) ? "active" : ""; ?>">
+              <i class="far fa-circle nav-icon"></i>
+              <p>Kelola Data Perizinan</p>
+            </a>
+          </li>
+          <div class="setValidationCuti-Permohonan">
+          </div>
+          <li class="nav-item">
+            <hr class="nav-divider-line" />
+          </li>
+          <li class="nav-item setValidationCuti">
+            <a href="/cuti/validation_cuti" class="nav-link  <?= in_array($activeMenu, ['validation_data_cuti']) ? "active" : ""; ?>">
+              <i class="far fa-circle nav-icon"></i>
+              <p>Validation Cuti <span class="badge badge-warning right view-jumlah-data-cuti-baru"></span></p>
+            </a>
+          </li>
+          <li class="nav-item setValidationPermohonan">
+            <a href="/cuti/validation_permohonan" class="nav-link  <?= in_array($activeMenu, ['validation_data_permohonan']) ? "active" : ""; ?>">
+              <i class="far fa-circle nav-icon"></i>
+              <p>Validation Perizinan <span class="badge badge-warning right view-jumlah-data-permohonan-baru"></span></p>
+            </a>
+          </li>
+          <?php if (in_array('Admin', $accessMenu, true)) : ?>
+            <li class="nav-item">
+              <a href="/cuti/sisa_cuti" class="nav-link <?= in_array($activeMenu, ['pengaturan_cuti']) ? "active" : ""; ?>">
+                <i class="far fa-circle nav-icon"></i>
+                <p>Pengaturan Cuti</p>
+              </a>
+            </li>
+          <?php endif; ?>
+        </ul>
+      </li>
+    <?php endif; // MENU INI DI-HIDE (TIDAK AKAN TAMPIL) 
+    ?>
     <!-- APLIKASI SICUTE -->
-    
-    <!-- PENGUKURAN KEBUGARAN DIPINDAHKAN KE DALAM PELATUK -->
-    
 
-    
+    <!-- PENGUKURAN KEBUGARAN DIPINDAHKAN KE DALAM PELATUK -->
+
+
+
     <!-- APLIKASI SINADI -->
     <li id="sinadi" class="nav-item <?= in_array($activeMenu, ['sinadiVerifikator', 'notaDinas', 'sinadiSbm', 'sinadiPengaturan', 'sinadiSaya', 'formulirPerjalananDinas', 'dinasDalamKota', 'dinasLuarKota', 'sinadiTracingTb', 'sinadiTracingTbVerifikator']) ? "menu-open" : ""; ?>">
       <a href="#" class="nav-link <?= in_array($activeMenu, ['sinadiVerifikator', 'notaDinas', 'sinadiSbm', 'sinadiPengaturan', 'sinadiSaya', 'formulirPerjalananDinas', 'dinasDalamKota', 'dinasLuarKota', 'sinadiTracingTb', 'sinadiTracingTbVerifikator']) ? "active" : ""; ?>">
@@ -461,7 +464,7 @@ $activeMenu = $activeMenu ?? '';
           <li class="nav-item">
             <a href="/sinadi/perjalananSaya" class="nav-link  <?= in_array($activeMenu, ['sinadiSaya']) ? "active" : ""; ?>">
               <i class="far fa-circle nav-icon"></i>
-              <p>Monitoring Perjalanan Dinas</p>
+              <p>Monitoring Dinas Luar</p>
             </a>
           </li>
         <?php endif; ?>
@@ -522,95 +525,95 @@ $activeMenu = $activeMenu ?? '';
       </ul>
     </li>
     <!-- APLIKASI SINADI -->
-    
-      <li id="relaxtime" class="nav-item <?= in_array($activeMenu, ['relaxtimeRealisasiTransaksi', 'relaxtimeRealisasiSP2D', 'relaxtimeRealisasiAkrual', 'relaxtimeTargetBulanan', 'relaxtimePengaturan', 'relaxtimePagu', 'relaxtimeRealisasi', 'anggaran_dashboard', 'anggaran_data', 'anggaran_input', 'anggaran_edit', 'hasilRapatMonev']) ? "menu-open" : ""; ?>">
-        <a href="#" class="nav-link <?= in_array($activeMenu, ['relaxtimeRealisasiTransaksi', 'relaxtimeRealisasiSP2D', 'relaxtimeRealisasiAkrual', 'relaxtimeTargetBulanan', 'relaxtimePengaturan', 'relaxtimePagu', 'relaxtimeRealisasi', 'anggaran_dashboard', 'anggaran_data', 'anggaran_input', 'anggaran_edit', 'hasilRapatMonev']) ? "active" : ""; ?>">
-          <i class="nav-icon fas fa-money-check-alt"></i>
-          <p>
-            RELAXTIME
-            <i class="fas fa-angle-left right"></i>
-            <span class="badge badge-danger right"></span>
-          </p>
-        </a>
-        <ul class="nav nav-treeview">
-          <li class="nav-item" style="display: none;">
-            <a href="/relaxtime/pagu" class="nav-link  <?= in_array($activeMenu, ['relaxtimePagu']) ? "active" : ""; ?>">
-              <i class="far fa-circle nav-icon"></i>
-              <p>Pagu</p>
-            </a>
-          </li>
-          <li class="nav-item" style="display: none;">
-            <a href="/relaxtime/target_bulanan" class="nav-link <?= in_array($activeMenu, ['relaxtimeTargetBulanan']) ? "active" : ""; ?>">
-              <i class="far fa-circle nav-icon"></i>
-              <p>Target Bulanan</p>
-            </a>
-          </li>
-          <li class="nav-item" style="display: none;">
-            <a href="/relaxtime/realisasiAnggaran" class="nav-link  <?= in_array($activeMenu, ['relaxtimeRealisasi']) ? "active" : ""; ?>">
-              <i class="far fa-circle nav-icon"></i>
-              <p>Realisasi Anggaran</p>
-            </a>
-          </li>
-          <li class="nav-item" style="cursor: not-allowed;">
-            <!--https://docs.google.com/spreadsheets/d/1fOYiln_l57j5y63KOJ7dxuqR8hNe-RsU8mKRkAZ4rEE/edit?usp=sharing-->
-            <a href="javascript:void(0)" target="_blank" class="nav-link disabled text-secondary">
-              <i class="far fa-dot-circle nav-icon"></i>
-              <p>Link Spreadsheet RPD</p>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a href="/relaxtime/relaxtimeRealisasiAkrual" class="nav-link <?= in_array($activeMenu, ['relaxtimeRealisasiAkrual']) ? "active" : ""; ?>">
-              <i class="far fa-circle nav-icon"></i>
-              <p>Realisasi Akrual</p>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a href="/relaxtime/relaxtimeRealisasiSP2D" class="nav-link <?= in_array($activeMenu, ['relaxtimeRealisasiSP2D']) ? "active" : ""; ?>">
-              <i class="far fa-circle nav-icon"></i>
-              <p>Realisasi SP2D</p>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a href="/relaxtime/relaxtimeRealisasiTransaksi" class="nav-link <?= in_array($activeMenu, ['relaxtimeRealisasiTransaksi']) ? "active" : ""; ?>">
-              <i class="far fa-circle nav-icon"></i>
-              <p>Realisasi Transaksi</p>
-            </a>
-          </li>
-          <li class="nav-item">
-            <hr class="nav-divider-line" />
-          </li>
 
-          <li class="nav-item">
-            <a href="/anggaran/dashboard" class="nav-link <?= in_array($activeMenu, ['anggaran_dashboard']) ? "active" : ""; ?>">
-              <i class="far fa-circle nav-icon"></i>
-              <p>Dashboard Anggaran</p>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a href="/anggaran/data" class="nav-link <?= in_array($activeMenu, ['anggaran_data']) ? "active" : ""; ?>">
-              <i class="far fa-circle nav-icon"></i>
-              <p>Data Anggaran</p>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a href="/relaxtime/hasil_rapat_monev" class="nav-link <?= in_array($activeMenu, ['hasilRapatMonev']) ? "active" : ""; ?>">
-              <i class="far fa-circle nav-icon"></i>
-              <p>Hasil Rapat Monev bulanan</p>
-            </a>
-          </li>
-      
-          <li class="nav-item">
-            <hr class="nav-divider-line" />
-          </li>
-          <li class="nav-item">
-            <a href="/relaxtime/pengaturan" class="nav-link  <?= in_array($activeMenu, ['relaxtimePengaturan']) ? "active" : ""; ?>">
-              <i class="far fa-circle nav-icon"></i>
-              <p>Relaxtime Pengaturan</p>
-            </a>
-          </li>
-        </ul>
-      </li>
-    
+    <li id="relaxtime" class="nav-item <?= in_array($activeMenu, ['relaxtimeRealisasiTransaksi', 'relaxtimeRealisasiSP2D', 'relaxtimeRealisasiAkrual', 'relaxtimeTargetBulanan', 'relaxtimePengaturan', 'relaxtimePagu', 'relaxtimeRealisasi', 'anggaran_dashboard', 'anggaran_data', 'anggaran_input', 'anggaran_edit', 'hasilRapatMonev']) ? "menu-open" : ""; ?>">
+      <a href="#" class="nav-link <?= in_array($activeMenu, ['relaxtimeRealisasiTransaksi', 'relaxtimeRealisasiSP2D', 'relaxtimeRealisasiAkrual', 'relaxtimeTargetBulanan', 'relaxtimePengaturan', 'relaxtimePagu', 'relaxtimeRealisasi', 'anggaran_dashboard', 'anggaran_data', 'anggaran_input', 'anggaran_edit', 'hasilRapatMonev']) ? "active" : ""; ?>">
+        <i class="nav-icon fas fa-money-check-alt"></i>
+        <p>
+          RELAXTIME
+          <i class="fas fa-angle-left right"></i>
+          <span class="badge badge-danger right"></span>
+        </p>
+      </a>
+      <ul class="nav nav-treeview">
+        <li class="nav-item" style="display: none;">
+          <a href="/relaxtime/pagu" class="nav-link  <?= in_array($activeMenu, ['relaxtimePagu']) ? "active" : ""; ?>">
+            <i class="far fa-circle nav-icon"></i>
+            <p>Pagu</p>
+          </a>
+        </li>
+        <li class="nav-item" style="display: none;">
+          <a href="/relaxtime/target_bulanan" class="nav-link <?= in_array($activeMenu, ['relaxtimeTargetBulanan']) ? "active" : ""; ?>">
+            <i class="far fa-circle nav-icon"></i>
+            <p>Target Bulanan</p>
+          </a>
+        </li>
+        <li class="nav-item" style="display: none;">
+          <a href="/relaxtime/realisasiAnggaran" class="nav-link  <?= in_array($activeMenu, ['relaxtimeRealisasi']) ? "active" : ""; ?>">
+            <i class="far fa-circle nav-icon"></i>
+            <p>Realisasi Anggaran</p>
+          </a>
+        </li>
+        <li class="nav-item" style="cursor: not-allowed;">
+          <!--https://docs.google.com/spreadsheets/d/1fOYiln_l57j5y63KOJ7dxuqR8hNe-RsU8mKRkAZ4rEE/edit?usp=sharing-->
+          <a href="javascript:void(0)" target="_blank" class="nav-link disabled text-secondary">
+            <i class="far fa-dot-circle nav-icon"></i>
+            <p>Link Spreadsheet RPD</p>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="/relaxtime/relaxtimeRealisasiAkrual" class="nav-link <?= in_array($activeMenu, ['relaxtimeRealisasiAkrual']) ? "active" : ""; ?>">
+            <i class="far fa-circle nav-icon"></i>
+            <p>Realisasi Akrual</p>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="/relaxtime/relaxtimeRealisasiSP2D" class="nav-link <?= in_array($activeMenu, ['relaxtimeRealisasiSP2D']) ? "active" : ""; ?>">
+            <i class="far fa-circle nav-icon"></i>
+            <p>Realisasi SP2D</p>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="/relaxtime/relaxtimeRealisasiTransaksi" class="nav-link <?= in_array($activeMenu, ['relaxtimeRealisasiTransaksi']) ? "active" : ""; ?>">
+            <i class="far fa-circle nav-icon"></i>
+            <p>Realisasi Transaksi</p>
+          </a>
+        </li>
+        <li class="nav-item">
+          <hr class="nav-divider-line" />
+        </li>
+
+        <li class="nav-item">
+          <a href="/anggaran/dashboard" class="nav-link <?= in_array($activeMenu, ['anggaran_dashboard']) ? "active" : ""; ?>">
+            <i class="far fa-circle nav-icon"></i>
+            <p>Dashboard Anggaran</p>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="/anggaran/data" class="nav-link <?= in_array($activeMenu, ['anggaran_data']) ? "active" : ""; ?>">
+            <i class="far fa-circle nav-icon"></i>
+            <p>Data Anggaran</p>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="/relaxtime/hasil_rapat_monev" class="nav-link <?= in_array($activeMenu, ['hasilRapatMonev']) ? "active" : ""; ?>">
+            <i class="far fa-circle nav-icon"></i>
+            <p>Hasil Rapat Monev bulanan</p>
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <hr class="nav-divider-line" />
+        </li>
+        <li class="nav-item">
+          <a href="/relaxtime/pengaturan" class="nav-link  <?= in_array($activeMenu, ['relaxtimePengaturan']) ? "active" : ""; ?>">
+            <i class="far fa-circle nav-icon"></i>
+            <p>Relaxtime Pengaturan</p>
+          </a>
+        </li>
+      </ul>
+    </li>
+
     <li id="simandja" class="nav-item <?= in_array($activeMenu, ['simandjaCapaian', 'simandjaRencana', 'simandjaRevisi', 'simandjaMonevPK']) ? "menu-open" : ""; ?>">
       <a href="#" class="nav-link <?= in_array($activeMenu, ['simandjaCapaian', 'simandjaRencana', 'simandjaRevisi', 'simandjaMonevPK']) ? "active" : ""; ?>">
         <i class="nav-icon fas fa-file-signature"></i>
@@ -658,59 +661,59 @@ $activeMenu = $activeMenu ?? '';
         <!--  </a>-->
         <!--</li>-->
         <li id="monevCaputRpd" class="nav-item">
-            <a href="#" class="nav-link">
-                <i class="fas fa-circle nav-icon"></i>
-                <p>
-                  <small>MONEV CAPUT RPD REALISASI</small>
-                  <i class="fas fa-angle-left right"></i>
-                </p>
-            </a>
-            <ul class="nav nav-treeview">
+          <a href="#" class="nav-link">
+            <i class="fas fa-circle nav-icon"></i>
+            <p>
+              <small>MONEV CAPUT RPD REALISASI</small>
+              <i class="fas fa-angle-left right"></i>
+            </p>
+          </a>
+          <ul class="nav nav-treeview">
+            <li class="nav-item">
+              <a href="#" class="nav-link">
+                <i class="far fa-circle nav-icon"></i>
+                <p>2025 <i class="fas fa-angle-left right"></i></p>
+              </a>
+              <ul class="nav nav-treeview">
                 <li class="nav-item">
-                  <a href="#" class="nav-link">
-                    <i class="far fa-circle nav-icon"></i>
-                    <p>2025 <i class="fas fa-angle-left right"></i></p>
+                  <a href="https://docs.google.com/spreadsheets/d/1LTIQtiCFiB08eYvdkXloqoH38awvCwSQ/edit?gid=1868851836#gid=1868851836" target="_blank" class="nav-link">
+                    <i class="far fa-dot-circle nav-icon"></i>
+                    <p>4249</p>
                   </a>
-                  <ul class="nav nav-treeview">
-                    <li class="nav-item">
-                      <a href="https://docs.google.com/spreadsheets/d/1LTIQtiCFiB08eYvdkXloqoH38awvCwSQ/edit?gid=1868851836#gid=1868851836" target="_blank" class="nav-link">
-                        <i class="far fa-dot-circle nav-icon"></i>
-                        <p>4249</p>
-                      </a>
-                    </li>
-                    <li class="nav-item" tolkit="Monitoring Caput RPD Realisasi">
-                      <a href="https://docs.google.com/spreadsheets/d/1MfGJeaRLCCqQVpj5nry60K_iD9HUQd_c/edit?usp=drive_web&ouid=110503911282252705598&rtpof=true" target="_blank" class="nav-link">
-                        <i class="far fa-dot-circle nav-icon"></i>
-                        <p>4815</p>
-                      </a>
-                    </li>
-                  </ul>
                 </li>
+                <li class="nav-item" tolkit="Monitoring Caput RPD Realisasi">
+                  <a href="https://docs.google.com/spreadsheets/d/1MfGJeaRLCCqQVpj5nry60K_iD9HUQd_c/edit?usp=drive_web&ouid=110503911282252705598&rtpof=true" target="_blank" class="nav-link">
+                    <i class="far fa-dot-circle nav-icon"></i>
+                    <p>4815</p>
+                  </a>
+                </li>
+              </ul>
+            </li>
+            <li class="nav-item">
+              <a href="#" class="nav-link">
+                <i class="far fa-circle nav-icon"></i>
+                <p>2026 <i class="fas fa-angle-left right"></i></p>
+              </a>
+              <ul class="nav nav-treeview">
                 <li class="nav-item">
-                  <a href="#" class="nav-link">
-                    <i class="far fa-circle nav-icon"></i>
-                    <p>2026 <i class="fas fa-angle-left right"></i></p>
-               </a>
-                  <ul class="nav nav-treeview">
-                    <li class="nav-item">
-                      <a href="https://docs.google.com/spreadsheets/d/1UWRKtYfh1GUBJeQkoi8e8XSm7-ow5S-Y/edit?usp=sharing&ouid=103327788879510797240&rtpof=true&sd=true" target="_blank" class="nav-link">
-                        <i class="far fa-dot-circle nav-icon"></i>
-                        <p>7960</p>
-                      </a>
-                    </li>
-                    <li class="nav-item" tolkit="Monitoring Caput RPD Realisasi">
-                      <a href="https://docs.google.com/spreadsheets/d/1-sMScEAE__GY9hH_i7rlMt8To5qvibUM/edit?usp=drive_link&ouid=103327788879510797240&rtpof=true&sd=true" target="_blank" class="nav-link">
-                        <i class="far fa-dot-circle nav-icon"></i>
-                        <p>4815</p>
-                      </a>
-                    </li>
-                  </ul>
+                  <a href="https://docs.google.com/spreadsheets/d/1UWRKtYfh1GUBJeQkoi8e8XSm7-ow5S-Y/edit?usp=sharing&ouid=103327788879510797240&rtpof=true&sd=true" target="_blank" class="nav-link">
+                    <i class="far fa-dot-circle nav-icon"></i>
+                    <p>7960</p>
+                  </a>
                 </li>
-            </ul>
+                <li class="nav-item" tolkit="Monitoring Caput RPD Realisasi">
+                  <a href="https://docs.google.com/spreadsheets/d/1-sMScEAE__GY9hH_i7rlMt8To5qvibUM/edit?usp=drive_link&ouid=103327788879510797240&rtpof=true&sd=true" target="_blank" class="nav-link">
+                    <i class="far fa-dot-circle nav-icon"></i>
+                    <p>4815</p>
+                  </a>
+                </li>
+              </ul>
+            </li>
+          </ul>
         </li>
       </ul>
     </li>
-    
+
     <li id="kendaraanKantor" class="nav-item <?= in_array($activeMenu, ['daftar_kendaraan', 'riwayat_peminjaman', 'kendaraanKantorPengaturan']) ? "menu-open" : ""; ?>">
       <a href="#" class="nav-link <?= in_array($activeMenu, ['daftar_kendaraan', 'riwayat_peminjaman', 'kendaraanKantorPengaturan']) ? "active" : ""; ?>">
         <i class="nav-icon fas fa-car"></i>
@@ -744,7 +747,7 @@ $activeMenu = $activeMenu ?? '';
         </li>
       </ul>
     </li>
-    
+
     <li class="nav-header">Aplikasi Substansi</li>
     <!-- APLIKASI PELATUK -->
     <li id="pelatuk" class="nav-item <?= in_array($activeMenu, ['uklwFarmasi', 'uklwObat', 'uklwReport', 'uklwPenjamahMakanan', 'uklwLaboratorium', 'uklwPasien', 'uklwPemkes', 'uklwSkriningTBC', 'uklwSkriningHIV', 'pengukuranKebugaran']) ? "menu-open" : ""; ?>">
@@ -800,10 +803,10 @@ $activeMenu = $activeMenu ?? '';
           </a>
         </li>
         <li class="nav-item">
-                      <a href="/pengukuran_kebugaran" class="nav-link <?= in_array($activeMenu, ['pengukuranKebugaran']) ? "active" : ""; ?>">
+          <a href="/pengukuran_kebugaran" class="nav-link <?= in_array($activeMenu, ['pengukuranKebugaran']) ? "active" : ""; ?>">
             <i class="fas fa-running nav-icon"></i>
-              <p>Pengukuran Kebugaran</p>
-            </a>
+            <p>Pengukuran Kebugaran</p>
+          </a>
         </li>
         <!-- <li class="nav-item">
           <a href="/uklw/penjamah_makanan" class="nav-link  <? //= in_array($activeMenu, []) ? "active" : ""; 
@@ -843,7 +846,7 @@ $activeMenu = $activeMenu ?? '';
       </ul>
     </li>
     <!-- APLIKASI PELATUK -->
-    
+
     <!-- APLIKASI PRL -->
     <li id="prl" class="nav-item <?= in_array($activeMenu, ['tpp', 'sab', 'hsbu', 'sivera']) ? "menu-open" : ""; ?>">
       <a href="#" class="nav-link <?= in_array($activeMenu, ['tpp', 'sab', 'hsbu', 'sivera']) ? "active" : ""; ?>">
@@ -882,7 +885,7 @@ $activeMenu = $activeMenu ?? '';
       </ul>
     </li>
     <!-- APLIKASI PRL -->
-    
+
     <!-- APLIKASI PENGAWASAN KAPAL -->
     <li id="pengawasanKapal" class="nav-item <?= in_array($activeMenu, ['pengawasanKapal', 'laporanPengawasanKapal', 'pengawasanKapalAkses', 'laporan_pengawasan_kapal_akses', 'monitoringSanitasiKapal', 'layananKesehatanKapal', 'travel_consent']) ? "menu-open" : ""; ?>">
       <a href="#" class="nav-link <?= in_array($activeMenu, ['pengawasanKapal', 'laporanPengawasanKapal', 'pengawasanKapalAkses', 'laporan_pengawasan_kapal_akses', 'monitoringSanitasiKapal', 'layananKesehatanKapal', 'travel_consent']) ? "active" : ""; ?>">
@@ -925,8 +928,8 @@ $activeMenu = $activeMenu ?? '';
           </a>
         </li>
         <li class="nav-item">
-            <hr class="nav-divider-line" />
-          </li>
+          <hr class="nav-divider-line" />
+        </li>
         <li class="nav-item">
           <a href="/pengawasan_kapal_akses" class="nav-link  <?= in_array($activeMenu, ['pengawasanKapalAkses']) ? "active" : ""; ?>">
             <i class="far fa-circle nav-icon"></i>
@@ -936,12 +939,12 @@ $activeMenu = $activeMenu ?? '';
       </ul>
     </li>
     <!-- APLIKASI PENGAWASAN KAPAL -->
-    
-    
+
+
     <li class="nav-header">ARSIP</li>
     <!-- STORAGE SK -->
     <?php
-        $isSkMenu = str_starts_with($activeMenu, 'sk_');
+    $isSkMenu = str_starts_with($activeMenu, 'sk_');
     ?>
     <li id="surat_keputusan" class="nav-item <?= $isSkMenu ? "menu-open" : ""; ?>">
       <a href="#" class="nav-link <?= $isSkMenu ? "active" : ""; ?>">
@@ -971,14 +974,14 @@ $activeMenu = $activeMenu ?? '';
                 <p>SK</p>
               </a>
             </li>
-    
+
             <li class="nav-item">
               <a href="/surat_sk/2026/nota-dinas" class="nav-link <?= in_array($activeMenu, ['sk_2026_nota_dinas']) ? "active" : ""; ?>">
                 <i class="far fa-dot-circle nav-icon"></i>
                 <p>Nota Dinas</p>
               </a>
             </li>
-    
+
             <li class="nav-item">
               <a href="/surat_sk/2026/peraturan" class="nav-link <?= in_array($activeMenu, ['sk_2026_peraturan']) ? "active" : ""; ?>">
                 <i class="far fa-dot-circle nav-icon"></i>
@@ -989,7 +992,7 @@ $activeMenu = $activeMenu ?? '';
         </li>
       </ul>
     </li>
-    
+
     <!-- APLIKASI SIPEDIT -->
     <li id="sipedit" class="nav-item <?= in_array($activeMenu, ['sipeditArsipSaya']) ? "menu-open" : ""; ?>">
       <a href="#" class="nav-link <?= in_array($activeMenu, ['sipeditArsipSaya']) ? "active" : ""; ?>">
@@ -1010,9 +1013,9 @@ $activeMenu = $activeMenu ?? '';
       </ul>
     </li>
     <!-- APLIKASI SIPEDIT -->
-    
+
     <!-- APLIKASI LHKPN DAN SPT -->
-   
+
     <li id="lhkpnSpt" class="nav-item <?= in_array($activeMenu, ['lhkpnSpt']) ? "menu-open" : ""; ?>">
       <a href="#" class="nav-link <?= in_array($activeMenu, ['lhkpnSpt']) ? "active" : ""; ?>">
         <i class="nav-icon fas fa-folder"></i>
@@ -1031,9 +1034,9 @@ $activeMenu = $activeMenu ?? '';
         </li>
       </ul>
     </li>
-   
+
     <!-- APLIKASI LHKPN DAN SPT -->
-    
+
     <!-- APLIKASI SIPEPES -->
     <li id="sop" class="nav-item <?= in_array($activeMenu, ['tambah_dokumen', 'daftar_sop', 'lainnya']) ? "menu-open" : ""; ?>">
       <a href="#" class="nav-link <?= in_array($activeMenu, ['tambah_dokumen', 'daftar_sop', 'lainnya']) ? "active" : ""; ?>">
@@ -1060,15 +1063,17 @@ $activeMenu = $activeMenu ?? '';
             <p>Daftar SOP</p>
           </a>
         </li>
-        
+
         <!--<li class="nav-item">-->
-        <!--  <a href="/sipepes/utama" class="nav-link  <?//= in_array($activeMenu, ['utama']) ? "active" : ""; ?>">-->
+        <!--  <a href="/sipepes/utama" class="nav-link  <? //= in_array($activeMenu, ['utama']) ? "active" : ""; 
+                                                        ?>">-->
         <!--    <i class="far fa-circle nav-icon"></i>-->
         <!--    <p>SOP Proses Utama</p>-->
         <!--  </a>-->
         <!--</li>-->
         <!--<li class="nav-item">-->
-        <!--  <a href="/sipepes/pendukung" class="nav-link  <?//= in_array($activeMenu, ['pendukung']) ? "active" : ""; ?>">-->
+        <!--  <a href="/sipepes/pendukung" class="nav-link  <? //= in_array($activeMenu, ['pendukung']) ? "active" : ""; 
+                                                            ?>">-->
         <!--    <i class="far fa-circle nav-icon"></i>-->
         <!--    <p>SOP Proses Pendukung</p>-->
         <!--  </a>-->
@@ -1082,7 +1087,7 @@ $activeMenu = $activeMenu ?? '';
       </ul>
     </li>
     <!-- APLIKASI SIPEPES -->
-    
+
     <!-- APLIKASI WBK -->
     <li id="wbk" class="nav-item <?= in_array($activeMenu, ['rencana_kerja', 'daftar_dokumen']) ? "menu-open" : ""; ?>">
       <a href="#" class="nav-link <?= in_array($activeMenu, ['rencana_kerja', 'daftar_dokumen']) ? "active" : ""; ?>">
@@ -1109,7 +1114,7 @@ $activeMenu = $activeMenu ?? '';
       </ul>
     </li>
     <!-- APLIKASI WBK -->
-    
+
     <!-- APLIKASI WBK -->
     <li id="arkab" class="nav-item <?= in_array($activeMenu, ['arsip_surat', 'template_naskah', 'tambah_naskah']) ? "menu-open" : ""; ?>">
       <a href="#" class="nav-link <?= in_array($activeMenu, ['arsip_surat', 'template_naskah', 'tambah_naskah']) ? "active" : ""; ?>">
@@ -1192,7 +1197,7 @@ $activeMenu = $activeMenu ?? '';
     <li class="nav-item">
       <hr class="nav-divider-line" />
     </li>
-    
+
     <!-- MENU ADMIN -->
     <?php if (in_array('Admin', $accessMenu, true)) : ?>
       <li id="admin" class="nav-item <?= in_array($activeMenu, ['user', 'unit_kerja', 'pegawai', 'skema_titimangsa', 'jenis', 'feedback']) ? "menu-open" : ""; ?>">
@@ -1245,7 +1250,7 @@ $activeMenu = $activeMenu ?? '';
         </ul>
       </li>
       <!-- MENU ADMIN -->
-      
+
     <?php endif; ?>
     <li id="logout" class="nav-item">
       <a href="/auth/logout" id="coba" class="nav-link">
