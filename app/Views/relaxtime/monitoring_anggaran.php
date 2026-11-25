@@ -562,7 +562,7 @@ foreach ($allDateRows as $r) {
             <tbody id="monitoringTableBody"></tbody>
             <tfoot>
               <tr class="bg-light font-weight-bold">
-                <th colspan="7" class="text-right">TOTAL:</th>
+                <th colspan="7" class="text-right" id="footTotalLabel">TOTAL:</th>
                 <th class="text-right" id="footTotalRencana">Rp 0</th>
                 <th class="text-right text-teal" id="footTotalRealisasi">Rp 0</th>
                 <th class="text-right" id="footTotalSisa">Rp 0</th>
@@ -1210,18 +1210,29 @@ document.addEventListener('DOMContentLoaded', function () {
     // Charts
     renderCharts(stats);
 
-    // Table Footer
-    document.getElementById('footTotalRencana').textContent = formatRupiah(stats.totalRencana);
-    document.getElementById('footTotalRealisasi').textContent = formatRupiah(stats.totalRealisasi);
-    const footSisa = document.getElementById('footTotalSisa');
-    footSisa.textContent = formatRupiah(stats.totalSisa);
-    footSisa.classList.toggle('rma-sisa-neg', stats.totalSisa < 0);
-    const footDeviasi = document.getElementById('footTotalDeviasi');
-    if (footDeviasi) {
-      footDeviasi.innerHTML = '<span class="' + dipaColorClass(stats.deviasiDipaStatus) + '">' + stats.deviasiDipaTertimbang.toFixed(2).replace('.', ',') + '%</span>'
-        + ' <span class="rma-dipa-badge ' + dipaBadgeClass(stats.deviasiDipaStatus) + ' ml-1">Nilai ' + stats.nilaiIkpaDeviasi.toFixed(1).replace('.', ',') + '</span>';
+    function updateTableFooter(rowsSubset, hasSearch) {
+      const fStats = hasSearch ? computeStats(rowsSubset) : stats;
+      const footLabel = document.getElementById('footTotalLabel');
+      if (footLabel) {
+        footLabel.textContent = hasSearch
+          ? ('TOTAL (Hasil Cari \u00b7 ' + rowsSubset.length + ' baris):')
+          : 'TOTAL:';
+      }
+      document.getElementById('footTotalRencana').textContent = formatRupiah(fStats.totalRencana);
+      document.getElementById('footTotalRealisasi').textContent = formatRupiah(fStats.totalRealisasi);
+      const footSisa = document.getElementById('footTotalSisa');
+      footSisa.textContent = formatRupiah(fStats.totalSisa);
+      footSisa.classList.toggle('rma-sisa-neg', fStats.totalSisa < 0);
+      const footDeviasi = document.getElementById('footTotalDeviasi');
+      if (footDeviasi) {
+        footDeviasi.innerHTML = '<span class="' + dipaColorClass(fStats.deviasiDipaStatus) + '">' + fStats.deviasiDipaTertimbang.toFixed(2).replace('.', ',') + '%</span>'
+          + ' <span class="rma-dipa-badge ' + dipaBadgeClass(fStats.deviasiDipaStatus) + ' ml-1">Nilai ' + fStats.nilaiIkpaDeviasi.toFixed(1).replace('.', ',') + '</span>';
+      }
+      document.getElementById('footTotalPersen').textContent = fStats.persen.toFixed(1).replace('.', ',') + '%';
     }
-    document.getElementById('footTotalPersen').textContent = stats.persen.toFixed(1).replace('.', ',') + '%';
+
+    // Table Footer (initial state before DataTable init)
+    updateTableFooter(filtered, false);
 
     // DataTable rebuild
     if (dataTableInstance) {
@@ -1238,7 +1249,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const badgeAkun = r.akun === '51' ? 'rma-akun-51' : (r.akun === '53' ? 'rma-akun-53' : 'rma-akun-52');
       const sisaClass = sisa < 0 ? 'rma-sisa-neg' : 'rma-sisa-pos';
       const devColor = dipaColorClass(dipa.status);
-      return '<tr data-id="' + r.id + '">' +
+      return '<tr data-id="' + r.id + '" data-row-idx="' + idx + '">' +
         '<td class="text-center"><input type="checkbox" class="row-check" value="' + r.id + '"></td>' +
         '<td class="text-center">' + (idx + 1) + '</td>' +
         '<td data-order="' + escapeHtml((r.tanggal || '').slice(0, 7)) + '">' + escapeHtml(formatBulanIndo(r.tanggal)) + '</td>' +
@@ -1268,6 +1279,23 @@ document.addEventListener('DOMContentLoaded', function () {
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Semua']],
         order: [],
         columnDefs: [{ orderable: false, targets: [0, 12] }],
+        footerCallback: function () {
+          const api = this.api();
+          const hasSearch = String(api.search() || '').trim() !== '';
+          if (!hasSearch) {
+            updateTableFooter(filtered, false);
+            return;
+          }
+          const matchedRows = [];
+          const nodes = api.rows({ search: 'applied' }).nodes().toArray();
+          for (let i = 0; i < nodes.length; i++) {
+            const rIdx = parseInt(nodes[i].getAttribute('data-row-idx'), 10);
+            if (!Number.isNaN(rIdx) && filtered[rIdx]) {
+              matchedRows.push(filtered[rIdx]);
+            }
+          }
+          updateTableFooter(matchedRows, true);
+        },
         language: {
           search: 'Cari:',
           lengthMenu: 'Tampilkan _MENU_ baris',
