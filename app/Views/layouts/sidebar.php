@@ -526,8 +526,8 @@ $activeMenu = $activeMenu ?? '';
     </li>
     <!-- APLIKASI SINADI -->
 
-    <li id="relaxtime" class="nav-item <?= in_array($activeMenu, ['relaxtimeMonitoringAnggaran', 'relaxtimeRealisasiTransaksi', 'relaxtimeRealisasiSP2D', 'relaxtimeRealisasiAkrual', 'relaxtimeTargetBulanan', 'relaxtimePengaturan', 'relaxtimePagu', 'relaxtimeRealisasi', 'hasilRapatMonev']) ? "menu-open" : ""; ?>">
-      <a href="#" class="nav-link <?= in_array($activeMenu, ['relaxtimeMonitoringAnggaran', 'relaxtimeRealisasiTransaksi', 'relaxtimeRealisasiSP2D', 'relaxtimeRealisasiAkrual', 'relaxtimeTargetBulanan', 'relaxtimePengaturan', 'relaxtimePagu', 'relaxtimeRealisasi', 'hasilRapatMonev']) ? "active" : ""; ?>">
+    <li id="relaxtime" class="nav-item <?= in_array($activeMenu, ['relaxtimeMonitoringAnggaran', 'relaxtimeRkks', 'relaxtimeRealisasiTransaksi', 'relaxtimeRealisasiSP2D', 'relaxtimeRealisasiAkrual', 'relaxtimeTargetBulanan', 'relaxtimePengaturan', 'relaxtimePagu', 'relaxtimeRealisasi', 'hasilRapatMonev']) ? "menu-open" : ""; ?>">
+      <a href="#" class="nav-link <?= in_array($activeMenu, ['relaxtimeMonitoringAnggaran', 'relaxtimeRkks', 'relaxtimeRealisasiTransaksi', 'relaxtimeRealisasiSP2D', 'relaxtimeRealisasiAkrual', 'relaxtimeTargetBulanan', 'relaxtimePengaturan', 'relaxtimePagu', 'relaxtimeRealisasi', 'hasilRapatMonev']) ? "active" : ""; ?>">
         <i class="nav-icon fas fa-money-check-alt"></i>
         <p>
           RELAXTIME
@@ -587,6 +587,12 @@ $activeMenu = $activeMenu ?? '';
           <a href="/relaxtime/monitoring-anggaran" class="nav-link <?= in_array($activeMenu, ['relaxtimeMonitoringAnggaran']) ? "active" : ""; ?>">
             <i class="far fa-circle nav-icon"></i>
             <p>Monitoring Anggaran</p>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="/relaxtime/rkks" class="nav-link <?= in_array($activeMenu, ['relaxtimeRkks']) ? "active" : ""; ?>">
+            <i class="far fa-circle nav-icon"></i>
+            <p>RKKS</p>
           </a>
         </li>
         <li class="nav-item">

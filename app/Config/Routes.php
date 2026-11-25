@@ -477,6 +477,16 @@ $routes->post('/relaxtime/monitoring-anggaran/import', 'Relaxtime\MonitoringAngg
 $routes->get('/relaxtime/monitoring-anggaran/template', 'Relaxtime\MonitoringAnggaran::downloadTemplate');
 $routes->get('/relaxtime/monitoring-anggaran/export', 'Relaxtime\MonitoringAnggaran::exportExcel');
 
+$routes->get('/relaxtime/rkks', 'Relaxtime\Rkks::index');
+$routes->post('/relaxtime/rkks/import', 'Relaxtime\Rkks::importExcel');
+$routes->post('/relaxtime/rkks/dokumen/store', 'Relaxtime\Rkks::storeDokumen');
+$routes->post('/relaxtime/rkks/dokumen/delete/(:num)', 'Relaxtime\Rkks::deleteDokumen/$1');
+$routes->post('/relaxtime/rkks/item/store', 'Relaxtime\Rkks::storeItem');
+$routes->post('/relaxtime/rkks/item/update/(:num)', 'Relaxtime\Rkks::updateItem/$1');
+$routes->post('/relaxtime/rkks/item/delete/(:num)', 'Relaxtime\Rkks::deleteItem/$1');
+$routes->post('/relaxtime/rkks/item/toggle-blokir/(:num)', 'Relaxtime\Rkks::toggleBlokir/$1');
+$routes->get('/relaxtime/rkks/export', 'Relaxtime\Rkks::exportExcel');
+
 $routes->get('/relaxtime/hasil_rapat_monev', 'Relaxtime\Data::hasil_rapat_monev');
 $routes->post('/relaxtime/simpan_hasil_rapat', 'Relaxtime\Crud::simpan_hasil_rapat');
 $routes->get('/relaxtime/hapus_hasil_rapat/(:num)', 'Relaxtime\Crud::hapus_hasil_rapat/$1');
