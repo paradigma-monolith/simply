@@ -486,6 +486,29 @@ foreach ($allDateRows as $r) {
       <form id="formManualAnggaran">
         <div class="modal-body">
           <input type="hidden" id="formIdMonitoring" value="">
+          <div class="p-2 mb-3 rounded border bg-light">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label for="formRkksRekapSelect" class="font-weight-bold small mb-0 text-teal">
+                <i class="fas fa-sitemap mr-1"></i>
+                Ambil dari Rekap RO &amp; Subkomponen RKKS (<?= count($rkksRekapOptions ?? []) ?>)
+                <?php if (!empty($rkksDokumen)): ?>
+                  <span class="text-muted font-weight-normal">— [TA <?= esc($rkksDokumen['tahun_anggaran']) ?>] <?= esc($rkksDokumen['nama_dokumen']) ?></span>
+                <?php endif; ?>
+              </label>
+              <?php if (empty($rkksRekapOptions)): ?>
+                <a href="/relaxtime/rkks" class="small text-teal font-weight-bold">Import RKKS &rarr;</a>
+              <?php endif; ?>
+            </div>
+            <select class="form-control form-control-sm" id="formRkksRekapSelect">
+              <option value="">-- Pilih kegiatan dari Rekap RO &amp; Subkomponen RKKS (opsional) --</option>
+              <?php foreach (($rkksRekapOptions ?? []) as $rkIdx => $rkOpt): ?>
+                <option value="<?= (int) $rkIdx ?>">
+                  [<?= esc($rkOpt['ro_komponen']) ?> · Sub <?= esc($rkOpt['subkomponen_kode']) ?>] <?= esc($rkOpt['kegiatan']) ?> (Akun <?= esc($rkOpt['akun']) ?> · Pagu Rp <?= number_format((int) $rkOpt['pagu'], 0, ',', '.') ?>)
+                </option>
+              <?php endforeach; ?>
+            </select>
+            <div id="formRkksPaguInfo" class="small text-muted mt-1 d-none"></div>
+          </div>
           <div class="row">
             <div class="col-md-4 form-group">
               <label class="font-weight-bold">Bulan <span class="text-danger">*</span></label>
@@ -615,6 +638,7 @@ foreach ($allDateRows as $r) {
 document.addEventListener('DOMContentLoaded', function () {
   const ALL_ROWS_INITIAL = <?= json_encode($allRowsJson, JSON_UNESCAPED_UNICODE) ?>;
   let ALL_ROWS = ALL_ROWS_INITIAL;
+  const RKKS_REKAP_OPTIONS = <?= json_encode($rkksRekapOptions ?? [], JSON_UNESCAPED_UNICODE) ?>;
   const Toast = Swal.mixin({
     toast: true,
     position: 'top-end',
@@ -1110,6 +1134,52 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
+  // Init Select2 pada pilihan Rekap RO & Subkomponen RKKS
+  const $rkksSelect = $('#formRkksRekapSelect');
+  if ($rkksSelect.length && $.fn.select2) {
+    $rkksSelect.select2({
+      theme: 'bootstrap4',
+      dropdownParent: $('#modalManualAnggaran'),
+      placeholder: '-- Cari RO, Subkomponen, atau Kegiatan RKKS --',
+      allowClear: true,
+      width: '100%'
+    });
+  }
+
+  $rkksSelect.on('change', function () {
+    const rawIdx = this.value;
+    const infoEl = document.getElementById('formRkksPaguInfo');
+    if (rawIdx === '' || !RKKS_REKAP_OPTIONS[parseInt(rawIdx, 10)]) {
+      if (infoEl) infoEl.classList.add('d-none');
+      return;
+    }
+
+    const opt = RKKS_REKAP_OPTIONS[parseInt(rawIdx, 10)];
+    document.getElementById('formRo').value = opt.ro_komponen || '';
+    if (['51', '52', '53'].includes(String(opt.akun || ''))) {
+      document.getElementById('formAkun').value = String(opt.akun);
+    }
+    document.getElementById('formKegiatan').value = opt.kegiatan || '';
+
+    const isCreate = !document.getElementById('formIdMonitoring').value;
+    if (isCreate && Number(opt.pagu || 0) > 0) {
+      document.getElementById('formRencana').value = String(Math.round(Number(opt.pagu))).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+    const picEl = document.getElementById('formPic');
+    if (picEl && picEl.value.trim() === '' && String(opt.ro_komponen || '').indexOf('4815.EBA.994') === 0) {
+      picEl.value = 'ADUM';
+    }
+
+    if (infoEl) {
+      infoEl.innerHTML = 'Pagu RKKS Tahunan: <strong class="text-teal">' + formatRupiah(opt.pagu || 0) + '</strong>'
+        + ' | Subkomponen: <strong>' + escapeHtml(opt.subkomponen_kode || '-') + '</strong>'
+        + ' | SD: <strong>' + escapeHtml(opt.sumber_dana || '-') + '</strong>'
+        + ' <span class="text-muted">(nilai rencana di bawah dapat disesuaikan)</span>';
+      infoEl.classList.remove('d-none');
+    }
+    updateManualPreview();
+  });
+
   // Open Input Manual Modal
   document.getElementById('btnInputManual').addEventListener('click', function () {
     document.getElementById('formIdMonitoring').value = '';
@@ -1118,6 +1188,8 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('formBulan').value = '<?= date('Y-m') ?>';
     document.getElementById('formAkun').value = '52';
     document.getElementById('formRealisasi').value = '0';
+    $rkksSelect.val('').trigger('change.select2');
+    document.getElementById('formRkksPaguInfo').classList.add('d-none');
     updateManualPreview();
     $('#modalManualAnggaran').modal('show');
   });
@@ -1183,6 +1255,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
       document.getElementById('formIdMonitoring').value = item.id;
       document.getElementById('modalManualTitle').innerHTML = '<i class="fas fa-edit mr-1"></i> Edit Data Monitoring Anggaran';
+      $rkksSelect.val('').trigger('change.select2');
+      document.getElementById('formRkksPaguInfo').classList.add('d-none');
       document.getElementById('formBulan').value = (item.tanggal || '').slice(0, 7);
       document.getElementById('formRo').value = item.ro;
       document.getElementById('formAkun').value = item.akun;

@@ -4,7 +4,9 @@ namespace App\Controllers\Relaxtime;
 
 use App\Controllers\BaseController;
 use App\Libraries\RelaxtimeMonitoringAnggaranHelper;
+use App\Libraries\RelaxtimeRkksHelper;
 use App\Models\RelaxtimeMonitoringAnggaranModel;
+use App\Models\RelaxtimeRkksModel;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -54,6 +56,23 @@ class MonitoringAnggaran extends BaseController
 
         $options = $this->monitoringModel->getDistinctOptions();
 
+        $rkksModel = new RelaxtimeRkksModel();
+        $rkksModel->ensureTables();
+        $rkksDokList = $rkksModel->getDokumenList(null);
+        $rkksDokumen = $rkksDokList[0] ?? null;
+        $rkksRekapOptions = [];
+        if ($rkksDokumen !== null) {
+            $rkksItems = $rkksModel->getItemsByDokumen((int) $rkksDokumen['id_dokumen']);
+            $rkksRekapOptions = RelaxtimeRkksHelper::buildRekapSubkomponen($rkksItems);
+            foreach ($rkksRekapOptions as $rkOpt) {
+                $roVal = trim((string) ($rkOpt['ro_komponen'] ?? ''));
+                if ($roVal !== '' && !in_array($roVal, $options['ros'], true)) {
+                    $options['ros'][] = $roVal;
+                }
+            }
+            sort($options['ros']);
+        }
+
         $data = [
             'title' => 'RELAXTIME | Monitoring Anggaran',
             'activeMenu' => 'relaxtimeMonitoringAnggaran',
@@ -69,6 +88,8 @@ class MonitoringAnggaran extends BaseController
             ],
             'picOptions' => $options['pics'],
             'roOptions' => $options['ros'],
+            'rkksDokumen' => $rkksDokumen,
+            'rkksRekapOptions' => $rkksRekapOptions,
         ];
 
         return view('relaxtime/monitoring_anggaran', $data);
