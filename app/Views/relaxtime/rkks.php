@@ -83,7 +83,9 @@ foreach ($items as $it) {
   .rkks-tree-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.83rem;
+    font-size: 0.74rem;
+    line-height: 1.25;
+    font-variant-numeric: tabular-nums;
   }
   .rkks-tree-table thead th {
     position: sticky;
@@ -91,16 +93,40 @@ foreach ($items as $it) {
     z-index: 5;
     background: #1e293b;
     color: #fff;
-    font-size: 0.75rem;
+    font-size: 0.68rem;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    padding: 8px 10px;
+    padding: 6px 7px;
     border: 1px solid #334155;
     white-space: nowrap;
   }
   .rkks-tree-table td {
-    padding: 5px 8px;
+    padding: 3px 6px;
     border: 1px solid #e2e8f0;
+    vertical-align: middle;
+  }
+  .rkks-tree-cell-flex {
+    display: flex;
+    align-items: flex-start;
+  }
+  .rkks-uraian-text {
+    min-width: 0;
+  }
+  .rkks-num {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  #rekapTable {
+    font-size: 0.75rem;
+    line-height: 1.28;
+    font-variant-numeric: tabular-nums;
+  }
+  #rekapTable th {
+    font-size: 0.69rem;
+    padding: 6px 7px;
+  }
+  #rekapTable td {
+    padding: 4px 7px;
     vertical-align: middle;
   }
   .rkks-row-program { background: #dbeafe; font-weight: 700; color: #1e3a8a; }
@@ -117,42 +143,46 @@ foreach ($items as $it) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 18px;
-    height: 18px;
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
     border: 1px solid rgba(15, 23, 42, 0.25);
-    border-radius: 4px;
+    border-radius: 3px;
     background: rgba(255, 255, 255, 0.75);
     color: #0f172a;
     cursor: pointer;
-    font-size: 0.68rem;
-    margin-right: 5px;
+    font-size: 0.58rem;
+    margin-right: 4px;
+    margin-top: 1px;
     padding: 0;
   }
   .rkks-lvl-tag {
     display: inline-block;
-    font-size: 0.66rem;
+    font-size: 0.6rem;
     font-weight: 700;
-    padding: 1px 6px;
-    border-radius: 4px;
+    padding: 0 4px;
+    border-radius: 3px;
     text-transform: uppercase;
-    margin-right: 5px;
+    margin-right: 4px;
+    line-height: 1.35;
+    vertical-align: middle;
     background: rgba(15, 23, 42, 0.08);
   }
   .rkks-meta-chip {
     display: inline-block;
-    font-size: 0.72rem;
+    font-size: 0.64rem;
     font-weight: 500;
     background: rgba(255, 255, 255, 0.78);
     border: 1px solid rgba(15, 23, 42, 0.14);
     border-radius: 999px;
-    padding: 0 7px;
-    margin-left: 6px;
+    padding: 0 5px;
+    margin-left: 4px;
     color: #334155;
   }
   .rkks-btn-ruh {
-    padding: 1px 5px;
-    font-size: 0.72rem;
-    line-height: 1.3;
+    padding: 1px 4px;
+    font-size: 0.66rem;
+    line-height: 1.15;
   }
   .rkks-depth-btn.active {
     background: #0f766e !important;
@@ -357,15 +387,15 @@ foreach ($items as $it) {
               <table class="rkks-tree-table">
                 <thead>
                   <tr>
-                    <th style="width: 145px;">Kode</th>
+                    <th style="width: 115px;">Kode</th>
                     <th>Uraian Program / Kegiatan / Output / Komponen / Akun / Detail</th>
-                    <th class="text-right" style="width: 78px;">Volume</th>
-                    <th style="width: 74px;">Satuan</th>
-                    <th class="text-right" style="width: 115px;">Harga Satuan</th>
-                    <th class="text-right" style="width: 135px;">Jumlah (Pagu)</th>
-                    <th class="text-center" style="width: 55px;">SD</th>
-                    <th class="text-center" style="width: 50px;">Blokir</th>
-                    <th class="text-center" style="width: 132px;">Aksi (RUH)</th>
+                    <th class="text-right" style="width: 62px;">Volume</th>
+                    <th style="width: 64px;">Satuan</th>
+                    <th class="text-right" style="width: 98px;">Harga Satuan</th>
+                    <th class="text-right" style="width: 116px;">Jumlah (Pagu)</th>
+                    <th class="text-center" style="width: 46px;">SD</th>
+                    <th class="text-center" style="width: 42px;">Blokir</th>
+                    <th class="text-center" style="width: 102px;">Aksi (RUH)</th>
                   </tr>
                 </thead>
                 <tbody id="rkksTreeBody"></tbody>
@@ -376,7 +406,7 @@ foreach ($items as $it) {
           <!-- TAB 2: REKAP RO & SUBKOMPONEN -->
           <div class="tab-pane fade p-3" id="tabRekapRo" role="tabpanel">
             <div class="table-responsive">
-              <table id="rekapTable" class="table table-bordered table-hover table-sm w-100" style="font-size: 0.85rem;">
+              <table id="rekapTable" class="table table-bordered table-hover table-sm w-100">
                 <thead class="thead-dark">
                   <tr>
                     <th class="text-center" style="width: 44px;">No</th>
@@ -767,11 +797,11 @@ document.addEventListener('DOMContentLoaded', function () {
       const hasKids = (childrenMap[it.id] || []).length > 0;
       const isCollapsed = !isFiltering && collapsedIds.has(it.id);
       const depthIdx = LEVEL_ORDER.indexOf(it.level) + (it.level === 'header_detail' && it.header_depth === 2 ? 1 : 0);
-      const padLeft = Math.max(0, depthIdx * 14);
+      const padLeft = Math.max(0, depthIdx * 10);
 
       const toggleBtn = hasKids
         ? '<button type="button" class="rkks-toggle-btn btn-toggle-node" data-id="' + it.id + '"><i class="fas ' + (isCollapsed ? 'fa-plus' : 'fa-minus') + '"></i></button>'
-        : '<span style="display:inline-block;width:23px;"></span>';
+        : '<span style="display:inline-block;width:19px;flex-shrink:0;"></span>';
 
       const lvlBadge = '<span class="rkks-lvl-tag">' + escapeHtml(LEVEL_LABELS[it.level] || it.level) + '</span>';
       let metaHtml = '';
@@ -790,11 +820,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
       return '<tr class="rkks-row-' + escapeHtml(it.level) + '" data-id="' + it.id + '">' +
         '<td style="white-space:nowrap;">' + escapeHtml(it.kode) + '</td>' +
-        '<td><div style="padding-left:' + padLeft + 'px;">' + toggleBtn + lvlBadge + escapeHtml(it.uraian) + metaHtml + '</div></td>' +
-        '<td class="text-right">' + (it.volume !== null ? it.volume : '') + '</td>' +
+        '<td><div class="rkks-tree-cell-flex" style="padding-left:' + padLeft + 'px;">' + toggleBtn + '<span class="rkks-uraian-text">' + lvlBadge + escapeHtml(it.uraian) + metaHtml + '</span></div></td>' +
+        '<td class="text-right rkks-num">' + (it.volume !== null ? it.volume : '') + '</td>' +
         '<td>' + escapeHtml(it.satuan) + '</td>' +
-        '<td class="text-right">' + (it.harga_satuan > 0 ? formatRp(it.harga_satuan) : '') + '</td>' +
-        '<td class="text-right font-weight-bold">' + formatRp(it.jumlah) + '</td>' +
+        '<td class="text-right rkks-num">' + (it.harga_satuan > 0 ? formatRp(it.harga_satuan) : '') + '</td>' +
+        '<td class="text-right font-weight-bold rkks-num">' + formatRp(it.jumlah) + '</td>' +
         '<td class="text-center">' + escapeHtml(it.sumber_dana) + '</td>' +
         '<td class="text-center">' + (it.is_blokir ? '<span class="badge badge-danger">*</span>' : '') + '</td>' +
         '<td class="text-center text-nowrap">' +
