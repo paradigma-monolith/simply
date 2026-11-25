@@ -6,6 +6,8 @@ $cntStage1 = count($tahap1Rows ?? []);
 $cntStage2 = count($tahap2Rows ?? []);
 $cntStage3 = count($tahap3Rows ?? []);
 $totalAntreanTahap = $cntStage1 + $cntStage2 + $cntStage3;
+$periode = (($periode ?? '30d') === 'all') ? 'all' : '30d';
+$periodeCutoff = $periodeCutoff ?? null;
 ?>
 
 <style>
@@ -270,7 +272,12 @@ $totalAntreanTahap = $cntStage1 + $cntStage2 + $cntStage3;
           <i class="fas fa-clipboard-check mr-2"></i>Validasi Dokumen Perjalanan Dinas (<?= esc($tipe); ?>)
         </h4>
         <div class="small" style="color: rgba(255,255,255,0.86);">
-          Selamat datang, <strong><?= esc(name_capitalize((string) session()->get('nama'))); ?></strong> • <?= $totalAntreanTahap; ?> dokumen dalam antrean verifikasi tahap 1–3
+          Selamat datang, <strong><?= esc(name_capitalize((string) session()->get('nama'))); ?></strong> &bull; <?= $totalAntreanTahap; ?> dokumen dalam antrean verifikasi tahap 1–3
+          <?php if ($periode === '30d' && !empty($periodeCutoff)) : ?>
+            &bull; Filter: <strong>30 Hari Terakhir</strong> (sejak <?= esc(mediumdate_indo($periodeCutoff)); ?>)
+          <?php else : ?>
+            &bull; Filter: <strong>Semua Periode</strong>
+          <?php endif; ?>
         </div>
         <div class="sv-role-badges">
           <?php if (!empty($verifikator)) : ?>
@@ -287,15 +294,26 @@ $totalAntreanTahap = $cntStage1 + $cntStage2 + $cntStage3;
         </div>
       </div>
 
-      <div class="sv-budget-switcher" role="group" aria-label="Pilih Sumber Anggaran">
-        <a href="/sinadi/verifikasiSurat?tipe=APBN" class="sv-budget-btn <?= $tipe === 'APBN' ? 'active' : ''; ?>">
-          <i class="fas fa-coins"></i> APBN
-          <span class="sv-budget-cnt"><?= isset($countAPBN) ? (int) $countAPBN : 0; ?></span>
-        </a>
-        <a href="/sinadi/verifikasiSurat?tipe=RPL" class="sv-budget-btn <?= $tipe === 'RPL' ? 'active' : ''; ?>">
-          <i class="fas fa-hand-holding-usd"></i> RPL
-          <span class="sv-budget-cnt"><?= isset($countRPL) ? (int) $countRPL : 0; ?></span>
-        </a>
+      <div class="d-flex flex-wrap align-items-center" style="gap: 8px;">
+        <div class="sv-budget-switcher" role="group" aria-label="Filter Periode Dokumen">
+          <a href="/sinadi/verifikasiSurat?tipe=<?= esc($tipe, 'url'); ?>&amp;periode=30d" class="sv-budget-btn <?= $periode === '30d' ? 'active' : ''; ?>">
+            <i class="fas fa-history"></i> 30 Hari Terakhir
+          </a>
+          <a href="/sinadi/verifikasiSurat?tipe=<?= esc($tipe, 'url'); ?>&amp;periode=all" class="sv-budget-btn <?= $periode === 'all' ? 'active' : ''; ?>">
+            <i class="fas fa-infinity"></i> Semua
+          </a>
+        </div>
+
+        <div class="sv-budget-switcher" role="group" aria-label="Pilih Sumber Anggaran">
+          <a href="/sinadi/verifikasiSurat?tipe=APBN&amp;periode=<?= esc($periode, 'url'); ?>" class="sv-budget-btn <?= $tipe === 'APBN' ? 'active' : ''; ?>">
+            <i class="fas fa-coins"></i> APBN
+            <span class="sv-budget-cnt"><?= isset($countAPBN) ? (int) $countAPBN : 0; ?></span>
+          </a>
+          <a href="/sinadi/verifikasiSurat?tipe=RPL&amp;periode=<?= esc($periode, 'url'); ?>" class="sv-budget-btn <?= $tipe === 'RPL' ? 'active' : ''; ?>">
+            <i class="fas fa-hand-holding-usd"></i> RPL
+            <span class="sv-budget-cnt"><?= isset($countRPL) ? (int) $countRPL : 0; ?></span>
+          </a>
+        </div>
       </div>
     </div>
 
@@ -516,6 +534,7 @@ $totalAntreanTahap = $cntStage1 + $cntStage2 + $cntStage3;
           type: 'POST',
           data: function (d) {
             d.tipe = '<?= esc($tipe, 'js'); ?>';
+            d.periode = '<?= esc($periode, 'js'); ?>';
           }
         },
         language: {

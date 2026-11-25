@@ -334,4 +334,40 @@ class SinadiVerifikatorHelper
             ? (string) $last['time']
             : self::DEFAULT_VERIFIKATOR_TIME;
     }
+
+    /**
+     * Menormalkan filter periode pada halaman Validasi Dokumen Perjalanan Dinas.
+     * Default saat pertama dibuka adalah '30d' (30 hari terakhir), kecuali bila user memilih 'all'.
+     */
+    public static function resolvePeriodeFilter(?string $periode): string
+    {
+        return strtolower(trim((string) $periode)) === 'all' ? 'all' : '30d';
+    }
+
+    /**
+     * Menghitung tanggal batas awal (Y-m-d) untuk filter periode Validasi Dokumen,
+     * atau null bila periode disetel ke 'all'.
+     */
+    public static function resolvePeriodeCutoffDate(?string $periode, ?string $todayOverride = null): ?string
+    {
+        if (self::resolvePeriodeFilter($periode) === 'all') {
+            return null;
+        }
+
+        $today = trim((string) $todayOverride);
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $today) !== 1) {
+            $today = date('Y-m-d');
+        } else {
+            $parts = explode('-', $today);
+            if (!checkdate((int) $parts[1], (int) $parts[2], (int) $parts[0])) {
+                $today = date('Y-m-d');
+            }
+        }
+
+        try {
+            return (new \DateTimeImmutable($today))->modify('-30 days')->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return date('Y-m-d', strtotime('-30 days'));
+        }
+    }
 }

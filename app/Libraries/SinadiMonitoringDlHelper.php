@@ -14,6 +14,12 @@ class SinadiMonitoringDlHelper
     public const SUPER_ADMIN_NAME = 'Mohamad Dahlan Fazhry';
 
     /**
+     * ID perjalanan dinas khusus (kegiatan Haji yang dikembalikan ke Verifikator Pertama)
+     * yang tetap dihitung pada Monitoring Dinas Luar meskipun statusnya bukan 'Disetujui'.
+     */
+    public const INCLUDED_PERJALANAN_IDS = [3994, 4015, 4062, 4063, 4066, 4199, 4203];
+
+    /**
      * Mengecek apakah username pengguna merupakan Super Admin khusus Monitoring Dinas Luar
      * (hanya Mohamad Dahlan Fazhry / NIP 199404082022031001).
      */
@@ -95,6 +101,19 @@ class SinadiMonitoringDlHelper
     public static function isApprovedStatus(?string $status): bool
     {
         return strtolower(trim((string) $status)) === 'disetujui';
+    }
+
+    /**
+     * Mengecek apakah perjalanan dinas masuk perhitungan Monitoring Dinas Luar
+     * (berstatus Disetujui atau termasuk ID kegiatan khusus yang tetap dihitung).
+     */
+    public static function isIncludedInMonitoring(?string $status, int $idPerjalanan = 0): bool
+    {
+        if (self::isApprovedStatus($status)) {
+            return true;
+        }
+
+        return $idPerjalanan > 0 && in_array($idPerjalanan, self::INCLUDED_PERJALANAN_IDS, true);
     }
 
     /**
@@ -365,7 +384,7 @@ class SinadiMonitoringDlHelper
         $allGrouped = [];
 
         foreach ($pesertaRows as $row) {
-            if ($onlyApproved && !self::isApprovedStatus((string) ($row['status_surat'] ?? ''))) {
+            if ($onlyApproved && !self::isIncludedInMonitoring((string) ($row['status_surat'] ?? ''), (int) ($row['id_perjalanan'] ?? 0))) {
                 continue;
             }
 

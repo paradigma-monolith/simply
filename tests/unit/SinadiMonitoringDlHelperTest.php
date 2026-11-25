@@ -433,4 +433,49 @@ final class SinadiMonitoringDlHelperTest extends TestCase
         $this->assertSame('Kepala Balai Kekarantinaan Kesehatan Kelas I Bandung', $aggregated['tim_kerja_summary'][0]['nama_tim_kerja']);
         $this->assertSame('Tim Kerja Dukungan Manajemen', $aggregated['tim_kerja_summary'][1]['nama_tim_kerja']);
     }
+
+    public function testAggregateIncludesSpecialReturnedPerjalananIdsEvenWhenDiajukan(): void
+    {
+        $timMap = SinadiMonitoringDlHelper::buildPegawaiTimMap([
+            ['nip' => '19800101', 'nama' => 'Budi Santoso', 'id_tim_kerja' => '1', 'nama_tim_kerja' => 'Tim Surveilans'],
+        ]);
+
+        $pesertaRows = [
+            // Kegiatan Haji yang dikembalikan ke Verifikator Pertama (Diajukan) tetap harus dihitung di Monitoring DL
+            [
+                'id_perjalanan'   => 3994,
+                'status_surat'    => 'Diajukan',
+                'nip_pegawai'     => '19800101',
+                'nama_pegawai'    => 'Budi Santoso',
+                'tgl_pergi'       => '2026-06-01',
+                'tgl_pulang'      => '2026-06-08',
+                'jumlah_transfer' => 2500000,
+            ],
+            [
+                'id_perjalanan'   => 4203,
+                'status_surat'    => 'Diajukan',
+                'nip_pegawai'     => '19800101',
+                'nama_pegawai'    => 'Budi Santoso',
+                'tgl_pergi'       => '2026-07-21',
+                'tgl_pulang'      => '2026-07-22',
+                'jumlah_transfer' => 500000,
+            ],
+            // ID lain berstatus Diajukan tetap TIDAK dihitung
+            [
+                'id_perjalanan'   => 999999,
+                'status_surat'    => 'Diajukan',
+                'nip_pegawai'     => '19800101',
+                'nama_pegawai'    => 'Budi Santoso',
+                'tgl_pergi'       => '2026-08-01',
+                'tgl_pulang'      => '2026-08-02',
+                'jumlah_transfer' => 9000000,
+            ],
+        ];
+
+        $result = SinadiMonitoringDlHelper::aggregate($pesertaRows, $timMap);
+        $this->assertCount(1, $result['rows']);
+        $this->assertSame(2, $result['rows'][0]['jumlah_dl']);
+        $this->assertEqualsWithDelta(3000000.0, $result['rows'][0]['total_penghasilan'], 0.01);
+        $this->assertEqualsWithDelta(3000000.0, $result['summary']['total_penghasilan'], 0.01);
+    }
 }

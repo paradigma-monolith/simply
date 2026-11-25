@@ -325,6 +325,11 @@ class Data extends BaseController
     $tipe = strtoupper((string) ($this->request->getVar('tipe') ?? 'APBN'));
     $data['tipe'] = $tipe;
 
+    $periode = SinadiVerifikatorHelper::resolvePeriodeFilter((string) ($this->request->getVar('periode') ?? ''));
+    $cutoffDate = SinadiVerifikatorHelper::resolvePeriodeCutoffDate($periode);
+    $data['periode'] = $periode;
+    $data['periodeCutoff'] = $cutoffDate;
+
     $username = session()->get('username');
     $superUser = $this->userModel
       ->select('sinadi_akses.status')
@@ -355,10 +360,14 @@ class Data extends BaseController
     // Hitung jumlah dokumen aktif APBN & RPL via 1 query agregasi ringan untuk badge tab
     $data['countAPBN'] = 0;
     $data['countRPL'] = 0;
-    $countsByTipe = $this->sinadiPerjalananDinasModel
+    $countsQuery = $this->sinadiPerjalananDinasModel
       ->select('sumber_anggaran, COUNT(*) AS total')
       ->whereIn('status_surat', ['Diajukan', 'Dalam Verifikasi', 'Perlu Revisi'])
-      ->whereIn('sumber_anggaran', ['APBN', 'RPL'])
+      ->whereIn('sumber_anggaran', ['APBN', 'RPL']);
+    if ($cutoffDate !== null) {
+      $countsQuery->where('tgl_pelaksanaan >=', $cutoffDate);
+    }
+    $countsByTipe = $countsQuery
       ->groupBy('sumber_anggaran')
       ->findAll();
     foreach ($countsByTipe as $cntRow) {
@@ -374,11 +383,14 @@ class Data extends BaseController
     $data['tahap2Rows'] = [];
     $data['tahap3Rows'] = [];
     if (in_array($tipe, ['APBN', 'RPL'], true)) {
-      $activeRows = $this->sinadiPerjalananDinasModel
+      $activeQuery = $this->sinadiPerjalananDinasModel
         ->select('id_perjalanan, nama_kegiatan, mata_anggaran, tgl_pelaksanaan, tgl_pelaksanaan_akhir, tempat_perjalanan, status_surat, verifikator_1, verifikator_2')
         ->where('sumber_anggaran', $tipe)
-        ->whereIn('status_surat', ['Diajukan', 'Dalam Verifikasi'])
-        ->findAll();
+        ->whereIn('status_surat', ['Diajukan', 'Dalam Verifikasi']);
+      if ($cutoffDate !== null) {
+        $activeQuery->where('tgl_pelaksanaan >=', $cutoffDate);
+      }
+      $activeRows = $activeQuery->findAll();
 
       foreach ($activeRows as $row) {
         $status = $row['status_surat'] ?? '';
@@ -659,7 +671,10 @@ class Data extends BaseController
         . 'd.nama_kegiatan, d.jenis_perjalanan_dinas, d.tgl_pelaksanaan, d.tgl_pelaksanaan_akhir, d.tempat_perjalanan, d.status_surat, d.sumber_anggaran'
       )
       ->join('sinadi_perjalanan_dinas AS d', 'd.id_perjalanan = p.id_perjalanan')
-      ->where("LOWER(TRIM(COALESCE(d.status_surat, '')))", 'disetujui')
+      ->groupStart()
+        ->where("LOWER(TRIM(COALESCE(d.status_surat, '')))", 'disetujui')
+        ->orWhereIn('d.id_perjalanan', \App\Libraries\SinadiMonitoringDlHelper::INCLUDED_PERJALANAN_IDS)
+      ->groupEnd()
       ->where('d.tgl_pelaksanaan >=', $dateRange['start'])
       ->where('d.tgl_pelaksanaan <=', $dateRange['end'])
       ->get()

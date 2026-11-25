@@ -202,6 +202,8 @@ class Ajax extends BaseController
     $search = is_array($searchParam) ? trim((string) ($searchParam['value'] ?? '')) : '';
 
     $tipe = strtoupper((string) ($this->request->getPost('tipe') ?? 'APBN'));
+    $periode = \App\Libraries\SinadiVerifikatorHelper::resolvePeriodeFilter((string) ($this->request->getPost('periode') ?? ''));
+    $cutoffDate = \App\Libraries\SinadiVerifikatorHelper::resolvePeriodeCutoffDate($periode);
     if (!in_array($tipe, ['APBN', 'RPL'], true)) {
       return $this->response->setJSON([
         'draw'            => $draw,
@@ -223,14 +225,20 @@ class Ajax extends BaseController
     $verifikator6Ids = \App\Libraries\SinadiVerifikatorHelper::normalizeIds($cekVerifikator['verifikator_6'] ?? null, true);
     $canUploadBukti = !empty($verifikator6Ids) && !empty(array_intersect($myPegawaiIds, $verifikator6Ids));
 
-    $recordsTotal = $this->sinadiPerjalananDinasModel->builder()
+    $totalBuilder = $this->sinadiPerjalananDinasModel->builder()
       ->where('sumber_anggaran', $tipe)
-      ->whereIn('status_surat', $allowedStatuses)
-      ->countAllResults();
+      ->whereIn('status_surat', $allowedStatuses);
+    if ($cutoffDate !== null) {
+      $totalBuilder->where('tgl_pelaksanaan >=', $cutoffDate);
+    }
+    $recordsTotal = $totalBuilder->countAllResults();
 
     $builder = $this->sinadiPerjalananDinasModel->builder();
     $builder->where('sumber_anggaran', $tipe)
       ->whereIn('status_surat', $allowedStatuses);
+    if ($cutoffDate !== null) {
+      $builder->where('tgl_pelaksanaan >=', $cutoffDate);
+    }
 
     if ($search !== '') {
       $builder->groupStart()
