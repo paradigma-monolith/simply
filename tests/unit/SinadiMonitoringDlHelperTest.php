@@ -529,4 +529,119 @@ final class SinadiMonitoringDlHelperTest extends TestCase
         $this->assertSame('TATANG SUPRIATNA', $filtered['rows'][0]['nama']);
         $this->assertSame(0, $filtered['rows'][0]['jumlah_dl']);
     }
+
+    public function testAggregateWithoutRiwayatProvidesAllRowsAndKegiatanByTim(): void
+    {
+        $timMap = SinadiMonitoringDlHelper::buildPegawaiTimMap([
+            ['nip' => '19800101', 'nama' => 'Budi Santoso', 'id_tim_kerja' => '1', 'nama_tim_kerja' => 'Tim Surveilans'],
+            ['nip' => '19810202', 'nama' => 'Siti Aminah', 'id_tim_kerja' => '2', 'nama_tim_kerja' => 'Tim Karantina'],
+        ]);
+
+        $pesertaRows = [
+            [
+                'id_perjalanan'          => 10,
+                'status_surat'           => 'Disetujui',
+                'jenis_perjalanan_dinas' => 'luar kota',
+                'nip_pegawai'            => '19800101',
+                'nama_pegawai'           => 'Budi Santoso',
+                'tgl_pergi'              => '2026-02-01',
+                'tgl_pulang'             => '2026-02-02',
+                'transport_jumlah'       => 500000,
+                'harian_jumlah'          => 800000,
+                'penginapan_jumlah'      => 200000,
+                'jumlah_transfer'        => 1500000,
+            ],
+            [
+                'id_perjalanan'          => 10,
+                'status_surat'           => 'Disetujui',
+                'jenis_perjalanan_dinas' => 'dalam kota',
+                'nip_pegawai'            => '19810202',
+                'nama_pegawai'           => 'Siti Aminah',
+                'tgl_pergi'              => '2026-02-01',
+                'tgl_pulang'             => '2026-02-01',
+                'transport_jumlah'       => 170000,
+                'harian_jumlah'          => 0,
+                'penginapan_jumlah'      => 0,
+                'jumlah_transfer'        => 170000,
+            ],
+        ];
+
+        $res = SinadiMonitoringDlHelper::aggregate($pesertaRows, $timMap, '1', 'penghasilan', null, true, null, false, false);
+
+        // Filtered rows hanya Tim 1, all_rows berisi seluruh pegawai, riwayat kosong
+        $this->assertCount(1, $res['rows']);
+        $this->assertCount(2, $res['all_rows']);
+        $this->assertSame([], $res['rows'][0]['riwayat']);
+        $this->assertEqualsWithDelta(500000.0, $res['rows'][0]['lk_transport'], 0.01);
+        $this->assertEqualsWithDelta(800000.0, $res['rows'][0]['lk_harian'], 0.01);
+        $this->assertEqualsWithDelta(200000.0, $res['rows'][0]['lk_penginapan'], 0.01);
+        $this->assertEqualsWithDelta(1500000.0, $res['rows'][0]['lk_full'], 0.01);
+
+        // Kegiatan unik per tim vs total semua tim
+        $this->assertSame(1, $res['kegiatan_by_tim']['all']);
+        $this->assertSame(1, $res['kegiatan_by_tim']['1']);
+        $this->assertSame(1, $res['kegiatan_by_tim']['2']);
+    }
+
+    public function testExtractPersonRiwayatFiltersByNipSpecialStatusAndCostComponents(): void
+    {
+        $pesertaRows = [
+            [
+                'id_perjalanan'          => 3994,
+                'status_surat'           => 'Diajukan',
+                'jenis_perjalanan_dinas' => 'luar kota',
+                'nip_pegawai'            => '19800101 200501 1 001',
+                'nama_pegawai'           => 'BUDI SANTOSO',
+                'kota_asal'              => 'Kota Bandung',
+                'kota'                   => 'Kota Bekasi',
+                'tgl_pergi'              => '2026-06-01',
+                'tgl_pulang'             => '2026-06-08',
+                'transport_jumlah'       => 300000,
+                'harian_jumlah'          => 2000000,
+                'penginapan_jumlah'      => 500000,
+                'jumlah_transfer'        => 2800000,
+            ],
+            [
+                'id_perjalanan'          => 5001,
+                'status_surat'           => 'Disetujui',
+                'jenis_perjalanan_dinas' => 'dalam kota',
+                'nip_pegawai'            => '-',
+                'nama_pegawai'           => 'Budi Santoso',
+                'kota_asal'              => 'Kota Bandung',
+                'kota'                   => 'Kota Bandung',
+                'tgl_pergi'              => '2026-07-10',
+                'tgl_pulang'             => '2026-07-10',
+                'transport_jumlah'       => 170000,
+                'harian_jumlah'          => 0,
+                'penginapan_jumlah'      => 0,
+                'jumlah_transfer'        => 170000,
+            ],
+            [
+                // Pegawai lain -> harus disaring keluar
+                'id_perjalanan'          => 5002,
+                'status_surat'           => 'Disetujui',
+                'nip_pegawai'            => '199999999999999999',
+                'nama_pegawai'           => 'Pegawai Lain',
+                'tgl_pergi'              => '2026-08-01',
+                'tgl_pulang'             => '2026-08-02',
+                'jumlah_transfer'        => 1000000,
+            ],
+        ];
+
+        $riwayat = SinadiMonitoringDlHelper::extractPersonRiwayat(
+            $pesertaRows,
+            '198001012005011001',
+            'Budi Santoso, SKM',
+            ['transport' => true, 'harian' => true, 'penginapan' => false],
+            true
+        );
+
+        $this->assertCount(2, $riwayat);
+        // Terurut terbaru lebih dahulu
+        $this->assertSame(5001, $riwayat[0]['id_perjalanan']);
+        $this->assertSame('dalam_kota', $riwayat[0]['jenis_perjalanan']);
+        $this->assertSame(3994, $riwayat[1]['id_perjalanan']);
+        $this->assertEqualsWithDelta(0.0, $riwayat[1]['penginapan'], 0.01);
+        $this->assertEqualsWithDelta(2300000.0, $riwayat[1]['penghasilan'], 0.01);
+    }
 }

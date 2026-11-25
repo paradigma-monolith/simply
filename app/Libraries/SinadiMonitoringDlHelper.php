@@ -372,7 +372,8 @@ class SinadiMonitoringDlHelper
         ?array $dukWhitelist = null,
         bool $onlyApproved = true,
         ?array $costComponents = null,
-        bool $includeZeroDuk = false
+        bool $includeZeroDuk = false,
+        bool $includeRiwayat = true
     ): array {
         $sortMode = self::normalizeSort($sort);
         $timFilter = trim($timKerjaFilter);
@@ -466,8 +467,9 @@ class SinadiMonitoringDlHelper
             $effTransport = $incTransport ? $transport : 0.0;
             $effHarian = $incHarian ? $harian : 0.0;
             $effPenginapan = $incPenginapan ? $penginapan : 0.0;
+            $fullRowIncome = $transfer > 0 ? $transfer : ($transport + $harian + $penginapan);
             if ($allComponentsEnabled) {
-                $penghasilan = $transfer > 0 ? $transfer : ($transport + $harian + $penginapan);
+                $penghasilan = $fullRowIncome;
             } else {
                 $penghasilan = $effTransport + $effHarian + $effPenginapan;
             }
@@ -497,6 +499,7 @@ class SinadiMonitoringDlHelper
                     'jabatan'                => $displayJab,
                     'golongan'               => $displayGol,
                     'id_tim_kerja'           => $idTim,
+                    'filter_key'             => $idTim !== '' ? $idTim : 'none',
                     'nama_tim_kerja'         => $namaTim,
                     'jumlah_dl'              => 0,
                     'jumlah_dl_luar_kota'    => 0,
@@ -508,6 +511,14 @@ class SinadiMonitoringDlHelper
                     'total_penghasilan'      => 0.0,
                     'penghasilan_luar_kota'  => 0.0,
                     'penghasilan_dalam_kota' => 0.0,
+                    'lk_transport'           => 0.0,
+                    'lk_harian'              => 0.0,
+                    'lk_penginapan'          => 0.0,
+                    'lk_full'                => 0.0,
+                    'dk_transport'           => 0.0,
+                    'dk_harian'              => 0.0,
+                    'dk_penginapan'          => 0.0,
+                    'dk_full'                => 0.0,
                     'rata_rata_penghasilan'  => 0.0,
                     'dl_terakhir'            => '',
                     'riwayat'                => [],
@@ -550,8 +561,16 @@ class SinadiMonitoringDlHelper
             $allGrouped[$personKey]['total_penghasilan'] += $penghasilan;
             if ($jenisPerjalanan === 'dalam_kota') {
                 $allGrouped[$personKey]['penghasilan_dalam_kota'] += $penghasilan;
+                $allGrouped[$personKey]['dk_transport'] += $transport;
+                $allGrouped[$personKey]['dk_harian'] += $harian;
+                $allGrouped[$personKey]['dk_penginapan'] += $penginapan;
+                $allGrouped[$personKey]['dk_full'] += $fullRowIncome;
             } else {
                 $allGrouped[$personKey]['penghasilan_luar_kota'] += $penghasilan;
+                $allGrouped[$personKey]['lk_transport'] += $transport;
+                $allGrouped[$personKey]['lk_harian'] += $harian;
+                $allGrouped[$personKey]['lk_penginapan'] += $penginapan;
+                $allGrouped[$personKey]['lk_full'] += $fullRowIncome;
             }
 
             $refDate = $tglPulang !== '' ? $tglPulang : $tglPergi;
@@ -559,22 +578,24 @@ class SinadiMonitoringDlHelper
                 $allGrouped[$personKey]['dl_terakhir'] = $refDate;
             }
 
-            $allGrouped[$personKey]['riwayat'][] = [
-                'id_perjalanan'     => $idPerjalanan,
-                'jenis_perjalanan'  => $jenisPerjalanan,
-                'nama_kegiatan'     => trim((string) ($row['nama_kegiatan'] ?? '')),
-                'tempat_perjalanan' => trim((string) ($row['kota'] ?? ($row['tempat_perjalanan'] ?? ''))),
-                'kota_asal'         => trim((string) ($row['kota_asal'] ?? '')),
-                'tgl_pergi'         => $tglPergi,
-                'tgl_pulang'        => $tglPulang,
-                'hari'              => $hari,
-                'transport'         => $effTransport,
-                'harian'            => $effHarian,
-                'penginapan'        => $effPenginapan,
-                'penghasilan'       => $penghasilan,
-                'status_surat'      => trim((string) ($row['status_surat'] ?? '')),
-                'sumber_anggaran'   => trim((string) ($row['sumber_anggaran'] ?? '')),
-            ];
+            if ($includeRiwayat) {
+                $allGrouped[$personKey]['riwayat'][] = [
+                    'id_perjalanan'     => $idPerjalanan,
+                    'jenis_perjalanan'  => $jenisPerjalanan,
+                    'nama_kegiatan'     => trim((string) ($row['nama_kegiatan'] ?? '')),
+                    'tempat_perjalanan' => trim((string) ($row['kota'] ?? ($row['tempat_perjalanan'] ?? ''))),
+                    'kota_asal'         => trim((string) ($row['kota_asal'] ?? '')),
+                    'tgl_pergi'         => $tglPergi,
+                    'tgl_pulang'        => $tglPulang,
+                    'hari'              => $hari,
+                    'transport'         => $effTransport,
+                    'harian'            => $effHarian,
+                    'penginapan'        => $effPenginapan,
+                    'penghasilan'       => $penghasilan,
+                    'status_surat'      => trim((string) ($row['status_surat'] ?? '')),
+                    'sumber_anggaran'   => trim((string) ($row['sumber_anggaran'] ?? '')),
+                ];
+            }
         }
 
         // Lengkapi pegawai DUK yang belum memiliki perjalanan dinas (nilai 0) bila diminta
@@ -608,6 +629,7 @@ class SinadiMonitoringDlHelper
                     'jabatan'                => ($dukEntry['jabatan'] ?? '') !== '' ? (string) $dukEntry['jabatan'] : (string) ($timInfo['jabatan'] ?? ''),
                     'golongan'               => ($dukEntry['golongan'] ?? '') !== '' ? (string) $dukEntry['golongan'] : (string) ($timInfo['golongan'] ?? ''),
                     'id_tim_kerja'           => $idTim,
+                    'filter_key'             => $idTim !== '' ? $idTim : 'none',
                     'nama_tim_kerja'         => $namaTim,
                     'jumlah_dl'              => 0,
                     'jumlah_dl_luar_kota'    => 0,
@@ -619,6 +641,14 @@ class SinadiMonitoringDlHelper
                     'total_penghasilan'      => 0.0,
                     'penghasilan_luar_kota'  => 0.0,
                     'penghasilan_dalam_kota' => 0.0,
+                    'lk_transport'           => 0.0,
+                    'lk_harian'              => 0.0,
+                    'lk_penginapan'          => 0.0,
+                    'lk_full'                => 0.0,
+                    'dk_transport'           => 0.0,
+                    'dk_harian'              => 0.0,
+                    'dk_penginapan'          => 0.0,
+                    'dk_full'                => 0.0,
                     'rata_rata_penghasilan'  => 0.0,
                     'dl_terakhir'            => '',
                     'riwayat'                => [],
@@ -644,6 +674,9 @@ class SinadiMonitoringDlHelper
             'total_penghasilan_dalam_kota' => 0.0,
         ];
 
+        $allRows = [];
+        $uniquePerjalananAll = [];
+        $uniquePerjalananByTim = [];
         $items = [];
         $uniquePerjalananFiltered = [];
         $summary = [
@@ -710,6 +743,27 @@ class SinadiMonitoringDlHelper
             $timKerjaGrandTotal['total_penghasilan_luar_kota'] += (float) $item['penghasilan_luar_kota'];
             $timKerjaGrandTotal['total_penghasilan_dalam_kota'] += (float) $item['penghasilan_dalam_kota'];
 
+            foreach (array_keys($item['_perjalanan_ids']) as $tripId) {
+                $uniquePerjalananAll[$tripId] = true;
+                $uniquePerjalananByTim[$filterKey][$tripId] = true;
+            }
+
+            $perjalananIds = array_keys($item['_perjalanan_ids']);
+            unset($item['_seen_perjalanan'], $item['_perjalanan_ids']);
+
+            $item['rata_rata_penghasilan'] = $item['jumlah_dl'] > 0
+                ? ($item['total_penghasilan'] / $item['jumlah_dl'])
+                : 0.0;
+
+            if ($includeRiwayat && !empty($item['riwayat'])) {
+                usort($item['riwayat'], static function (array $a, array $b): int {
+                    return strcmp($b['tgl_pergi'], $a['tgl_pergi'])
+                        ?: ($b['id_perjalanan'] <=> $a['id_perjalanan']);
+                });
+            }
+
+            $allRows[] = $item;
+
             $matchesTimFilter = true;
             if ($timFilter !== 'all') {
                 if ($timFilter === 'none') {
@@ -723,19 +777,9 @@ class SinadiMonitoringDlHelper
                 continue;
             }
 
-            foreach (array_keys($item['_perjalanan_ids']) as $tripId) {
+            foreach ($perjalananIds as $tripId) {
                 $uniquePerjalananFiltered[$tripId] = true;
             }
-            unset($item['_seen_perjalanan'], $item['_perjalanan_ids']);
-
-            $item['rata_rata_penghasilan'] = $item['jumlah_dl'] > 0
-                ? ($item['total_penghasilan'] / $item['jumlah_dl'])
-                : 0.0;
-
-            usort($item['riwayat'], static function (array $a, array $b): int {
-                return strcmp($b['tgl_pergi'], $a['tgl_pergi'])
-                    ?: ($b['id_perjalanan'] <=> $a['id_perjalanan']);
-            });
 
             $summary['total_pegawai']++;
             $summary['total_penugasan'] += $item['jumlah_dl'];
@@ -750,6 +794,11 @@ class SinadiMonitoringDlHelper
             $summary['total_penghasilan_dalam_kota'] += $item['penghasilan_dalam_kota'];
 
             $items[] = $item;
+        }
+
+        $kegiatanByTim = ['all' => count($uniquePerjalananAll)];
+        foreach ($uniquePerjalananByTim as $fk => $tripSet) {
+            $kegiatanByTim[$fk] = count($tripSet);
         }
 
         $summary['total_dl_kegiatan'] = count($uniquePerjalananFiltered);
@@ -808,12 +857,121 @@ class SinadiMonitoringDlHelper
 
         return [
             'rows'                  => $items,
+            'all_rows'              => $allRows,
             'summary'               => $summary,
             'top_frekuensi'         => $topFrekuensi,
             'top_penghasilan'       => $topPenghasilan,
             'tim_kerja_summary'     => $timKerjaSummary,
             'tim_kerja_grand_total' => $timKerjaGrandTotal,
+            'kegiatan_by_tim'       => $kegiatanByTim,
         ];
+    }
+
+    /**
+     * Mengekstrak rincian riwayat perjalanan dinas milik seorang pegawai (untuk endpoint AJAX lazy-load modal Riwayat).
+     *
+     * @param array<int, array<string, mixed>> $pesertaRows
+     * @return array<int, array<string, mixed>>
+     */
+    public static function extractPersonRiwayat(
+        array $pesertaRows,
+        string $targetNip,
+        string $targetNama = '',
+        ?array $costComponents = null,
+        bool $onlyApproved = true
+    ): array {
+        $normTargetNip = self::normalizeNip($targetNip);
+        $normTargetNama = self::normalizeNameKey($targetNama);
+        $baseTargetNama = self::normalizeBaseName($targetNama);
+
+        if ($normTargetNip === '' && $normTargetNama === '') {
+            return [];
+        }
+
+        $incTransport = $costComponents === null ? true : !empty($costComponents['transport']);
+        $incHarian = $costComponents === null ? true : !empty($costComponents['harian']);
+        $incPenginapan = $costComponents === null ? true : !empty($costComponents['penginapan']);
+        $allComponentsEnabled = $incTransport && $incHarian && $incPenginapan;
+
+        $riwayat = [];
+
+        foreach ($pesertaRows as $row) {
+            $idPerjalanan = (int) ($row['id_perjalanan'] ?? 0);
+            if ($onlyApproved && !self::isIncludedInMonitoring((string) ($row['status_surat'] ?? ''), $idPerjalanan)) {
+                continue;
+            }
+
+            $rowNip = self::normalizeNip((string) ($row['nip_pegawai'] ?? ''));
+            $rowNama = trim((string) ($row['nama_pegawai'] ?? ''));
+            $rowNormNama = self::normalizeNameKey($rowNama);
+            $rowBaseNama = self::normalizeBaseName($rowNama);
+
+            $matched = false;
+            if ($normTargetNip !== '' && $rowNip !== '') {
+                $matched = ($rowNip === $normTargetNip);
+            } elseif ($rowNip === '' || $normTargetNip === '') {
+                if ($normTargetNama !== '' && $rowNormNama === $normTargetNama) {
+                    $matched = true;
+                } elseif ($baseTargetNama !== '' && $rowBaseNama === $baseTargetNama) {
+                    $matched = true;
+                }
+            }
+
+            if (!$matched) {
+                continue;
+            }
+
+            $tglPergi = self::sanitizeYmd((string) ($row['tgl_pergi'] ?? ''));
+            if ($tglPergi === '') {
+                $tglPergi = self::sanitizeYmd((string) ($row['tgl_pelaksanaan'] ?? ''));
+            }
+            $tglPulang = self::sanitizeYmd((string) ($row['tgl_pulang'] ?? ''));
+            if ($tglPulang === '') {
+                $tglPulang = self::sanitizeYmd((string) ($row['tgl_pelaksanaan_akhir'] ?? ''));
+            }
+            if ($tglPulang === '' || ($tglPergi !== '' && $tglPulang < $tglPergi)) {
+                $tglPulang = $tglPergi;
+            }
+
+            $hari = self::calculateDays($tglPergi, $tglPulang);
+            $transport = (float) ($row['transport_jumlah'] ?? 0);
+            $harian = (float) ($row['harian_jumlah'] ?? 0);
+            $penginapan = (float) ($row['penginapan_jumlah'] ?? 0);
+            $transfer = (float) ($row['jumlah_transfer'] ?? 0);
+
+            $effTransport = $incTransport ? $transport : 0.0;
+            $effHarian = $incHarian ? $harian : 0.0;
+            $effPenginapan = $incPenginapan ? $penginapan : 0.0;
+            if ($allComponentsEnabled) {
+                $penghasilan = $transfer > 0 ? $transfer : ($transport + $harian + $penginapan);
+            } else {
+                $penghasilan = $effTransport + $effHarian + $effPenginapan;
+            }
+
+            $riwayat[] = [
+                'id_perjalanan'     => $idPerjalanan,
+                'jenis_perjalanan'  => self::classifyJenisPerjalanan($row),
+                'nama_kegiatan'     => trim((string) ($row['nama_kegiatan'] ?? '')),
+                'tempat_perjalanan' => trim((string) ($row['kota'] ?? ($row['tempat_perjalanan'] ?? ''))),
+                'kota_asal'         => trim((string) ($row['kota_asal'] ?? '')),
+                'tgl_pergi'         => $tglPergi,
+                'tgl_pulang'        => $tglPulang,
+                'hari'              => $hari,
+                'transport'         => $effTransport,
+                'harian'            => $effHarian,
+                'penginapan'        => $effPenginapan,
+                'penghasilan'       => $penghasilan,
+                'status_surat'      => trim((string) ($row['status_surat'] ?? '')),
+                'sumber_anggaran'   => trim((string) ($row['sumber_anggaran'] ?? '')),
+            ];
+        }
+
+        usort($riwayat, static function (array $a, array $b): int {
+            return strcmp($b['tgl_pergi'], $a['tgl_pergi'])
+                ?: ($b['id_perjalanan'] <=> $a['id_perjalanan']);
+        });
+
+        return $riwayat;
     }
 
     private static function compareFrekuensi(array $a, array $b): int

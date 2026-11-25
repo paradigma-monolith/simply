@@ -6,6 +6,8 @@ if (!function_exists('mediumdate_indo')) {
   helper('tanggal');
 }
 $rankingRows = is_array($rankingRows ?? null) ? $rankingRows : [];
+$clientRows = is_array($clientRows ?? null) ? $clientRows : $rankingRows;
+$kegiatanByTim = is_array($kegiatanByTim ?? null) ? $kegiatanByTim : [];
 $summary = is_array($summary ?? null) ? $summary : [];
 $timKerjaList = is_array($timKerjaList ?? null) ? $timKerjaList : [];
 $timKerjaSummary = is_array($timKerjaSummary ?? null) ? $timKerjaSummary : [];
@@ -17,10 +19,49 @@ $endDate = (string) ($endDate ?? date('Y-m-d'));
 $timKerjaFilter = (string) ($timKerjaFilter ?? 'all');
 $selectedTimNama = (string) ($selectedTimNama ?? 'Semua Tim Kerja');
 $canManageAccess = !empty($canManageAccess);
-$costComponents = is_array($costComponents ?? null) ? $costComponents : ['transport' => true, 'harian' => true, 'penginapan' => false];
+$costComponents = is_array($costComponents ?? null) ? $costComponents : ['transport' => true, 'harian' => true, 'penginapan' => true];
 $incTransport = !empty($costComponents['transport']);
 $incHarian = !empty($costComponents['harian']);
 $incPenginapan = !empty($costComponents['penginapan']);
+
+$clientPayload = [];
+foreach ($clientRows as $cr) {
+  $dlLast = (string) ($cr['dl_terakhir'] ?? '');
+  $clientPayload[] = [
+    'nip'                  => (string) ($cr['nip'] ?? ''),
+    'nama'                 => (string) ($cr['nama'] ?? '-'),
+    'jabatan'              => (string) ($cr['jabatan'] ?? ''),
+    'golongan'             => (string) ($cr['golongan'] ?? ''),
+    'id_tim_kerja'         => (string) ($cr['id_tim_kerja'] ?? ''),
+    'filter_key'           => (string) ($cr['filter_key'] ?? (($cr['id_tim_kerja'] ?? '') !== '' ? (string) $cr['id_tim_kerja'] : 'none')),
+    'nama_tim_kerja'       => (string) ($cr['nama_tim_kerja'] ?? 'Tanpa Tim Kerja'),
+    'jumlah_dl'            => (int) ($cr['jumlah_dl'] ?? 0),
+    'jumlah_dl_luar_kota'  => (int) ($cr['jumlah_dl_luar_kota'] ?? 0),
+    'jumlah_dl_dalam_kota' => (int) ($cr['jumlah_dl_dalam_kota'] ?? 0),
+    'total_hari'           => (int) ($cr['total_hari'] ?? 0),
+    'lk_transport'         => (float) ($cr['lk_transport'] ?? 0),
+    'lk_harian'            => (float) ($cr['lk_harian'] ?? 0),
+    'lk_penginapan'        => (float) ($cr['lk_penginapan'] ?? 0),
+    'lk_full'              => (float) ($cr['lk_full'] ?? 0),
+    'dk_transport'         => (float) ($cr['dk_transport'] ?? 0),
+    'dk_harian'            => (float) ($cr['dk_harian'] ?? 0),
+    'dk_penginapan'        => (float) ($cr['dk_penginapan'] ?? 0),
+    'dk_full'              => (float) ($cr['dk_full'] ?? 0),
+    'dl_terakhir'          => $dlLast,
+    'dl_terakhir_label'    => $dlLast !== '' ? mediumdate_indo($dlLast) : '-',
+  ];
+}
+
+$timNamesMap = [
+  'all'  => 'Semua Tim Kerja',
+  'none' => 'Tanpa Tim Kerja',
+];
+foreach ($timKerjaList as $tk) {
+  $tkId = (string) ($tk['id_tim_kerja'] ?? '');
+  if ($tkId !== '') {
+    $timNamesMap[$tkId] = (string) ($tk['nama_tim_kerja'] ?? '');
+  }
+}
 
 $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $timKerjaFilter, $sortMode, $incTransport, $incHarian, $incPenginapan): string {
   $params = array_merge([
@@ -269,7 +310,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           Peringkat penghasilan &amp; frekuensi perjalanan Dinas Luar perorangan &bull;
           Status: <strong>Disetujui (+7 Kegiatan Haji Khusus)</strong> &bull;
           Periode: <strong><?= esc(mediumdate_indo($startDate)); ?></strong> s.d. <strong><?= esc(mediumdate_indo($endDate)); ?></strong> &bull;
-          Tim: <strong><?= esc($selectedTimNama); ?></strong> &bull;
+          Tim: <strong id="mdlHeroTimNama"><?= esc($selectedTimNama); ?></strong> &bull;
           Pegawai: <strong>Sesuai DUK (<?= (int) ($dukTotal ?? 0); ?> Pegawai &bull; <?= esc($dukPeriode ?? 'Keadaan November 2026'); ?>)</strong>
         </p>
       </div>
@@ -282,14 +323,14 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
       <?php endif; ?>
     </div>
 
-    <!-- Filter Card (Aktif Otomatis) -->
+    <!-- Filter Card (Instan di Browser + Auto-Apply Tanggal) -->
     <div class="mdl-card p-3">
       <form method="get" action="/sinadi/perjalananSaya" id="formFilterMonitoringDl">
         <input type="hidden" name="biaya_applied" value="1">
         <div class="d-flex flex-wrap align-items-end" style="gap: 10px;">
           <div style="flex: 1 1 200px; max-width: 250px;">
             <label for="filterTimKerja" class="small font-weight-bold text-muted mb-1">Tim Kerja</label>
-            <select name="tim_kerja" id="filterTimKerja" class="form-control form-control-sm mdl-auto-filter">
+            <select name="tim_kerja" id="filterTimKerja" class="form-control form-control-sm mdl-client-filter">
               <option value="all" <?= $timKerjaFilter === 'all' ? 'selected' : ''; ?>>Semua Tim Kerja</option>
               <?php foreach ($timKerjaList as $tk) : ?>
                 <?php $tkId = (string) ($tk['id_tim_kerja'] ?? ''); ?>
@@ -302,25 +343,25 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           </div>
           <div style="width: 145px;">
             <label for="filterStartDate" class="small font-weight-bold text-muted mb-1">Tanggal Mulai</label>
-            <input type="date" name="start_date" id="filterStartDate" class="form-control form-control-sm mdl-auto-filter" value="<?= esc($startDate, 'attr'); ?>">
+            <input type="date" name="start_date" id="filterStartDate" class="form-control form-control-sm mdl-date-filter" value="<?= esc($startDate, 'attr'); ?>">
           </div>
           <div style="width: 145px;">
             <label for="filterEndDate" class="small font-weight-bold text-muted mb-1">Tanggal Selesai</label>
-            <input type="date" name="end_date" id="filterEndDate" class="form-control form-control-sm mdl-auto-filter" value="<?= esc($endDate, 'attr'); ?>">
+            <input type="date" name="end_date" id="filterEndDate" class="form-control form-control-sm mdl-date-filter" value="<?= esc($endDate, 'attr'); ?>">
           </div>
           <div>
             <label class="small font-weight-bold text-muted mb-1 d-block">Perhitungan Biaya</label>
             <div class="mdl-cost-check-group">
               <label class="mdl-cost-chip">
-                <input type="checkbox" name="inc_transport" value="1" class="mdl-auto-filter" <?= $incTransport ? 'checked' : ''; ?>>
+                <input type="checkbox" name="inc_transport" value="1" class="mdl-client-filter" <?= $incTransport ? 'checked' : ''; ?>>
                 <span>Transport</span>
               </label>
               <label class="mdl-cost-chip">
-                <input type="checkbox" name="inc_harian" value="1" class="mdl-auto-filter" <?= $incHarian ? 'checked' : ''; ?>>
+                <input type="checkbox" name="inc_harian" value="1" class="mdl-client-filter" <?= $incHarian ? 'checked' : ''; ?>>
                 <span>Uang Harian</span>
               </label>
               <label class="mdl-cost-chip">
-                <input type="checkbox" name="inc_penginapan" value="1" class="mdl-auto-filter" <?= $incPenginapan ? 'checked' : ''; ?>>
+                <input type="checkbox" name="inc_penginapan" value="1" class="mdl-client-filter" <?= $incPenginapan ? 'checked' : ''; ?>>
                 <span>Penginapan</span>
               </label>
             </div>
@@ -328,7 +369,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           <div class="ml-xl-auto d-flex flex-wrap align-items-end" style="gap: 8px;">
             <div style="min-width: 180px;">
               <label for="filterSortMode" class="small font-weight-bold text-muted mb-1">Urutkan Peringkat</label>
-              <select name="sort" id="filterSortMode" class="form-control form-control-sm mdl-auto-filter">
+              <select name="sort" id="filterSortMode" class="form-control form-control-sm mdl-client-filter">
                 <option value="penghasilan" <?= $sortMode === 'penghasilan' ? 'selected' : ''; ?>>Penghasilan Terbanyak</option>
                 <option value="frekuensi" <?= $sortMode === 'frekuensi' ? 'selected' : ''; ?>>Paling Sering DL</option>
               </select>
@@ -346,42 +387,46 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
       <div class="col-xl-3 col-sm-6 mb-2 mb-xl-0">
         <div class="mdl-stat-card accent-teal">
           <div class="mdl-stat-label"><i class="fas fa-coins text-teal mr-1"></i> #1 Penghasilan Terbanyak</div>
-          <?php if (!empty($topPenghasilan)) : ?>
-            <div class="mdl-stat-value"><?= esc($topPenghasilan['nama']); ?></div>
-            <div class="mdl-stat-sub">
-              <strong>Rp <?= number_format((float) $topPenghasilan['total_penghasilan'], 0, ',', '.'); ?></strong><br>
-              Frekuensi: <strong><?= (int) $topPenghasilan['jumlah_dl']; ?> kali DL</strong> (<?= (int) $topPenghasilan['total_hari']; ?> hari)<br>
-              <span class="badge badge-light border mt-1"><?= esc($topPenghasilan['nama_tim_kerja']); ?></span>
-            </div>
-          <?php else : ?>
-            <div class="mdl-stat-value text-muted">-</div>
-            <div class="mdl-stat-sub">Belum ada data DL pada filter ini.</div>
-          <?php endif; ?>
+          <div id="mdlKpiTopIncomeBody">
+            <?php if (!empty($topPenghasilan)) : ?>
+              <div class="mdl-stat-value"><?= esc($topPenghasilan['nama']); ?></div>
+              <div class="mdl-stat-sub">
+                <strong>Rp <?= number_format((float) $topPenghasilan['total_penghasilan'], 0, ',', '.'); ?></strong><br>
+                Frekuensi: <strong><?= (int) $topPenghasilan['jumlah_dl']; ?> kali DL</strong> (<?= (int) $topPenghasilan['total_hari']; ?> hari)<br>
+                <span class="badge badge-light border mt-1"><?= esc($topPenghasilan['nama_tim_kerja']); ?></span>
+              </div>
+            <?php else : ?>
+              <div class="mdl-stat-value text-muted">-</div>
+              <div class="mdl-stat-sub">Belum ada data DL pada filter ini.</div>
+            <?php endif; ?>
+          </div>
         </div>
       </div>
 
       <div class="col-xl-3 col-sm-6 mb-2 mb-xl-0">
         <div class="mdl-stat-card accent-gold">
           <div class="mdl-stat-label"><i class="fas fa-trophy text-warning mr-1"></i> #1 Paling Sering DL</div>
-          <?php if (!empty($topFrekuensi)) : ?>
-            <div class="mdl-stat-value"><?= esc($topFrekuensi['nama']); ?></div>
-            <div class="mdl-stat-sub">
-              <strong><?= (int) $topFrekuensi['jumlah_dl']; ?> kali DL</strong> (<?= (int) $topFrekuensi['total_hari']; ?> hari)<br>
-              Penghasilan: <strong>Rp <?= number_format((float) $topFrekuensi['total_penghasilan'], 0, ',', '.'); ?></strong><br>
-              <span class="badge badge-light border mt-1"><?= esc($topFrekuensi['nama_tim_kerja']); ?></span>
-            </div>
-          <?php else : ?>
-            <div class="mdl-stat-value text-muted">-</div>
-            <div class="mdl-stat-sub">Belum ada data DL pada filter ini.</div>
-          <?php endif; ?>
+          <div id="mdlKpiTopFreqBody">
+            <?php if (!empty($topFrekuensi)) : ?>
+              <div class="mdl-stat-value"><?= esc($topFrekuensi['nama']); ?></div>
+              <div class="mdl-stat-sub">
+                <strong><?= (int) $topFrekuensi['jumlah_dl']; ?> kali DL</strong> (<?= (int) $topFrekuensi['total_hari']; ?> hari)<br>
+                Penghasilan: <strong>Rp <?= number_format((float) $topFrekuensi['total_penghasilan'], 0, ',', '.'); ?></strong><br>
+                <span class="badge badge-light border mt-1"><?= esc($topFrekuensi['nama_tim_kerja']); ?></span>
+              </div>
+            <?php else : ?>
+              <div class="mdl-stat-value text-muted">-</div>
+              <div class="mdl-stat-sub">Belum ada data DL pada filter ini.</div>
+            <?php endif; ?>
+          </div>
         </div>
       </div>
 
       <div class="col-xl-3 col-sm-6 mb-2 mb-sm-0">
         <div class="mdl-stat-card accent-indigo">
           <div class="mdl-stat-label"><i class="fas fa-users text-indigo mr-1"></i> Total Pegawai &amp; Frekuensi</div>
-          <div class="mdl-stat-value"><?= number_format((int) ($summary['total_pegawai'] ?? 0), 0, ',', '.'); ?> / <?= number_format((int) ($dukTotal ?? 0), 0, ',', '.'); ?> DUK</div>
-          <div class="mdl-stat-sub">
+          <div class="mdl-stat-value" id="mdlKpiTotalPegawaiVal"><?= number_format((int) ($summary['total_pegawai'] ?? 0), 0, ',', '.'); ?> / <?= number_format((int) ($dukTotal ?? 0), 0, ',', '.'); ?> DUK</div>
+          <div class="mdl-stat-sub" id="mdlKpiTotalPegawaiSub">
             Penugasan: <strong><?= number_format((int) ($summary['total_penugasan'] ?? 0), 0, ',', '.'); ?>x</strong>
             (LK: <strong><?= number_format((int) ($summary['total_penugasan_luar_kota'] ?? 0), 0, ',', '.'); ?></strong> &bull;
             DK: <strong><?= number_format((int) ($summary['total_penugasan_dalam_kota'] ?? 0), 0, ',', '.'); ?></strong>)<br>
@@ -393,8 +438,8 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
       <div class="col-xl-3 col-sm-6">
         <div class="mdl-stat-card accent-emerald">
           <div class="mdl-stat-label"><i class="fas fa-wallet text-success mr-1"></i> Total Akumulasi Penghasilan DL</div>
-          <div class="mdl-stat-value">Rp <?= number_format((float) ($summary['total_penghasilan'] ?? 0), 0, ',', '.'); ?></div>
-          <div class="mdl-stat-sub">
+          <div class="mdl-stat-value" id="mdlKpiTotalIncomeVal">Rp <?= number_format((float) ($summary['total_penghasilan'] ?? 0), 0, ',', '.'); ?></div>
+          <div class="mdl-stat-sub" id="mdlKpiTotalIncomeSub">
             Luar Kota: <strong>Rp <?= number_format((float) ($summary['total_penghasilan_luar_kota'] ?? 0), 0, ',', '.'); ?></strong><br>
             Dalam Kota: <strong>Rp <?= number_format((float) ($summary['total_penghasilan_dalam_kota'] ?? 0), 0, ',', '.'); ?></strong><br>
             <span class="text-muted">T: Rp <?= number_format((float) ($summary['total_transport'] ?? 0), 0, ',', '.'); ?> &bull; H: Rp <?= number_format((float) ($summary['total_harian'] ?? 0), 0, ',', '.'); ?> &bull; P: Rp <?= number_format((float) ($summary['total_penginapan'] ?? 0), 0, ',', '.'); ?></span>
@@ -420,14 +465,12 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           </small>
         </div>
         <div class="d-flex flex-wrap align-items-center ml-auto" style="gap: 6px;">
-          <span class="badge badge-light border px-2 py-1">
+          <span class="badge badge-light border px-2 py-1" id="mdlTimSummaryBadge">
             <?= count($timKerjaSummary); ?> Tim &bull; Rp <?= number_format((float) ($timKerjaGrandTotal['total_penghasilan'] ?? 0), 0, ',', '.'); ?>
           </span>
-          <?php if ($timKerjaFilter !== 'all') : ?>
-            <a href="<?= esc($buildQueryUrl(['tim_kerja' => 'all']), 'attr'); ?>" onclick="event.stopPropagation();" class="btn btn-xs btn-outline-teal font-weight-bold" style="border-color: #0d9488; color: #0d9488;">
-              <i class="fas fa-layer-group mr-1"></i> Tampilkan Semua Tim
-            </a>
-          <?php endif; ?>
+          <a href="<?= esc($buildQueryUrl(['tim_kerja' => 'all']), 'attr'); ?>" id="btnResetTimKerja" onclick="event.stopPropagation();" class="btn btn-xs btn-outline-teal font-weight-bold mdl-reset-tim-btn <?= $timKerjaFilter === 'all' ? 'd-none' : ''; ?>" style="border-color: #0d9488; color: #0d9488;">
+            <i class="fas fa-layer-group mr-1"></i> Tampilkan Semua Tim
+          </a>
           <button type="button" class="btn btn-xs btn-outline-secondary">
             <span>Rincian Tim</span>
             <i class="fas fa-chevron-down ml-1 mdl-collapse-chevron"></i>
@@ -450,16 +493,17 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
                     <th class="text-center" style="min-width: 120px;">Porsi</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody id="mdlTimSummaryBody">
                   <?php foreach ($timKerjaSummary as $tkIdx => $tkRow) :
-                    $isActiveTim = ($timKerjaFilter === (string) ($tkRow['filter_key'] ?? ''));
+                    $fk = (string) ($tkRow['filter_key'] ?? 'all');
+                    $isActiveTim = ($timKerjaFilter === $fk);
                     $porsi = (float) ($tkRow['persentase'] ?? 0);
                     $barWidth = max(0.0, min(100.0, $porsi));
                   ?>
                     <tr class="<?= $isActiveTim ? 'table-info' : ''; ?>">
                       <td class="text-center font-weight-bold"><?= $tkIdx + 1; ?></td>
                       <td>
-                        <a href="<?= esc($buildQueryUrl(['tim_kerja' => (string) ($tkRow['filter_key'] ?? 'all')]), 'attr'); ?>" class="font-weight-bold text-dark">
+                        <a href="<?= esc($buildQueryUrl(['tim_kerja' => $fk]), 'attr'); ?>" data-tim="<?= esc($fk, 'attr'); ?>" class="font-weight-bold text-dark mdl-tim-filter-link">
                           <?= esc($tkRow['nama_tim_kerja'] ?? 'Tanpa Tim Kerja'); ?>
                         </a>
                         <?php if ($isActiveTim) : ?>
@@ -500,7 +544,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
                     </tr>
                   <?php endforeach; ?>
                 </tbody>
-                <tfoot style="background: #f1f5f9;">
+                <tfoot id="mdlTimSummaryFoot" style="background: #f1f5f9;">
                   <tr class="font-weight-bold">
                     <td colspan="2" class="text-right">Total Keseluruhan</td>
                     <td class="text-center"><?= number_format((int) ($timKerjaGrandTotal['total_pegawai'] ?? 0), 0, ',', '.'); ?> Orang</td>
@@ -543,15 +587,15 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           <h5 class="mb-0 font-weight-bold" style="font-size: 0.98rem;">
             Peringkat Dinas Luar Perorangan
           </h5>
-          <small class="text-muted">
+          <small class="text-muted" id="mdlSortSubtitle">
             Diurutkan mulai nomor 1 berdasarkan <?= $sortMode === 'penghasilan' ? 'total penghasilan terbanyak' : 'frekuensi Dinas Luar terbanyak'; ?>.
           </small>
         </div>
         <div class="mdl-sort-pills ml-auto">
-          <a href="<?= esc($buildQueryUrl(['sort' => 'penghasilan']), 'attr'); ?>" class="mdl-sort-pill <?= $sortMode === 'penghasilan' ? 'active' : ''; ?>">
+          <a href="<?= esc($buildQueryUrl(['sort' => 'penghasilan']), 'attr'); ?>" data-sort="penghasilan" class="mdl-sort-pill <?= $sortMode === 'penghasilan' ? 'active' : ''; ?>">
             <i class="fas fa-money-bill-wave mr-1"></i> #1 Penghasilan Terbanyak
           </a>
-          <a href="<?= esc($buildQueryUrl(['sort' => 'frekuensi']), 'attr'); ?>" class="mdl-sort-pill <?= $sortMode === 'frekuensi' ? 'active' : ''; ?>">
+          <a href="<?= esc($buildQueryUrl(['sort' => 'frekuensi']), 'attr'); ?>" data-sort="frekuensi" class="mdl-sort-pill <?= $sortMode === 'frekuensi' ? 'active' : ''; ?>">
             <i class="fas fa-sort-amount-down mr-1"></i> #1 Paling Sering DL
           </a>
         </div>
@@ -630,7 +674,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
                     </div>
                   </td>
                   <td class="text-center">
-                    <button type="button" class="btn btn-xs btn-outline-info btn-riwayat-dl" data-row-index="<?= (int) $idx; ?>">
+                    <button type="button" class="btn btn-xs btn-outline-info btn-riwayat-dl" data-nip="<?= esc($row['nip'], 'attr'); ?>">
                       <i class="fas fa-list-ul mr-1"></i> Riwayat
                     </button>
                   </td>
@@ -755,11 +799,22 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
 
 <script>
   $(function() {
-    var monitoringRows = <?= json_encode($rankingRows, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
+    var allClientRows = <?= json_encode($clientPayload, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
+    var kegiatanByTim = <?= json_encode($kegiatanByTim, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
+    var timNamesMap = <?= json_encode($timNamesMap, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
+    var dukTotalCount = <?= (int) ($dukTotal ?? 0); ?>;
+    var currentComputedByNip = {};
+    var riwayatCache = {};
+    var dtTable = null;
 
     function formatRupiah(val) {
       var num = Math.round(Number(val) || 0);
       return 'Rp ' + num.toLocaleString('id-ID');
+    }
+
+    function formatAngka(val) {
+      var num = Math.round(Number(val) || 0);
+      return num.toLocaleString('id-ID');
     }
 
     function escapeHtml(str) {
@@ -771,20 +826,407 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
         .replace(/'/g, '&#39;');
     }
 
+    function getCostFlags() {
+      return {
+        transport: $('input[name="inc_transport"]').prop('checked'),
+        harian: $('input[name="inc_harian"]').prop('checked'),
+        penginapan: $('input[name="inc_penginapan"]').prop('checked')
+      };
+    }
+
+    function computePersonStats(raw, cost) {
+      var allEnabled = cost.transport && cost.harian && cost.penginapan;
+      var t = cost.transport ? (Number(raw.lk_transport || 0) + Number(raw.dk_transport || 0)) : 0;
+      var h = cost.harian ? (Number(raw.lk_harian || 0) + Number(raw.dk_harian || 0)) : 0;
+      var p = cost.penginapan ? (Number(raw.lk_penginapan || 0) + Number(raw.dk_penginapan || 0)) : 0;
+      var incLk = allEnabled
+        ? Number(raw.lk_full || 0)
+        : ((cost.transport ? Number(raw.lk_transport || 0) : 0) + (cost.harian ? Number(raw.lk_harian || 0) : 0) + (cost.penginapan ? Number(raw.lk_penginapan || 0) : 0));
+      var incDk = allEnabled
+        ? Number(raw.dk_full || 0)
+        : ((cost.transport ? Number(raw.dk_transport || 0) : 0) + (cost.harian ? Number(raw.dk_harian || 0) : 0) + (cost.penginapan ? Number(raw.dk_penginapan || 0) : 0));
+      var totalInc = incLk + incDk;
+      var jmlDl = Number(raw.jumlah_dl || 0);
+
+      return {
+        nip: raw.nip || '',
+        nama: raw.nama || '-',
+        jabatan: raw.jabatan || '',
+        golongan: raw.golongan || '',
+        id_tim_kerja: raw.id_tim_kerja || '',
+        filter_key: raw.filter_key || 'none',
+        nama_tim_kerja: raw.nama_tim_kerja || 'Tanpa Tim Kerja',
+        jumlah_dl: jmlDl,
+        jumlah_dl_luar_kota: Number(raw.jumlah_dl_luar_kota || 0),
+        jumlah_dl_dalam_kota: Number(raw.jumlah_dl_dalam_kota || 0),
+        total_hari: Number(raw.total_hari || 0),
+        total_transport: t,
+        total_harian: h,
+        total_penginapan: p,
+        penghasilan_luar_kota: incLk,
+        penghasilan_dalam_kota: incDk,
+        total_penghasilan: totalInc,
+        rata_rata_penghasilan: jmlDl > 0 ? (totalInc / jmlDl) : 0,
+        dl_terakhir: raw.dl_terakhir || '',
+        dl_terakhir_label: raw.dl_terakhir_label || '-'
+      };
+    }
+
+    function comparePenghasilan(a, b) {
+      return (b.total_penghasilan - a.total_penghasilan) ||
+        (b.jumlah_dl - a.jumlah_dl) ||
+        (b.total_hari - a.total_hari) ||
+        String(a.nama).localeCompare(String(b.nama), 'id', { sensitivity: 'base' });
+    }
+
+    function compareFrekuensi(a, b) {
+      return (b.jumlah_dl - a.jumlah_dl) ||
+        (b.total_penghasilan - a.total_penghasilan) ||
+        (b.total_hari - a.total_hari) ||
+        String(a.nama).localeCompare(String(b.nama), 'id', { sensitivity: 'base' });
+    }
+
+    function renderKpiTopIncome(top) {
+      if (!top) {
+        return '<div class="mdl-stat-value text-muted">-</div><div class="mdl-stat-sub">Belum ada data DL pada filter ini.</div>';
+      }
+      return '<div class="mdl-stat-value">' + escapeHtml(top.nama) + '</div>' +
+        '<div class="mdl-stat-sub">' +
+        '<strong>' + formatRupiah(top.total_penghasilan) + '</strong><br>' +
+        'Frekuensi: <strong>' + top.jumlah_dl + ' kali DL</strong> (' + top.total_hari + ' hari)<br>' +
+        '<span class="badge badge-light border mt-1">' + escapeHtml(top.nama_tim_kerja) + '</span>' +
+        '</div>';
+    }
+
+    function renderKpiTopFreq(top) {
+      if (!top) {
+        return '<div class="mdl-stat-value text-muted">-</div><div class="mdl-stat-sub">Belum ada data DL pada filter ini.</div>';
+      }
+      return '<div class="mdl-stat-value">' + escapeHtml(top.nama) + '</div>' +
+        '<div class="mdl-stat-sub">' +
+        '<strong>' + top.jumlah_dl + ' kali DL</strong> (' + top.total_hari + ' hari)<br>' +
+        'Penghasilan: <strong>' + formatRupiah(top.total_penghasilan) + '</strong><br>' +
+        '<span class="badge badge-light border mt-1">' + escapeHtml(top.nama_tim_kerja) + '</span>' +
+        '</div>';
+    }
+
+    function applyClientFilter() {
+      var timFilter = String($('#filterTimKerja').val() || 'all');
+      var sortMode = String($('#filterSortMode').val() || 'penghasilan') === 'frekuensi' ? 'frekuensi' : 'penghasilan';
+      var cost = getCostFlags();
+
+      var allComputed = [];
+      currentComputedByNip = {};
+      var buckets = {};
+      var grand = {
+        total_pegawai: 0,
+        total_penugasan: 0,
+        total_hari: 0,
+        total_transport: 0,
+        total_harian: 0,
+        total_penginapan: 0,
+        total_penghasilan: 0,
+        total_penghasilan_luar_kota: 0,
+        total_penghasilan_dalam_kota: 0
+      };
+
+      for (var i = 0; i < allClientRows.length; i++) {
+        var item = computePersonStats(allClientRows[i], cost);
+        allComputed.push(item);
+        if (item.nip) {
+          currentComputedByNip[item.nip] = item;
+        }
+
+        var fk = item.filter_key || 'none';
+        if (!buckets[fk]) {
+          buckets[fk] = {
+            filter_key: fk,
+            nama_tim_kerja: item.nama_tim_kerja,
+            total_pegawai: 0,
+            total_penugasan: 0,
+            total_penugasan_luar_kota: 0,
+            total_penugasan_dalam_kota: 0,
+            total_hari: 0,
+            total_transport: 0,
+            total_harian: 0,
+            total_penginapan: 0,
+            total_penghasilan: 0,
+            total_penghasilan_luar_kota: 0,
+            total_penghasilan_dalam_kota: 0
+          };
+        }
+        buckets[fk].total_pegawai++;
+        buckets[fk].total_penugasan += item.jumlah_dl;
+        buckets[fk].total_penugasan_luar_kota += item.jumlah_dl_luar_kota;
+        buckets[fk].total_penugasan_dalam_kota += item.jumlah_dl_dalam_kota;
+        buckets[fk].total_hari += item.total_hari;
+        buckets[fk].total_transport += item.total_transport;
+        buckets[fk].total_harian += item.total_harian;
+        buckets[fk].total_penginapan += item.total_penginapan;
+        buckets[fk].total_penghasilan += item.total_penghasilan;
+        buckets[fk].total_penghasilan_luar_kota += item.penghasilan_luar_kota;
+        buckets[fk].total_penghasilan_dalam_kota += item.penghasilan_dalam_kota;
+
+        grand.total_pegawai++;
+        grand.total_penugasan += item.jumlah_dl;
+        grand.total_hari += item.total_hari;
+        grand.total_transport += item.total_transport;
+        grand.total_harian += item.total_harian;
+        grand.total_penginapan += item.total_penginapan;
+        grand.total_penghasilan += item.total_penghasilan;
+        grand.total_penghasilan_luar_kota += item.penghasilan_luar_kota;
+        grand.total_penghasilan_dalam_kota += item.penghasilan_dalam_kota;
+      }
+
+      // Render tabel ringkasan Tim Kerja
+      var timList = Object.keys(buckets).map(function(k) { return buckets[k]; });
+      timList.sort(function(a, b) {
+        return (b.total_penghasilan - a.total_penghasilan) ||
+          (b.total_penugasan - a.total_penugasan) ||
+          (b.total_pegawai - a.total_pegawai) ||
+          String(a.nama_tim_kerja).localeCompare(String(b.nama_tim_kerja), 'id', { sensitivity: 'base' });
+      });
+
+      $('#mdlTimSummaryBadge').html(timList.length + ' Tim &bull; ' + formatRupiah(grand.total_penghasilan));
+      $('#btnResetTimKerja').toggleClass('d-none', timFilter === 'all');
+
+      var tkBodyHtml = '';
+      for (var t = 0; t < timList.length; t++) {
+        var tkRow = timList[t];
+        var isActive = (timFilter === tkRow.filter_key);
+        var porsi = grand.total_penghasilan > 0 ? Math.round((tkRow.total_penghasilan / grand.total_penghasilan) * 1000) / 10 : 0;
+        var barWidth = Math.max(0, Math.min(100, porsi));
+        tkBodyHtml += '<tr class="' + (isActive ? 'table-info' : '') + '">' +
+          '<td class="text-center font-weight-bold">' + (t + 1) + '</td>' +
+          '<td>' +
+          '<a href="javascript:void(0)" data-tim="' + escapeHtml(tkRow.filter_key) + '" class="font-weight-bold text-dark mdl-tim-filter-link">' + escapeHtml(tkRow.nama_tim_kerja) + '</a>' +
+          (isActive ? ' <span class="badge badge-teal ml-1" style="background: #0d9488; color: #fff;">Aktif</span>' : '') +
+          '</td>' +
+          '<td class="text-center">' + formatAngka(tkRow.total_pegawai) + ' Orang</td>' +
+          '<td class="text-center"><strong>' + formatAngka(tkRow.total_penugasan) + ' kali</strong> <span class="text-muted">&bull; ' + formatAngka(tkRow.total_hari) + ' hr</span>' +
+          '<div class="small text-muted">LK: ' + formatAngka(tkRow.total_penugasan_luar_kota) + ' &bull; DK: ' + formatAngka(tkRow.total_penugasan_dalam_kota) + '</div></td>' +
+          '<td class="text-right small text-muted">Transport: ' + formatRupiah(tkRow.total_transport) + ' &bull; Harian: ' + formatRupiah(tkRow.total_harian) + ' &bull; Inap: ' + formatRupiah(tkRow.total_penginapan) + '</td>' +
+          '<td class="text-right text-nowrap"><div class="font-weight-bold text-success">' + formatRupiah(tkRow.total_penghasilan) + '</div>' +
+          '<div class="small text-muted">LK: ' + formatRupiah(tkRow.total_penghasilan_luar_kota) + ' &bull; DK: ' + formatRupiah(tkRow.total_penghasilan_dalam_kota) + '</div></td>' +
+          '<td class="text-center align-middle"><div class="d-flex align-items-center" style="gap: 6px;">' +
+          '<div class="progress flex-fill mb-0" style="height: 7px; background: #e2e8f0;">' +
+          '<div class="progress-bar bg-teal" role="progressbar" style="width: ' + barWidth + '%; background-color: #0d9488 !important;"></div></div>' +
+          '<span class="small font-weight-bold text-dark" style="min-width: 42px; text-align: right;">' + porsi.toFixed(1).replace('.', ',') + '%</span></div></td>' +
+          '</tr>';
+      }
+      $('#mdlTimSummaryBody').html(tkBodyHtml);
+
+      var tkFootHtml = '<tr class="font-weight-bold">' +
+        '<td colspan="2" class="text-right">Total Keseluruhan</td>' +
+        '<td class="text-center">' + formatAngka(grand.total_pegawai) + ' Orang</td>' +
+        '<td class="text-center">' + formatAngka(grand.total_penugasan) + ' kali &bull; ' + formatAngka(grand.total_hari) + ' hr</td>' +
+        '<td class="text-right small">Transport: ' + formatRupiah(grand.total_transport) + ' &bull; Harian: ' + formatRupiah(grand.total_harian) + ' &bull; Inap: ' + formatRupiah(grand.total_penginapan) + '</td>' +
+        '<td class="text-right text-nowrap"><div class="text-success">' + formatRupiah(grand.total_penghasilan) + '</div>' +
+        '<div class="small text-muted font-weight-normal">LK: ' + formatRupiah(grand.total_penghasilan_luar_kota) + ' &bull; DK: ' + formatRupiah(grand.total_penghasilan_dalam_kota) + '</div></td>' +
+        '<td class="text-center">100,0%</td></tr>';
+      $('#mdlTimSummaryFoot').html(tkFootHtml);
+
+      // Filter pegawai berdasarkan Tim Kerja & urutkan
+      var filtered = allComputed.filter(function(r) {
+        if (timFilter === 'all') return true;
+        if (timFilter === 'none') return !r.id_tim_kerja;
+        return r.filter_key === timFilter;
+      });
+
+      var summary = {
+        total_pegawai: filtered.length,
+        total_penugasan: 0,
+        total_penugasan_luar_kota: 0,
+        total_penugasan_dalam_kota: 0,
+        total_hari: 0,
+        total_transport: 0,
+        total_harian: 0,
+        total_penginapan: 0,
+        total_penghasilan: 0,
+        total_penghasilan_luar_kota: 0,
+        total_penghasilan_dalam_kota: 0,
+        total_dl_kegiatan: Number(kegiatanByTim[timFilter] || 0)
+      };
+
+      var topInc = null;
+      var topFreq = null;
+      for (var f = 0; f < filtered.length; f++) {
+        var row = filtered[f];
+        summary.total_penugasan += row.jumlah_dl;
+        summary.total_penugasan_luar_kota += row.jumlah_dl_luar_kota;
+        summary.total_penugasan_dalam_kota += row.jumlah_dl_dalam_kota;
+        summary.total_hari += row.total_hari;
+        summary.total_transport += row.total_transport;
+        summary.total_harian += row.total_harian;
+        summary.total_penginapan += row.total_penginapan;
+        summary.total_penghasilan += row.total_penghasilan;
+        summary.total_penghasilan_luar_kota += row.penghasilan_luar_kota;
+        summary.total_penghasilan_dalam_kota += row.penghasilan_dalam_kota;
+        if (!topInc || comparePenghasilan(row, topInc) < 0) topInc = row;
+        if (!topFreq || compareFrekuensi(row, topFreq) < 0) topFreq = row;
+      }
+
+      filtered.sort(sortMode === 'frekuensi' ? compareFrekuensi : comparePenghasilan);
+
+      // Update Hero, KPI Cards, & Header Tabel
+      $('#mdlHeroTimNama').text(timNamesMap[timFilter] || $('#filterTimKerja option:selected').text() || 'Semua Tim Kerja');
+      $('#mdlKpiTopIncomeBody').html(renderKpiTopIncome(topInc));
+      $('#mdlKpiTopFreqBody').html(renderKpiTopFreq(topFreq));
+      $('#mdlKpiTotalPegawaiVal').text(formatAngka(summary.total_pegawai) + ' / ' + formatAngka(dukTotalCount) + ' DUK');
+      $('#mdlKpiTotalPegawaiSub').html(
+        'Penugasan: <strong>' + formatAngka(summary.total_penugasan) + 'x</strong> ' +
+        '(LK: <strong>' + formatAngka(summary.total_penugasan_luar_kota) + '</strong> &bull; DK: <strong>' + formatAngka(summary.total_penugasan_dalam_kota) + '</strong>)<br>' +
+        'Kegiatan: <strong>' + formatAngka(summary.total_dl_kegiatan) + '</strong> &bull; ' + formatAngka(summary.total_hari) + ' hari'
+      );
+      $('#mdlKpiTotalIncomeVal').text(formatRupiah(summary.total_penghasilan));
+      $('#mdlKpiTotalIncomeSub').html(
+        'Luar Kota: <strong>' + formatRupiah(summary.total_penghasilan_luar_kota) + '</strong><br>' +
+        'Dalam Kota: <strong>' + formatRupiah(summary.total_penghasilan_dalam_kota) + '</strong><br>' +
+        '<span class="text-muted">T: ' + formatRupiah(summary.total_transport) + ' &bull; H: ' + formatRupiah(summary.total_harian) + ' &bull; P: ' + formatRupiah(summary.total_penginapan) + '</span>'
+      );
+
+      $('#mdlSortSubtitle').text(
+        'Diurutkan mulai nomor 1 berdasarkan ' + (sortMode === 'penghasilan' ? 'total penghasilan terbanyak' : 'frekuensi Dinas Luar terbanyak') + '.'
+      );
+      $('.mdl-sort-pill').removeClass('active');
+      $('.mdl-sort-pill[data-sort="' + sortMode + '"]').addClass('active');
+
+      // Rebuild DataTable rows secara instan di browser
+      if (dtTable) {
+        var trNodes = [];
+        for (var idx = 0; idx < filtered.length; idx++) {
+          var r = filtered[idx];
+          var rank = idx + 1;
+          var rankClass = rank === 1 ? 'mdl-rank-1' : (rank === 2 ? 'mdl-rank-2' : (rank === 3 ? 'mdl-rank-3' : 'mdl-rank-other'));
+          var crownHtml = rank === 1 ? '<i class="fas fa-crown mr-1"></i> ' : '';
+          var metaJab = (r.jabatan || r.golongan)
+            ? '<br>' + escapeHtml(r.jabatan || '-') + (r.golongan ? (' (' + escapeHtml(r.golongan) + ')') : '')
+            : '';
+
+          var rowHtml = '<tr>' +
+            '<td class="text-center" data-order="' + rank + '"><span class="mdl-rank-badge ' + rankClass + '">' + crownHtml + '#' + rank + '</span></td>' +
+            '<td><div class="font-weight-bold text-dark">' + escapeHtml(r.nama) + '</div>' +
+            '<div class="small text-muted">' + (r.nip ? 'NIP. ' + escapeHtml(r.nip) : '-') + metaJab + '</div></td>' +
+            '<td><span class="badge badge-light border px-2 py-1" style="font-size: 0.76rem;">' + escapeHtml(r.nama_tim_kerja) + '</span></td>' +
+            '<td class="text-center" data-order="' + r.jumlah_dl + '"><div class="font-weight-bold text-dark" style="font-size: 0.92rem;">' + r.jumlah_dl + ' Kali</div>' +
+            '<div class="small text-muted">' + r.total_hari + ' Hari</div>' +
+            '<div class="small text-muted" style="font-size: 0.72rem;">LK: ' + r.jumlah_dl_luar_kota + ' &bull; DK: ' + r.jumlah_dl_dalam_kota + '</div></td>' +
+            '<td class="text-right small"><div>Transport: <strong>' + formatRupiah(r.total_transport) + '</strong></div>' +
+            '<div>Uang Harian: <strong>' + formatRupiah(r.total_harian) + '</strong></div>' +
+            '<div>Penginapan: <strong>' + formatRupiah(r.total_penginapan) + '</strong></div></td>' +
+            '<td class="text-right" data-order="' + r.total_penghasilan + '"><div class="font-weight-bold text-success" style="font-size: 0.92rem;">' + formatRupiah(r.total_penghasilan) + '</div>' +
+            '<div class="small text-muted" style="font-size: 0.72rem; line-height: 1.25;">Luar Kota: <strong>' + formatRupiah(r.penghasilan_luar_kota) + '</strong><br>Dalam Kota: <strong>' + formatRupiah(r.penghasilan_dalam_kota) + '</strong></div></td>' +
+            '<td class="text-right small" data-order="' + r.rata_rata_penghasilan + '"><div><strong>' + formatRupiah(r.rata_rata_penghasilan) + '</strong></div>' +
+            '<div class="text-muted">Terakhir: ' + escapeHtml(r.dl_terakhir_label) + '</div></td>' +
+            '<td class="text-center"><button type="button" class="btn btn-xs btn-outline-info btn-riwayat-dl" data-nip="' + escapeHtml(r.nip) + '"><i class="fas fa-list-ul mr-1"></i> Riwayat</button></td>' +
+            '</tr>';
+
+          var tr = $($.parseHTML(rowHtml)[0]);
+          trNodes.push(tr[0]);
+        }
+
+        dtTable.clear();
+        if (trNodes.length > 0) {
+          dtTable.rows.add(trNodes);
+        }
+        dtTable.order([]).draw();
+      }
+
+      if (window.history && window.history.replaceState) {
+        var params = new URLSearchParams({
+          start_date: String($('#filterStartDate').val() || ''),
+          end_date: String($('#filterEndDate').val() || ''),
+          tim_kerja: timFilter,
+          sort: sortMode,
+          biaya_applied: '1',
+          inc_transport: cost.transport ? '1' : '0',
+          inc_harian: cost.harian ? '1' : '0',
+          inc_penginapan: cost.penginapan ? '1' : '0'
+        });
+        window.history.replaceState(null, '', window.location.pathname + '?' + params.toString());
+      }
+    }
+
+    function renderRiwayatRows(riwayat) {
+      if (!Array.isArray(riwayat) || riwayat.length === 0) {
+        return '<tr><td colspan="10" class="text-center text-muted py-3">Tidak ada rincian perjalanan pada filter ini.</td></tr>';
+      }
+      var tbody = '';
+      riwayat.forEach(function(r, i) {
+        var tglLabel = r.tgl_pergi || '-';
+        if (r.tgl_pulang && r.tgl_pulang !== r.tgl_pergi) {
+          tglLabel += ' s.d. ' + r.tgl_pulang;
+        }
+        var jenisBadge = r.jenis_perjalanan === 'dalam_kota'
+          ? '<span class="badge badge-secondary ml-1">Dalam Kota</span>'
+          : '<span class="badge badge-info ml-1">Luar Kota</span>';
+        var statusLower = String(r.status_surat || '').toLowerCase();
+        var statusBadge = statusLower === 'disetujui'
+          ? '<span class="badge badge-success">Disetujui</span>'
+          : '<span class="badge badge-info" title="Masuk perhitungan khusus Monitoring Perjalanan Dinas">' + escapeHtml(r.status_surat || '-') + ' (Dihitung)</span>';
+        tbody += '<tr>' +
+          '<td class="text-center">' + (i + 1) + '</td>' +
+          '<td class="text-nowrap">' + escapeHtml(tglLabel) + '</td>' +
+          '<td>' + escapeHtml(r.nama_kegiatan || '-') + ' ' + jenisBadge + '</td>' +
+          '<td>' + escapeHtml(r.tempat_perjalanan || '-') + '</td>' +
+          '<td class="text-center">' + (r.hari || 1) + ' hr</td>' +
+          '<td class="text-right">' + formatRupiah(r.transport) + '</td>' +
+          '<td class="text-right">' + formatRupiah(r.harian) + '</td>' +
+          '<td class="text-right">' + formatRupiah(r.penginapan) + '</td>' +
+          '<td class="text-right font-weight-bold text-success">' + formatRupiah(r.penghasilan) + '</td>' +
+          '<td class="text-center">' + statusBadge + '</td>' +
+          '</tr>';
+      });
+      return tbody;
+    }
+
+    // Inisialisasi peta pegawai by NIP untuk lookup modal Riwayat pada load awal
+    var initCost = getCostFlags();
+    for (var k = 0; k < allClientRows.length; k++) {
+      var cItem = computePersonStats(allClientRows[k], initCost);
+      if (cItem.nip) {
+        currentComputedByNip[cItem.nip] = cItem;
+      }
+    }
+
     $('#modalRiwayatDl, #modalAksesMonitoringDl').appendTo('body');
 
-    $(document).on('change', '.mdl-auto-filter', function() {
+    $(document).on('change', '.mdl-date-filter', function() {
       var form = document.getElementById('formFilterMonitoringDl');
       if (!form) return;
-      if (this.type === 'date' && this.value && !/^\d{4}-\d{2}-\d{2}$/.test(this.value)) {
+      if (this.value && !/^\d{4}-\d{2}-\d{2}$/.test(this.value)) {
         return;
       }
       $('#overlay').show();
       form.submit();
     });
 
+    $(document).on('change', '.mdl-client-filter', function() {
+      applyClientFilter();
+    });
+
+    $(document).on('click', '.mdl-sort-pill', function(e) {
+      e.preventDefault();
+      var targetSort = String($(this).data('sort') || 'penghasilan');
+      $('#filterSortMode').val(targetSort);
+      applyClientFilter();
+    });
+
+    $(document).on('click', '.mdl-tim-filter-link', function(e) {
+      e.preventDefault();
+      var targetTim = String($(this).data('tim') || 'all');
+      $('#filterTimKerja').val(targetTim);
+      applyClientFilter();
+    });
+
+    $(document).on('click', '.mdl-reset-tim-btn', function(e) {
+      e.preventDefault();
+      $('#filterTimKerja').val('all');
+      applyClientFilter();
+    });
+
     if ($.fn.DataTable) {
-      $('#tableMonitoringDl').DataTable({
+      dtTable = $('#tableMonitoringDl').DataTable({
         responsive: true,
         autoWidth: false,
         order: [],
@@ -830,8 +1272,8 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     }
 
     $(document).on('click', '.btn-riwayat-dl', function() {
-      var idx = parseInt($(this).data('row-index'), 10);
-      var item = monitoringRows[idx];
+      var nip = String($(this).data('nip') || '');
+      var item = currentComputedByNip[nip];
       if (!item) return;
 
       $('#modalRiwayatDlLabel').html('<i class="fas fa-route mr-1"></i> Riwayat DL &mdash; ' + escapeHtml(item.nama));
@@ -843,40 +1285,40 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
         'Total Penghasilan: <strong class="text-success">' + formatRupiah(item.total_penghasilan) + '</strong>'
       );
 
-      var tbody = '';
-      var riwayat = Array.isArray(item.riwayat) ? item.riwayat : [];
-      if (riwayat.length === 0) {
-        tbody = '<tr><td colspan="10" class="text-center text-muted">Tidak ada rincian perjalanan.</td></tr>';
-      } else {
-        riwayat.forEach(function(r, i) {
-          var tglLabel = r.tgl_pergi || '-';
-          if (r.tgl_pulang && r.tgl_pulang !== r.tgl_pergi) {
-            tglLabel += ' s.d. ' + r.tgl_pulang;
-          }
-          var jenisBadge = r.jenis_perjalanan === 'dalam_kota' ?
-            '<span class="badge badge-secondary ml-1">Dalam Kota</span>' :
-            '<span class="badge badge-info ml-1">Luar Kota</span>';
-          var statusLower = String(r.status_surat || '').toLowerCase();
-          var statusBadge = statusLower === 'disetujui' ?
-            '<span class="badge badge-success">Disetujui</span>' :
-            '<span class="badge badge-info" title="Masuk perhitungan khusus Monitoring Perjalanan Dinas">' + escapeHtml(r.status_surat || '-') + ' (Dihitung)</span>';
-          tbody += '<tr>' +
-            '<td class="text-center">' + (i + 1) + '</td>' +
-            '<td class="text-nowrap">' + escapeHtml(tglLabel) + '</td>' +
-            '<td>' + escapeHtml(r.nama_kegiatan || '-') + ' ' + jenisBadge + '</td>' +
-            '<td>' + escapeHtml(r.tempat_perjalanan || '-') + '</td>' +
-            '<td class="text-center">' + (r.hari || 1) + ' hr</td>' +
-            '<td class="text-right">' + formatRupiah(r.transport) + '</td>' +
-            '<td class="text-right">' + formatRupiah(r.harian) + '</td>' +
-            '<td class="text-right">' + formatRupiah(r.penginapan) + '</td>' +
-            '<td class="text-right font-weight-bold text-success">' + formatRupiah(r.penghasilan) + '</td>' +
-            '<td class="text-center">' + statusBadge + '</td>' +
-            '</tr>';
-        });
+      $('#modalRiwayatDl').modal('show');
+
+      if (item.jumlah_dl === 0) {
+        $('#riwayatDlTableBody').html('<tr><td colspan="10" class="text-center text-muted py-3">Belum ada riwayat perjalanan dinas pada periode ini.</td></tr>');
+        return;
       }
 
-      $('#riwayatDlTableBody').html(tbody);
-      $('#modalRiwayatDl').modal('show');
+      var cost = getCostFlags();
+      var startVal = String($('#filterStartDate').val() || '');
+      var endVal = String($('#filterEndDate').val() || '');
+      var cacheKey = [nip, startVal, endVal, cost.transport ? 1 : 0, cost.harian ? 1 : 0, cost.penginapan ? 1 : 0].join('|');
+
+      if (riwayatCache[cacheKey]) {
+        $('#riwayatDlTableBody').html(renderRiwayatRows(riwayatCache[cacheKey]));
+        return;
+      }
+
+      $('#riwayatDlTableBody').html('<tr><td colspan="10" class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin mr-1"></i> Memuat rincian riwayat...</td></tr>');
+
+      $.getJSON('/sinadi/monitoringRiwayat', {
+        nip: nip,
+        start_date: startVal,
+        end_date: endVal,
+        biaya_applied: '1',
+        inc_transport: cost.transport ? '1' : '0',
+        inc_harian: cost.harian ? '1' : '0',
+        inc_penginapan: cost.penginapan ? '1' : '0'
+      }).done(function(res) {
+        var rows = (res && Array.isArray(res.riwayat)) ? res.riwayat : [];
+        riwayatCache[cacheKey] = rows;
+        $('#riwayatDlTableBody').html(renderRiwayatRows(rows));
+      }).fail(function() {
+        $('#riwayatDlTableBody').html('<tr><td colspan="10" class="text-center text-danger py-3">Gagal memuat rincian riwayat perjalanan dinas.</td></tr>');
+      });
     });
 
     $('#searchUserAksesDl').on('input keyup', function() {

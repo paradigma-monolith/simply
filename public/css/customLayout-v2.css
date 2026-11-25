@@ -471,7 +471,11 @@
 
 /* Sidebar Search Form */
 .sidebar-search-wrap {
-  padding: 0 8px 6px;
+  padding: 0 8px 2px;
+}
+
+.sidebar-search-wrap:not(.sidebar-search-open) .sidebar-search-results {
+  display: none !important;
 }
 
 .sidebar-search-wrap .input-group {
@@ -544,7 +548,12 @@
   letter-spacing: 0.9px;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.56) !important;
-  padding: 12px 14px 4px !important;
+  padding: 8px 14px 3px !important;
+}
+
+.nav-sidebar > .nav-header:first-child {
+  padding-top: 2px !important;
+  margin-top: 0 !important;
 }
 
 .nav-sidebar .nav-item > .nav-link {

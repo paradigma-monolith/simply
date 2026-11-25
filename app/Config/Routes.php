@@ -363,6 +363,7 @@ $routes->get('/sinadi/sppd/(:num)', 'Export\Pdf::sinadi_sppd/$1');
 $routes->get('/sinadi/getPeserta/(:num)', 'Sinadi\Ajax::getPeserta/$1');
 $routes->get('/sinadi/perjalananSaya', 'Sinadi\Data::perjalananSaya');
 $routes->get('/sinadi/monitoringDinasLuar', 'Sinadi\Data::perjalananSaya');
+$routes->get('/sinadi/monitoringRiwayat', 'Sinadi\Data::monitoringRiwayat');
 $routes->get('/sinadi/dinasLuarKota', 'Sinadi\Data::dinasLuarKota');
 $routes->get('/sinadi/dinasDalamKota', 'Sinadi\Data::dinasDalamKota');
 $routes->delete('/sinadi/dlt_sinadi/(:num)', 'Sinadi\Crud::hapusSinadi/$1');

@@ -701,7 +701,8 @@ class Data extends BaseController
       $dukWhitelist,
       true,
       $costComponents,
-      true
+      true,
+      false
     );
 
     $timKerjaList = $db->table('tim_kerja')
@@ -766,9 +767,110 @@ class Data extends BaseController
       'costComponents'     => $costComponents,
       'timKerjaSummary'    => $aggregated['tim_kerja_summary'] ?? [],
       'timKerjaGrandTotal' => $aggregated['tim_kerja_grand_total'] ?? [],
+      'clientRows'         => $aggregated['all_rows'] ?? [],
+      'kegiatanByTim'      => $aggregated['kegiatan_by_tim'] ?? [],
     ];
 
     return view('sinadi/sinadi_perjalanan_saya', $data);
+  }
+
+  /**
+   * Endpoint AJAX lazy-load rincian riwayat perjalanan dinas seorang pegawai pada modal Riwayat.
+   */
+  public function monitoringRiwayat()
+  {
+    $role = (string) session()->get('role');
+    $username = (string) session()->get('username');
+
+    $aksesRow = null;
+    if ($username !== '') {
+      $aksesRow = $this->userModel
+        ->select('user.id_user, sinadi_akses.status, sinadi_akses.akses_tim, sinadi_akses.akses_monitoring_dl')
+        ->join('sinadi_akses', 'sinadi_akses.id_user = user.id_user', 'LEFT')
+        ->where('user.username', $username)
+        ->first();
+    }
+
+    if (!\App\Libraries\SinadiMonitoringDlHelper::canAccess($username, is_array($aksesRow) ? $aksesRow : null)) {
+      return $this->response->setStatusCode(403)->setJSON([
+        'status'  => 'error',
+        'message' => 'Akses ditolak.',
+      ]);
+    }
+
+    $rawNip = (string) ($this->request->getGet('nip') ?? '');
+    $normNip = preg_replace('/\D+/', '', trim($rawNip)) ?? '';
+    if ($normNip === '') {
+      return $this->response->setJSON([
+        'status'  => 'ok',
+        'riwayat' => [],
+      ]);
+    }
+
+    $dateRange = \App\Libraries\SinadiMonitoringDlHelper::resolveDateRange(
+      (string) $this->request->getGet('start_date'),
+      (string) $this->request->getGet('end_date')
+    );
+    $costComponents = \App\Libraries\SinadiMonitoringDlHelper::resolveCostComponents(
+      (array) ($this->request->getGet() ?? [])
+    );
+
+    $dukWhitelist = \App\Libraries\SinadiMonitoringDlHelper::buildDukWhitelist(
+      \App\Libraries\SinadiMonitoringDlHelper::loadDukRows()
+    );
+    $targetNama = (string) ($dukWhitelist['by_nip'][$normNip]['nama'] ?? '');
+
+    // Ambil kata pertama nama non-gelar untuk mencocokkan baris peserta yang NIP-nya kosong/'-'
+    $cleanNama = preg_replace('/^(?:(?:prof|drg|dr|ns|apt|hj|h)\.?\s+)+/i', '', trim($targetNama)) ?? '';
+    $firstToken = '';
+    if ($cleanNama !== '') {
+      $parts = preg_split('/[\s,]+/', $cleanNama);
+      $candidate = trim((string) ($parts[0] ?? ''));
+      if (strlen($candidate) >= 3) {
+        $firstToken = strtolower($candidate);
+      }
+    }
+
+    $db = \Config\Database::connect();
+    $builder = $db->table('sinadi_perjalanan_dinas_peserta AS p')
+      ->select(
+        'p.id_peserta, p.id_perjalanan, p.nip_pegawai, p.nama_pegawai, '
+        . 'p.tgl_pergi, p.tgl_pulang, p.kota, p.kota_asal, '
+        . 'p.transport_jumlah, p.harian_jumlah, p.penginapan_jumlah, p.jumlah_transfer, '
+        . 'd.nama_kegiatan, d.jenis_perjalanan_dinas, d.tgl_pelaksanaan, d.tgl_pelaksanaan_akhir, d.tempat_perjalanan, d.status_surat, d.sumber_anggaran'
+      )
+      ->join('sinadi_perjalanan_dinas AS d', 'd.id_perjalanan = p.id_perjalanan')
+      ->groupStart()
+        ->where("LOWER(TRIM(COALESCE(d.status_surat, '')))", 'disetujui')
+        ->orWhereIn('d.id_perjalanan', \App\Libraries\SinadiMonitoringDlHelper::INCLUDED_PERJALANAN_IDS)
+      ->groupEnd()
+      ->where('d.tgl_pelaksanaan >=', $dateRange['start'])
+      ->where('d.tgl_pelaksanaan <=', $dateRange['end'])
+      ->groupStart()
+        ->where("REPLACE(REPLACE(TRIM(COALESCE(p.nip_pegawai, '')), ' ', ''), '-', '') =", $normNip);
+
+    if ($firstToken !== '') {
+      $builder->orGroupStart()
+        ->whereIn("TRIM(COALESCE(p.nip_pegawai, ''))", ['', '-'])
+        ->like('LOWER(p.nama_pegawai)', $firstToken)
+      ->groupEnd();
+    }
+    $builder->groupEnd();
+
+    $pesertaRows = $builder->get()->getResultArray();
+
+    $riwayat = \App\Libraries\SinadiMonitoringDlHelper::extractPersonRiwayat(
+      $pesertaRows,
+      $normNip,
+      $targetNama,
+      $costComponents,
+      true
+    );
+
+    return $this->response->setJSON([
+      'status'  => 'ok',
+      'riwayat' => $riwayat,
+    ]);
   }
   public function pengaturan()
   {

@@ -2,7 +2,7 @@
 $accessMenu = (array) (session()->get('accessMenu') ?? []);
 $activeMenu = $activeMenu ?? '';
 ?>
-<nav class="mt-2">
+<nav class="mt-0">
   <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent text-sm" data-widget="treeview" role="menu" data-accordion="false">
     <!-- Add icons to the links using the .nav-icon class
             with font-awesome or any other icon font library -->
