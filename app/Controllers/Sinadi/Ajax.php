@@ -85,6 +85,9 @@ class Ajax extends BaseController
   public function getNotaDinas()
   {
     if ($this->request->isAJAX()) {
+      if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+      }
       $data['id_peserta'] = $this->request->getVar("id");
       $data['file'] = $this->request->getVar("file");
 
@@ -98,6 +101,9 @@ class Ajax extends BaseController
   
     public function getPerjalananDinas()
     {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         header("Access-Control-Allow-Origin: *");
         header("Access-Control-Allow-Methods: GET, OPTIONS");
         header("Access-Control-Allow-Headers: Content-Type");
@@ -301,6 +307,9 @@ class Ajax extends BaseController
   public function notaDinasData()
   {
     $username = session()->get('username');
+    if (session_status() === PHP_SESSION_ACTIVE) {
+      session_write_close();
+    }
     if (empty($username)) {
       return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
     }

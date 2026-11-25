@@ -543,6 +543,9 @@ class Home extends BaseController
     public function getSipedit($periode, $bulan)
     {
         if ($this->request->isAJAX()) {
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
             $tahunIni = $periode;
             if ($periode == "all") {
                 $tahunIni = "Semua Periode";
@@ -988,6 +991,9 @@ class Home extends BaseController
     public function getListDataCuti($year)
     {
         if ($this->request->isAJAX()) {
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
 
             $data['penolakan'] = $this->cutiDataCutiModel
                 ->select("count(*) as penolakan")
@@ -1164,6 +1170,9 @@ class Home extends BaseController
     public function getRelaxtimeDetail($bulan)
     {
         if ($this->request->isAJAX()) {
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
             $year = date('Y');
             $data['getSetting'] = $this->relaxtimeSettingModel->first();
             $data['nomorBulan'] = $bulan;
@@ -1266,9 +1275,13 @@ class Home extends BaseController
     public function getSinadi()
     {
         if ($this->request->isAJAX()) {
+            $username = (string) session()->get('username');
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
             $akses = $this->userModel
                 ->join('sinadi_akses', 'sinadi_akses.id_user=user.id_user')
-                ->where("user.username", session()->get('username'))
+                ->where("user.username", $username)
                 ->first();
             $data['akses'] = false;
             if ($akses && $akses['status'] == 'Akses Diterima') {
@@ -1320,6 +1333,9 @@ class Home extends BaseController
     public function getDataSinadi()
     {
         if ($this->request->isAJAX()) {
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
             $msg = [];
             $tanggal = trim((string) $this->request->getVar("tanggal"));
             if ($tanggal !== '') {

@@ -348,22 +348,65 @@ function callAllUser() {
 
 var __notifInFlight = false;
 var __notifLastFetchedAt = 0;
+var NOTIF_CACHE_KEY = 'simply_notif_cache_v1';
+var NOTIF_CACHE_TTL_MS = 60000;
+
+function renderNotifPayload(response) {
+  if (response && response.data !== undefined) {
+    $('.notifikasi-pesan-sistem-number').text(response.number || '');
+    $('.notifikasi-pesan-sistem').html(response.data);
+  }
+}
+
+function readNotifCache() {
+  try {
+    var raw = localStorage.getItem(NOTIF_CACHE_KEY);
+    if (!raw) return null;
+    var parsed = JSON.parse(raw);
+    if (!parsed || !parsed.ts || (Date.now() - parsed.ts) > NOTIF_CACHE_TTL_MS) {
+      return null;
+    }
+    return parsed.payload || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function writeNotifCache(payload) {
+  try {
+    localStorage.setItem(NOTIF_CACHE_KEY, JSON.stringify({ ts: Date.now(), payload: payload }));
+  } catch (e) {}
+}
+
+function clearNotifCache() {
+  try {
+    localStorage.removeItem(NOTIF_CACHE_KEY);
+  } catch (e) {}
+}
 
 $(document).ready(function () {
-  getNotifikasi();
+  getNotifikasi(false);
   setInterval(function () {
     if (!document.hidden) {
-      getNotifikasi();
+      getNotifikasi(false);
     }
   }, 90000);
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden && (Date.now() - __notifLastFetchedAt) >= 30000) {
-      getNotifikasi();
+      getNotifikasi(false);
     }
   });
 });
 
-function getNotifikasi() {
+function getNotifikasi(force) {
+  if (!force) {
+    var cached = readNotifCache();
+    if (cached) {
+      renderNotifPayload(cached);
+      __notifLastFetchedAt = Date.now();
+      return;
+    }
+  }
   if (__notifInFlight) return;
   __notifInFlight = true;
   __notifLastFetchedAt = Date.now();
@@ -372,9 +415,9 @@ function getNotifikasi() {
     method: 'get',
     dataType: 'json',
     success: function(response) {
+      renderNotifPayload(response);
       if (response && response.data !== undefined) {
-        $('.notifikasi-pesan-sistem-number').text(response.number || '');
-        $('.notifikasi-pesan-sistem').html(response.data);
+        writeNotifCache(response);
       }
     },
     complete: function() {
@@ -394,7 +437,8 @@ $(document).on('submit', '.form-notifikasi-dibaca', function(e){
     success: function(response) {
       if (response.data) {
         form.closest('.form-notifikasi-dibaca').remove(); // Menghapus elemen form dan parentnya
-        getNotifikasi()
+        clearNotifCache();
+        getNotifikasi(true);
       }
     },
   });
@@ -422,7 +466,8 @@ $(document).ready(function() {
       success: function(response) {
         if (response.data) {
           button.removeAttr('style');
-          getNotifikasi()
+          clearNotifCache();
+          getNotifikasi(true);
         }
       },
     });

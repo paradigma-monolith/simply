@@ -1,12 +1,49 @@
-<?php if ($getDataTargetBulanan) :
-  $arrayTargetBulanan = unserialize($getDataTargetBulanan['uraian']);
-endif; ?>
 <?php
-foreach ($getData515253 as $data) :
+$arrayTargetBulanan = [];
+for ($m = 1; $m <= 12; $m++) {
+  foreach (['51', '52', '53'] as $kd) {
+    $arrayTargetBulanan['bulan' . $m . $kd] = 0;
+  }
+}
+if (!empty($getDataTargetBulanan['uraian'])) {
+  $parsedTarget = @unserialize($getDataTargetBulanan['uraian'], ['allowed_classes' => false]);
+  if (is_array($parsedTarget)) {
+    foreach ($parsedTarget as $k => $v) {
+      $arrayTargetBulanan[$k] = (float) $v;
+    }
+  }
+}
+if (!is_array($getDataTargetBulanan)) {
+  $getDataTargetBulanan = [];
+}
+for ($m = 1; $m <= 12; $m++) {
+  $keyBulan = 'bulan' . $m;
+  if (!isset($getDataTargetBulanan[$keyBulan])) {
+    $getDataTargetBulanan[$keyBulan] = $arrayTargetBulanan[$keyBulan . '51'] + $arrayTargetBulanan[$keyBulan . '52'] + $arrayTargetBulanan[$keyBulan . '53'];
+  }
+}
+if (!is_array($getSetting)) {
+  $getSetting = [];
+}
+$batasNilaiBawah = (float) ($getSetting['batas_nilai_bawah'] ?? 0);
+$batasNilaiAtas = (float) ($getSetting['batas_nilai_atas'] ?? 100);
+$getSetting['batas_nilai_bawah'] = $batasNilaiBawah;
+$getSetting['batas_nilai_atas'] = $batasNilaiAtas;
+
+$realisasiByBulan = [];
+foreach (($getDataBulanan ?? []) as $rowBln) {
+  $bNum = (int) ($rowBln['bulan'] ?? 0);
+  if ($bNum >= 1 && $bNum <= 12) {
+    $realisasiByBulan[$bNum] = (float) ($rowBln['jmlRealisasi'] ?? 0);
+  }
+}
+?>
+<?php
+foreach (($getData515253 ?? []) as $data) :
   ${"kode" . $data['kode_prefix']} = $data['total_nominal'];
 endforeach;
 $sisaTarget = [];
-foreach ($getDataRealisasiBulanan as $data) :
+foreach (($getDataRealisasiBulanan ?? []) as $data) :
   ${"kodeRealisasi" . $data['kode_prefix'] . 'bulan' . $data['bulan']} = $data['total_nominal'];
 
   if (isset($sisaTarget[$data['bulan']])) {
@@ -18,7 +55,7 @@ foreach ($getDataRealisasiBulanan as $data) :
 endforeach;
 ?>
 <?php
-$bulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'Nombember', 'Desember'];
+$bulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 ?>
 <div class="container-fluid">
   <div class="container-fluid">
@@ -155,7 +192,7 @@ $bulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agust
                       <th>Total</th>
                       <th colspan="3" class="text-right">Rp <?= number_format($jmlRencanaBulanan, '2', '.', ','); ?></th>
                       <th colspan="3" class="text-right">Rp <?= number_format($jmlRealisasiBulanan, '2', '.', ','); ?></th>
-                      <th colspan="3" class="text-right"><?= number_format(($jmlRealisasiBulanan / $jmlRencanaBulanan) * 100, '2', '.', ','); ?><sup>%</sup></th>
+                      <th colspan="3" class="text-right"><?= number_format($jmlRencanaBulanan > 0 ? ($jmlRealisasiBulanan / $jmlRencanaBulanan) * 100 : 0, '2', '.', ','); ?><sup>%</sup></th>
                     </tr>
                   </tfoot>
                 </table>
@@ -194,19 +231,33 @@ $bulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agust
         <div class="card-body">
           <div class="row">
             <?php for ($i = 0; $i < count($bulan); $i++) : ?>
-              <?php if (isset($getDataBulanan[$i]['bulan']) == ($i + 1)) : ?>
+              <?php
+              $blnNum = $i + 1;
+              $targetBulan = (float) ($getDataTargetBulanan['bulan' . $blnNum] ?? 0);
+              $realBulan = (float) ($realisasiByBulan[$blnNum] ?? 0);
+              ?>
+              <?php if (isset($realisasiByBulan[$blnNum]) && $targetBulan > 0) : ?>
+                <?php
+                $persenBulan = ($realBulan / $targetBulan) * 100;
+                $boxClass = ($persenBulan >= $batasNilaiBawah && $persenBulan <= $batasNilaiAtas)
+                  ? 'bg-success'
+                  : ($persenBulan > $batasNilaiAtas ? 'bg-danger' : 'bg-light');
+                $footerTextClass = ($persenBulan >= $batasNilaiBawah && $persenBulan <= $batasNilaiAtas)
+                  ? 'text-light'
+                  : ($persenBulan > $batasNilaiAtas ? 'text-light' : 'text-danger');
+                ?>
                 <div class="col-lg-4 col-6">
                   <!-- small box -->
-                  <div class="small-box <?= (($getDataBulanan[$i]['jmlRealisasi'] / $getDataTargetBulanan['bulan' . ($i + 1)]) * 100) >= $getSetting['batas_nilai_bawah'] && (($getDataBulanan[$i]['jmlRealisasi'] / $getDataTargetBulanan['bulan' . ($i + 1)]) * 100) <= $getSetting['batas_nilai_atas'] ? "bg-success" : ((($getDataBulanan[$i]['jmlRealisasi'] / $getDataTargetBulanan['bulan' . ($i + 1)]) * 100) > $getSetting['batas_nilai_atas'] ? 'bg-danger' : 'bg-light'); ?>">
+                  <div class="small-box <?= $boxClass; ?>">
                     <div class="inner">
-                      <h3><span><?= number_format(($getDataBulanan[$i]['jmlRealisasi'] / $getDataTargetBulanan['bulan' . ($i + 1)]) * 100, 2, ".", ","); ?></span><sup style="font-size: 20px">%</sup></h3>
+                      <h3><span><?= number_format($persenBulan, 2, ".", ","); ?></span><sup style="font-size: 20px">%</sup></h3>
 
                       <p><?= $bulan[$i]; ?></p>
                     </div>
                     <div class="icon">
                       <i class="ion ion-stats-bars"></i>
                     </div>
-                    <button onclick="getDataRealisasiDashboard(<?= ($i + 1); ?>)" data-bulanan="<?= $getDataTargetBulanan['bulan' . ($i + 1)]; ?>" data-realisasi="<?= $getDataBulanan[$i]['jmlRealisasi']; ?>" class="btn btn-block btn-sm small-box-footer <?= (($getDataBulanan[$i]['jmlRealisasi'] / $getDataTargetBulanan['bulan' . ($i + 1)]) * 100) >= $getSetting['batas_nilai_bawah'] && (($getDataBulanan[$i]['jmlRealisasi'] / $getDataTargetBulanan['bulan' . ($i + 1)]) * 100) <= $getSetting['batas_nilai_atas'] ? "text-light" : ((($getDataBulanan[$i]['jmlRealisasi'] / $getDataTargetBulanan['bulan' . ($i + 1)]) * 100) > $getSetting['batas_nilai_atas'] ? 'text-light' : 'text-danger'); ?>">Detail info <i class="fas fa-arrow-circle-right"></i></button>
+                    <button onclick="getDataRealisasiDashboard(<?= $blnNum; ?>)" data-bulanan="<?= $targetBulan; ?>" data-realisasi="<?= $realBulan; ?>" class="btn btn-block btn-sm small-box-footer <?= $footerTextClass; ?>">Detail info <i class="fas fa-arrow-circle-right"></i></button>
                   </div>
                 </div>
               <?php else : ?>
@@ -214,14 +265,14 @@ $bulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agust
                   <!-- small box -->
                   <div class="small-box bg-light">
                     <div class="inner">
-                      <h3><span><?= number_format("0", 2, ".", ","); ?></span><sup style="font-size: 20px">%</sup></h3>
+                      <h3><span><?= number_format(0, 2, ".", ","); ?></span><sup style="font-size: 20px">%</sup></h3>
 
                       <p><?= $bulan[$i]; ?></p>
                     </div>
                     <div class="icon">
                       <i class="ion ion-stats-bars"></i>
                     </div>
-                    <button onclick="getDataRealisasiDashboard(<?= ($i + 1); ?>)" data-bulanan="<?= $getDataTargetBulanan['bulan' . ($i + 1)]; ?>" data-realisasi="0" class="btn btn-block btn-sm text-dark small-box-footer">Detail info <i class="fas fa-arrow-circle-right"></i></button>
+                    <button onclick="getDataRealisasiDashboard(<?= $blnNum; ?>)" data-bulanan="<?= $targetBulan; ?>" data-realisasi="<?= $realBulan; ?>" class="btn btn-block btn-sm text-dark small-box-footer">Detail info <i class="fas fa-arrow-circle-right"></i></button>
                   </div>
                 </div>
               <?php endif; ?>

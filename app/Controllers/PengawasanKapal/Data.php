@@ -817,6 +817,9 @@ class Data extends BaseController
   public function data_monitoring_sanitasi_kapal()
   {
     if ($this->request->isAJAX()) {
+      if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+      }
       $filters = [];
       
       // Handle dateRange parameter from JavaScript
@@ -849,6 +852,9 @@ class Data extends BaseController
   public function get_wilker_options()
   {
     if ($this->request->isAJAX()) {
+      if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+      }
       $wilkerOptions = $this->monitoringSanitasiKapalModel->getUnitKerjaOptions();
       
       return $this->response->setJSON([
@@ -864,12 +870,17 @@ class Data extends BaseController
   {
     if ($this->request->isAJAX()) {
       $userId = session()->get('id_user');
-      
+      $sessionNama = session()->get('nama');
+      $sessionUsername = session()->get('username');
+      if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+      }
+
       // Debug: log session data
       log_message('debug', 'Session data: ' . json_encode([
-        'id_user' => session()->get('id_user'),
-        'nama' => session()->get('nama'),
-        'username' => session()->get('username')
+        'id_user' => $userId,
+        'nama' => $sessionNama,
+        'username' => $sessionUsername
       ]));
       
       if ($userId) {
