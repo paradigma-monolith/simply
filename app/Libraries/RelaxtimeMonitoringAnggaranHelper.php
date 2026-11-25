@@ -469,6 +469,63 @@ class RelaxtimeMonitoringAnggaranHelper
     }
 
     /**
+     * Hitung deviasi sesuai aturan Deviasi Halaman III DIPA (PER-5/PB/2024 - IKPA Kemenkeu).
+     *
+     * - Deviasi mutlak = |Realisasi - RPD| / RPD * 100%, dibatasi maksimal 100%.
+     * - Jika RPD = 0 dan Realisasi > 0 -> deviasi 100%; jika keduanya 0 -> 0%.
+     * - Ambang batas toleransi optimal <= 5% -> Nilai Kinerja 100.
+     * - Jika > 5% -> selisih kelebihannya menjadi pengurang Nilai Kinerja.
+     *
+     * @return array<string, mixed>
+     */
+    public static function calculateDeviasiDipa(int $rencana, int $realisasi): array
+    {
+        $selisih = $realisasi - $rencana;
+        $deviasiNominal = abs($selisih);
+
+        if ($rencana > 0) {
+            $deviasiPersen = min(100.0, round(($deviasiNominal / $rencana) * 100, 2));
+        } elseif ($realisasi > 0) {
+            $deviasiPersen = 100.0;
+        } else {
+            $deviasiPersen = 0.0;
+        }
+
+        $memenuhiAmbang = $deviasiPersen <= 5.0;
+        $nilaiKinerja = $memenuhiAmbang ? 100.0 : max(0.0, round(100.0 - $deviasiPersen, 2));
+
+        if ($deviasiPersen <= 5.0) {
+            $status = 'optimal';
+        } elseif ($deviasiPersen <= 15.0) {
+            $status = 'waspada';
+        } else {
+            $status = 'tinggi';
+        }
+
+        if ($selisih > 0) {
+            $arah = 'over';
+            $statusLabel = $memenuhiAmbang ? 'Optimal (≤5%)' : 'Over RPD (>5%)';
+        } elseif ($selisih < 0) {
+            $arah = 'under';
+            $statusLabel = $memenuhiAmbang ? 'Optimal (≤5%)' : 'Under RPD (>5%)';
+        } else {
+            $arah = 'tepat';
+            $statusLabel = 'Optimal (≤5%)';
+        }
+
+        return [
+            'selisih' => $selisih,
+            'deviasi_nominal' => $deviasiNominal,
+            'deviasi_persen' => $deviasiPersen,
+            'nilai_kinerja' => $nilaiKinerja,
+            'memenuhi_ambang' => $memenuhiAmbang,
+            'status' => $status,
+            'arah' => $arah,
+            'status_label' => $statusLabel,
+        ];
+    }
+
+    /**
      * Bangun agregasi statistik untuk Dashboard & Export Ringkasan.
      */
     public static function buildDashboardStats(array $rows): array
@@ -477,6 +534,8 @@ class RelaxtimeMonitoringAnggaranHelper
         $totalRealisasi = 0;
         $terealisasiCount = 0;
         $overBudgetCount = 0;
+        $deviasiOptimalCount = 0;
+        $deviasiMelebihiAmbangCount = 0;
 
         $byAkun = [];
         foreach (self::AKUN_LABELS as $code => $label) {
@@ -489,6 +548,11 @@ class RelaxtimeMonitoringAnggaranHelper
                 'deviasi' => 0,
                 'persen' => 0.0,
                 'persen_deviasi' => 0.0,
+                'deviasi_dipa_persen' => 0.0,
+                'nilai_deviasi_dipa' => 100.0,
+                'deviasi_dipa_status' => 'optimal',
+                'deviasi_dipa_label' => 'Optimal (≤5%)',
+                'memenuhi_ambang' => true,
                 'count' => 0,
             ];
         }
@@ -520,6 +584,12 @@ class RelaxtimeMonitoringAnggaranHelper
             if ($rencana > 0 && $realisasi > $rencana) {
                 $overBudgetCount++;
             }
+            $rowDipa = self::calculateDeviasiDipa($rencana, $realisasi);
+            if ($rowDipa['memenuhi_ambang']) {
+                $deviasiOptimalCount++;
+            } else {
+                $deviasiMelebihiAmbangCount++;
+            }
 
             if (!isset($byAkun[$akun])) {
                 $byAkun[$akun] = [
@@ -531,6 +601,11 @@ class RelaxtimeMonitoringAnggaranHelper
                     'deviasi' => 0,
                     'persen' => 0.0,
                     'persen_deviasi' => 0.0,
+                    'deviasi_dipa_persen' => 0.0,
+                    'nilai_deviasi_dipa' => 100.0,
+                    'deviasi_dipa_status' => 'optimal',
+                    'deviasi_dipa_label' => 'Optimal (≤5%)',
+                    'memenuhi_ambang' => true,
                     'count' => 0,
                 ];
             }
@@ -547,6 +622,11 @@ class RelaxtimeMonitoringAnggaranHelper
                     'deviasi' => 0,
                     'persen' => 0.0,
                     'persen_deviasi' => 0.0,
+                    'deviasi_dipa_persen' => 0.0,
+                    'nilai_deviasi_dipa' => 100.0,
+                    'deviasi_dipa_status' => 'optimal',
+                    'deviasi_dipa_label' => 'Optimal (≤5%)',
+                    'memenuhi_ambang' => true,
                     'count' => 0,
                 ];
             }
@@ -569,6 +649,11 @@ class RelaxtimeMonitoringAnggaranHelper
                         'deviasi' => 0,
                         'persen' => 0.0,
                         'persen_deviasi' => 0.0,
+                        'deviasi_dipa_persen' => 0.0,
+                        'nilai_deviasi_dipa' => 100.0,
+                        'deviasi_dipa_status' => 'optimal',
+                        'deviasi_dipa_label' => 'Optimal (≤5%)',
+                        'memenuhi_ambang' => true,
                         'count' => 0,
                     ];
                 }
@@ -602,6 +687,25 @@ class RelaxtimeMonitoringAnggaranHelper
         $persenRealisasi = $totalRencana > 0 ? round(($totalRealisasi / $totalRencana) * 100, 2) : 0.0;
         $persenDeviasi = $totalRencana > 0 ? round(($totalDeviasi / $totalRencana) * 100, 2) : 0.0;
 
+        if ($totalRencana > 0) {
+            $weightedSum = 0.0;
+            foreach ($byAkun as $ak) {
+                if ((int) $ak['rencana'] <= 0) {
+                    continue;
+                }
+                $weightedSum += ((float) $ak['deviasi_dipa_persen']) * (((int) $ak['rencana']) / $totalRencana);
+            }
+            $deviasiDipaTertimbang = min(100.0, round($weightedSum, 2));
+        } else {
+            $deviasiDipaTertimbang = $totalRealisasi > 0 ? 100.0 : 0.0;
+        }
+
+        $nilaiIkpaDeviasi = $deviasiDipaTertimbang <= 5.0 ? 100.0 : max(0.0, round(100.0 - $deviasiDipaTertimbang, 2));
+        $dipaStatus = $deviasiDipaTertimbang <= 5.0 ? 'optimal' : ($deviasiDipaTertimbang <= 15.0 ? 'waspada' : 'tinggi');
+        $dipaLabel = $deviasiDipaTertimbang <= 5.0
+            ? 'Optimal (≤5%)'
+            : ($totalDeviasi > 0 ? 'Over RPD (>5%)' : ($totalDeviasi < 0 ? 'Under RPD (>5%)' : 'Melebihi Ambang (>5%)'));
+
         return [
             'summary' => [
                 'total_rencana' => $totalRencana,
@@ -610,6 +714,12 @@ class RelaxtimeMonitoringAnggaranHelper
                 'total_deviasi' => $totalDeviasi,
                 'persen_realisasi' => $persenRealisasi,
                 'persen_deviasi' => $persenDeviasi,
+                'deviasi_dipa_tertimbang' => $deviasiDipaTertimbang,
+                'nilai_ikpa_deviasi' => $nilaiIkpaDeviasi,
+                'deviasi_dipa_status' => $dipaStatus,
+                'deviasi_dipa_label' => $dipaLabel,
+                'deviasi_optimal_count' => $deviasiOptimalCount,
+                'deviasi_melebihi_ambang_count' => $deviasiMelebihiAmbangCount,
                 'total_kegiatan' => count($rows),
                 'terealisasi_count' => $terealisasiCount,
                 'over_budget_count' => $overBudgetCount,
@@ -621,18 +731,23 @@ class RelaxtimeMonitoringAnggaranHelper
     }
 
     /**
-     * Hitung sisa, deviasi, persentase serapan, dan persentase deviasi pada item agregasi.
+     * Hitung sisa, deviasi, persentase serapan, dan metrik Deviasi Hal. III DIPA pada item agregasi.
      */
     private static function finalizeBucketMetrics(array &$item): void
     {
         $rencana = (int) ($item['rencana'] ?? 0);
         $realisasi = (int) ($item['realisasi'] ?? 0);
-        $deviasi = $realisasi - $rencana;
+        $dipa = self::calculateDeviasiDipa($rencana, $realisasi);
 
         $item['sisa'] = $rencana - $realisasi;
-        $item['deviasi'] = $deviasi;
+        $item['deviasi'] = $dipa['selisih'];
         $item['persen'] = $rencana > 0 ? round(($realisasi / $rencana) * 100, 2) : 0.0;
-        $item['persen_deviasi'] = $rencana > 0 ? round(($deviasi / $rencana) * 100, 2) : 0.0;
+        $item['persen_deviasi'] = $rencana > 0 ? round(($dipa['selisih'] / $rencana) * 100, 2) : 0.0;
+        $item['deviasi_dipa_persen'] = $dipa['deviasi_persen'];
+        $item['nilai_deviasi_dipa'] = $dipa['nilai_kinerja'];
+        $item['deviasi_dipa_status'] = $dipa['status'];
+        $item['deviasi_dipa_label'] = $dipa['status_label'];
+        $item['memenuhi_ambang'] = $dipa['memenuhi_ambang'];
     }
 
     private static function extractCellValue(Cell $cell)

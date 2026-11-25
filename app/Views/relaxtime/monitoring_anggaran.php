@@ -241,6 +241,18 @@ foreach ($allDateRows as $r) {
     background: #f0fdfa;
     color: #0f766e;
   }
+  .rma-dipa-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.35;
+    white-space: nowrap;
+  }
+  .rma-dipa-badge.is-optimal { background: #dcfce7; color: #166534; }
+  .rma-dipa-badge.is-waspada { background: #fef3c7; color: #92400e; }
+  .rma-dipa-badge.is-tinggi { background: #fee2e2; color: #b91c1c; }
 </style>
 
 <section class="content rma-page">
@@ -352,20 +364,21 @@ foreach ($allDateRows as $r) {
       <div class="col-12 col-sm-6 col-xl mb-2 mb-xl-0">
         <?php
         $deviasiVal = (int) ($summary['total_deviasi'] ?? 0);
-        $persenDevVal = (float) ($summary['persen_deviasi'] ?? 0);
-        $devAccent = $deviasiVal > 0 ? '#dc2626' : ($deviasiVal < 0 ? '#d97706' : '#16a34a');
-        $devClass = $deviasiVal > 0 ? 'text-danger' : ($deviasiVal < 0 ? 'text-warning' : 'text-success');
+        $dipaTertimbang = (float) ($summary['deviasi_dipa_tertimbang'] ?? 0);
+        $nilaiIkpaDev = (float) ($summary['nilai_ikpa_deviasi'] ?? 100);
+        $dipaStatus = (string) ($summary['deviasi_dipa_status'] ?? 'optimal');
+        $dipaLabel = (string) ($summary['deviasi_dipa_label'] ?? 'Optimal (≤5%)');
+        $devAccent = $dipaStatus === 'optimal' ? '#16a34a' : ($dipaStatus === 'waspada' ? '#d97706' : '#dc2626');
+        $devClass = $dipaStatus === 'optimal' ? 'text-success' : ($dipaStatus === 'waspada' ? 'text-warning' : 'text-danger');
         $devPrefix = $deviasiVal > 0 ? '+' : ($deviasiVal < 0 ? '-' : '');
-        $devPctPrefix = $persenDevVal > 0 ? '+' : '';
-        $devStatus = $deviasiVal > 0 ? 'Over Budget' : ($deviasiVal < 0 ? 'Under Budget' : 'Sesuai Rencana');
         ?>
-        <div class="rma-kpi-card" id="kpiDeviasiCard" style="--kpi-accent: <?= $devAccent ?>;">
-          <div class="rma-kpi-label">Deviasi (Realisasi - Rencana)</div>
+        <div class="rma-kpi-card" id="kpiDeviasiCard" style="--kpi-accent: <?= $devAccent ?>;" title="Aturan Hal. III DIPA (PER-5/PB/2024): Deviasi tertimbang antar jenis belanja, ambang optimal <= 5% = Nilai 100">
+          <div class="rma-kpi-label">Deviasi Hal. III DIPA</div>
           <div class="rma-kpi-value <?= $devClass ?>" id="kpiTotalDeviasi">
-            <?= $devPrefix ?>Rp <?= number_format(abs($deviasiVal), 0, ',', '.') ?>
+            <?= number_format($dipaTertimbang, 2, ',', '.') ?>%
           </div>
           <div class="rma-kpi-sub" id="kpiPersenDeviasi">
-            <?= $devPctPrefix . number_format($persenDevVal, 2, ',', '.') ?>% &bull; <?= $devStatus ?>
+            Nilai: <strong><?= number_format($nilaiIkpaDev, 2, ',', '.') ?></strong> &bull; <?= esc($dipaLabel) ?> &bull; Selisih <?= $devPrefix ?>Rp <?= number_format(abs($deviasiVal), 0, ',', '.') ?>
           </div>
         </div>
       </div>
@@ -389,12 +402,13 @@ foreach ($allDateRows as $r) {
           '53' => ['badge' => 'rma-akun-53', 'bar' => 'bg-warning', 'title' => 'Akun 53 — Belanja Modal'],
       ];
       foreach ($akunStyles as $code => $cfg):
-          $ak = $byAkun[$code] ?? ['rencana' => 0, 'realisasi' => 0, 'sisa' => 0, 'deviasi' => 0, 'persen' => 0, 'persen_deviasi' => 0, 'count' => 0];
+          $ak = $byAkun[$code] ?? ['rencana' => 0, 'realisasi' => 0, 'sisa' => 0, 'deviasi' => 0, 'persen' => 0, 'persen_deviasi' => 0, 'deviasi_dipa_persen' => 0, 'nilai_deviasi_dipa' => 100, 'deviasi_dipa_status' => 'optimal', 'count' => 0];
           $akDev = (int) ($ak['deviasi'] ?? ($ak['realisasi'] - $ak['rencana']));
-          $akDevPct = (float) ($ak['persen_deviasi'] ?? 0);
-          $akDevClass = $akDev > 0 ? 'text-danger' : ($akDev < 0 ? 'text-warning' : 'text-success');
+          $akDipaPct = (float) ($ak['deviasi_dipa_persen'] ?? 0);
+          $akDipaNilai = (float) ($ak['nilai_deviasi_dipa'] ?? 100);
+          $akDipaStatus = (string) ($ak['deviasi_dipa_status'] ?? 'optimal');
+          $akDevClass = $akDipaStatus === 'optimal' ? 'text-success' : ($akDipaStatus === 'waspada' ? 'text-warning' : 'text-danger');
           $akDevSign = $akDev > 0 ? '+' : ($akDev < 0 ? '-' : '');
-          $akPctSign = $akDevPct > 0 ? '+' : '';
       ?>
         <div class="col-12 col-md-4 mb-2 mb-md-0">
           <div class="rma-akun-card <?= $akunFilter === $code ? 'is-selected' : '' ?>" data-akun-card="<?= $code ?>" title="Klik untuk filter Akun <?= $code ?>">
@@ -420,8 +434,8 @@ foreach ($allDateRows as $r) {
               <span class="font-weight-bold" id="akun<?= $code ?>Persen"><?= number_format((float) $ak['persen'], 1, ',', '.') ?>%</span>
             </div>
             <div class="d-flex justify-content-between mt-1" style="font-size: 0.74rem;">
-              <span class="text-muted">Deviasi</span>
-              <span class="font-weight-bold <?= $akDevClass ?>" id="akun<?= $code ?>Deviasi"><?= $akDevSign ?>Rp <?= number_format(abs($akDev), 0, ',', '.') ?> (<?= $akPctSign . number_format($akDevPct, 1, ',', '.') ?>%)</span>
+              <span class="text-muted">Deviasi Hal. III</span>
+              <span class="font-weight-bold <?= $akDevClass ?>" id="akun<?= $code ?>Deviasi"><?= number_format($akDipaPct, 1, ',', '.') ?>% (Nilai <?= number_format($akDipaNilai, 0, ',', '.') ?>) &bull; <?= $akDevSign ?>Rp <?= number_format(abs($akDev), 0, ',', '.') ?></span>
             </div>
           </div>
         </div>
@@ -473,7 +487,7 @@ foreach ($allDateRows as $r) {
                 <th class="text-right">Total Rencana</th>
                 <th class="text-right">Total Realisasi</th>
                 <th class="text-right">Sisa</th>
-                <th class="text-right">Deviasi</th>
+                <th class="text-right">Deviasi Hal. III DIPA</th>
                 <th class="text-right">Serapan</th>
               </tr>
             </thead>
@@ -483,10 +497,13 @@ foreach ($allDateRows as $r) {
               <?php else: ?>
                 <?php foreach ($byPic as $p):
                     $pDev = (int) ($p['deviasi'] ?? ($p['realisasi'] - $p['rencana']));
-                    $pDevPct = (float) ($p['persen_deviasi'] ?? 0);
-                    $pDevClass = $pDev > 0 ? 'text-danger font-weight-bold' : ($pDev < 0 ? 'text-warning font-weight-bold' : 'text-success font-weight-bold');
+                    $pDipaPct = (float) ($p['deviasi_dipa_persen'] ?? 0);
+                    $pDipaNilai = (float) ($p['nilai_deviasi_dipa'] ?? 100);
+                    $pDipaStatus = (string) ($p['deviasi_dipa_status'] ?? 'optimal');
+                    $pDipaLabel = (string) ($p['deviasi_dipa_label'] ?? 'Optimal (≤5%)');
+                    $pDevClass = $pDipaStatus === 'optimal' ? 'text-success font-weight-bold' : ($pDipaStatus === 'waspada' ? 'text-warning font-weight-bold' : 'text-danger font-weight-bold');
+                    $pBadgeClass = $pDipaStatus === 'optimal' ? 'is-optimal' : ($pDipaStatus === 'waspada' ? 'is-waspada' : 'is-tinggi');
                     $pDevSign = $pDev > 0 ? '+' : ($pDev < 0 ? '-' : '');
-                    $pPctSign = $pDevPct > 0 ? '+' : '';
                 ?>
                   <tr class="rma-pic-row-filter" data-pic-name="<?= esc($p['pic']) ?>">
                     <td class="font-weight-bold"><?= esc($p['pic']) ?></td>
@@ -494,7 +511,11 @@ foreach ($allDateRows as $r) {
                     <td class="text-right">Rp <?= number_format((int) $p['rencana'], 0, ',', '.') ?></td>
                     <td class="text-right text-teal font-weight-bold">Rp <?= number_format((int) $p['realisasi'], 0, ',', '.') ?></td>
                     <td class="text-right <?= $p['sisa'] < 0 ? 'rma-sisa-neg' : 'rma-sisa-pos' ?>">Rp <?= number_format((int) $p['sisa'], 0, ',', '.') ?></td>
-                    <td class="text-right <?= $pDevClass ?>"><?= $pDevSign ?>Rp <?= number_format(abs($pDev), 0, ',', '.') ?> <small>(<?= $pPctSign . number_format($pDevPct, 1, ',', '.') ?>%)</small></td>
+                    <td class="text-right">
+                      <span class="<?= $pDevClass ?>"><?= number_format($pDipaPct, 1, ',', '.') ?>%</span>
+                      <span class="rma-dipa-badge <?= $pBadgeClass ?> ml-1"><?= esc($pDipaLabel) ?></span>
+                      <div class="text-muted" style="font-size: 0.72rem;"><?= $pDevSign ?>Rp <?= number_format(abs($pDev), 0, ',', '.') ?> &bull; Nilai <?= number_format($pDipaNilai, 0, ',', '.') ?></div>
+                    </td>
                     <td class="text-right font-weight-bold"><?= number_format((float) $p['persen'], 1, ',', '.') ?>%</td>
                   </tr>
                 <?php endforeach; ?>
@@ -510,7 +531,7 @@ foreach ($allDateRows as $r) {
       <div class="p-3 border-bottom d-flex flex-wrap justify-content-between align-items-center" style="gap: 10px;">
         <div>
           <h5 class="mb-0 font-weight-bold"><i class="fas fa-table text-teal mr-1"></i> Rincian Kegiatan Anggaran</h5>
-          <small class="text-muted">Menampilkan kolom inti: RO (A), Akun (B), Kegiatan (C), Rencana (D), PIC, dan Realisasi (K)</small>
+          <small class="text-muted">Aturan Deviasi Hal. III DIPA (PER-5/PB/2024): <code>|Realisasi - Rencana| / Rencana</code> (maks. 100%), ambang optimal <strong>&le; 5%</strong> = Nilai <strong>100</strong></small>
         </div>
         <div class="d-flex align-items-center" style="gap: 8px;">
           <button type="button" class="btn btn-outline-danger btn-sm d-none" id="btnBulkDelete">
@@ -530,11 +551,12 @@ foreach ($allDateRows as $r) {
                 <th style="width: 68px;" class="text-center">Akun (B)</th>
                 <th>Kegiatan (C)</th>
                 <th style="width: 110px;">PIC</th>
-                <th class="text-right" style="width: 140px;">Rencana (D)</th>
-                <th class="text-right" style="width: 140px;">Realisasi (K)</th>
-                <th class="text-right" style="width: 135px;">Sisa</th>
-                <th class="text-center" style="width: 72px;">%</th>
-                <th class="text-center" style="width: 84px;">Aksi</th>
+                <th class="text-right" style="width: 130px;">Rencana (D)</th>
+                <th class="text-right" style="width: 130px;">Realisasi (K)</th>
+                <th class="text-right" style="width: 125px;">Sisa</th>
+                <th class="text-right" style="width: 165px;" title="Rumus Hal. III DIPA PER-5/PB/2024: |Realisasi - RPD| / RPD (maks 100%). Ambang optimal <= 5% (Nilai 100).">Deviasi Hal. III DIPA</th>
+                <th class="text-center" style="width: 68px;">%</th>
+                <th class="text-center" style="width: 82px;">Aksi</th>
               </tr>
             </thead>
             <tbody id="monitoringTableBody"></tbody>
@@ -544,6 +566,7 @@ foreach ($allDateRows as $r) {
                 <th class="text-right" id="footTotalRencana">Rp 0</th>
                 <th class="text-right text-teal" id="footTotalRealisasi">Rp 0</th>
                 <th class="text-right" id="footTotalSisa">Rp 0</th>
+                <th class="text-right" id="footTotalDeviasi">0,00%</th>
                 <th class="text-center" id="footTotalPersen">0%</th>
                 <th></th>
               </tr>
@@ -800,12 +823,54 @@ document.addEventListener('DOMContentLoaded', function () {
     return (MONTHS_FULL[m] || parts[1]) + ' ' + parts[0];
   }
 
+  function calcDeviasiDipa(rencana, realisasi) {
+    const renc = Math.round(Number(rencana) || 0);
+    const real = Math.round(Number(realisasi) || 0);
+    const selisih = real - renc;
+    const deviasiNominal = Math.abs(selisih);
+    let deviasiPersen = 0;
+    if (renc > 0) {
+      deviasiPersen = Math.min(100, Math.round(((deviasiNominal / renc) * 100) * 100) / 100);
+    } else if (real > 0) {
+      deviasiPersen = 100;
+    }
+
+    const memenuhiAmbang = deviasiPersen <= 5;
+    const nilaiKinerja = memenuhiAmbang ? 100 : Math.max(0, Math.round((100 - deviasiPersen) * 100) / 100);
+    const status = deviasiPersen <= 5 ? 'optimal' : (deviasiPersen <= 15 ? 'waspada' : 'tinggi');
+
+    let statusLabel = 'Optimal (≤5%)';
+    if (!memenuhiAmbang) {
+      statusLabel = selisih > 0 ? 'Over RPD (>5%)' : (selisih < 0 ? 'Under RPD (>5%)' : 'Melebihi (>5%)');
+    }
+
+    return { selisih, deviasiNominal, deviasiPersen, nilaiKinerja, memenuhiAmbang, status, statusLabel };
+  }
+
+  function dipaColorClass(status) {
+    if (status === 'optimal') return 'text-success';
+    if (status === 'waspada') return 'text-warning';
+    return 'text-danger';
+  }
+
+  function dipaBadgeClass(status) {
+    if (status === 'optimal') return 'is-optimal';
+    if (status === 'waspada') return 'is-waspada';
+    return 'is-tinggi';
+  }
+
+  function dipaAccentColor(status) {
+    if (status === 'optimal') return '#16a34a';
+    if (status === 'waspada') return '#d97706';
+    return '#dc2626';
+  }
+
   function computeStats(rows) {
     let totalRencana = 0, totalRealisasi = 0, terealisasi = 0, overBudget = 0;
     const byAkun = {
-      '51': { rencana: 0, realisasi: 0, sisa: 0, deviasi: 0, persen: 0, persenDeviasi: 0, count: 0 },
-      '52': { rencana: 0, realisasi: 0, sisa: 0, deviasi: 0, persen: 0, persenDeviasi: 0, count: 0 },
-      '53': { rencana: 0, realisasi: 0, sisa: 0, deviasi: 0, persen: 0, persenDeviasi: 0, count: 0 }
+      '51': { rencana: 0, realisasi: 0, sisa: 0, deviasi: 0, persen: 0, persenDeviasi: 0, deviasiDipaPersen: 0, nilaiDeviasiDipa: 100, dipaStatus: 'optimal', dipaLabel: 'Optimal (≤5%)', count: 0 },
+      '52': { rencana: 0, realisasi: 0, sisa: 0, deviasi: 0, persen: 0, persenDeviasi: 0, deviasiDipaPersen: 0, nilaiDeviasiDipa: 100, dipaStatus: 'optimal', dipaLabel: 'Optimal (≤5%)', count: 0 },
+      '53': { rencana: 0, realisasi: 0, sisa: 0, deviasi: 0, persen: 0, persenDeviasi: 0, deviasiDipaPersen: 0, nilaiDeviasiDipa: 100, dipaStatus: 'optimal', dipaLabel: 'Optimal (≤5%)', count: 0 }
     };
     const byPicMap = {};
     const byMonthMap = {};
@@ -827,7 +892,7 @@ document.addEventListener('DOMContentLoaded', function () {
       byAkun[akun].count++;
 
       if (!byPicMap[pic]) {
-        byPicMap[pic] = { pic: pic, rencana: 0, realisasi: 0, sisa: 0, deviasi: 0, persen: 0, persenDeviasi: 0, count: 0 };
+        byPicMap[pic] = { pic: pic, rencana: 0, realisasi: 0, sisa: 0, deviasi: 0, persen: 0, persenDeviasi: 0, deviasiDipaPersen: 0, nilaiDeviasiDipa: 100, dipaStatus: 'optimal', dipaLabel: 'Optimal (≤5%)', count: 0 };
       }
       byPicMap[pic].rencana += rencana;
       byPicMap[pic].realisasi += realisasi;
@@ -851,17 +916,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
     ['51', '52', '53'].forEach(function (k) {
       const a = byAkun[k];
+      const dipa = calcDeviasiDipa(a.rencana, a.realisasi);
       a.sisa = a.rencana - a.realisasi;
-      a.deviasi = a.realisasi - a.rencana;
+      a.deviasi = dipa.selisih;
       a.persen = a.rencana > 0 ? (a.realisasi / a.rencana) * 100 : 0;
       a.persenDeviasi = a.rencana > 0 ? (a.deviasi / a.rencana) * 100 : 0;
+      a.deviasiDipaPersen = dipa.deviasiPersen;
+      a.nilaiDeviasiDipa = dipa.nilaiKinerja;
+      a.dipaStatus = dipa.status;
+      a.dipaLabel = dipa.statusLabel;
     });
 
     const byPic = Object.values(byPicMap).map(function (p) {
+      const dipa = calcDeviasiDipa(p.rencana, p.realisasi);
       p.sisa = p.rencana - p.realisasi;
-      p.deviasi = p.realisasi - p.rencana;
+      p.deviasi = dipa.selisih;
       p.persen = p.rencana > 0 ? (p.realisasi / p.rencana) * 100 : 0;
       p.persenDeviasi = p.rencana > 0 ? (p.deviasi / p.rencana) * 100 : 0;
+      p.deviasiDipaPersen = dipa.deviasiPersen;
+      p.nilaiDeviasiDipa = dipa.nilaiKinerja;
+      p.dipaStatus = dipa.status;
+      p.dipaLabel = dipa.statusLabel;
       return p;
     }).sort(function (a, b) { return b.rencana - a.rencana; });
 
@@ -871,8 +946,29 @@ document.addEventListener('DOMContentLoaded', function () {
     const persen = totalRencana > 0 ? (totalRealisasi / totalRencana) * 100 : 0;
     const persenDeviasi = totalRencana > 0 ? (totalDeviasi / totalRencana) * 100 : 0;
 
+    let deviasiDipaTertimbang = 0;
+    if (totalRencana > 0) {
+      let weighted = 0;
+      ['51', '52', '53'].forEach(function (k) {
+        const ak = byAkun[k];
+        if (ak.rencana > 0) {
+          weighted += ak.deviasiDipaPersen * (ak.rencana / totalRencana);
+        }
+      });
+      deviasiDipaTertimbang = Math.min(100, Math.round(weighted * 100) / 100);
+    } else if (totalRealisasi > 0) {
+      deviasiDipaTertimbang = 100;
+    }
+
+    const nilaiIkpaDeviasi = deviasiDipaTertimbang <= 5 ? 100 : Math.max(0, Math.round((100 - deviasiDipaTertimbang) * 100) / 100);
+    const deviasiDipaStatus = deviasiDipaTertimbang <= 5 ? 'optimal' : (deviasiDipaTertimbang <= 15 ? 'waspada' : 'tinggi');
+    const deviasiDipaLabel = deviasiDipaTertimbang <= 5
+      ? 'Optimal (≤5%)'
+      : (totalDeviasi > 0 ? 'Over RPD (>5%)' : (totalDeviasi < 0 ? 'Under RPD (>5%)' : 'Melebihi (>5%)'));
+
     return {
       totalRencana, totalRealisasi, totalSisa, totalDeviasi, persen, persenDeviasi,
+      deviasiDipaTertimbang, nilaiIkpaDeviasi, deviasiDipaStatus, deviasiDipaLabel,
       totalKegiatan: rows.length, terealisasi, overBudget,
       byAkun, byPic, byMonth
     };
@@ -1056,12 +1152,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const devEl = document.getElementById('kpiTotalDeviasi');
     const devPctEl = document.getElementById('kpiPersenDeviasi');
     if (devCard && devEl && devPctEl) {
-      const devAccent = stats.totalDeviasi > 0 ? '#dc2626' : (stats.totalDeviasi < 0 ? '#d97706' : '#16a34a');
-      devCard.style.setProperty('--kpi-accent', devAccent);
-      devEl.textContent = formatSignedRupiah(stats.totalDeviasi);
+      devCard.style.setProperty('--kpi-accent', dipaAccentColor(stats.deviasiDipaStatus));
+      devEl.textContent = stats.deviasiDipaTertimbang.toFixed(2).replace('.', ',') + '%';
       devEl.classList.remove('text-danger', 'text-warning', 'text-success');
-      devEl.classList.add(deviasiColorClass(stats.totalDeviasi));
-      devPctEl.innerHTML = formatSignedPercent(stats.persenDeviasi, 2) + ' &bull; ' + deviasiStatusLabel(stats.totalDeviasi);
+      devEl.classList.add(dipaColorClass(stats.deviasiDipaStatus));
+      devPctEl.innerHTML = 'Nilai: <strong>' + stats.nilaiIkpaDeviasi.toFixed(2).replace('.', ',') + '</strong> &bull; ' + escapeHtml(stats.deviasiDipaLabel) + ' &bull; Selisih ' + formatSignedRupiah(stats.totalDeviasi);
     }
 
     document.getElementById('kpiPersenRealisasi').textContent = stats.persen.toFixed(2).replace('.', ',') + '%';
@@ -1078,9 +1173,9 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('akun' + k + 'Persen').textContent = a.persen.toFixed(1).replace('.', ',') + '%';
       const akunDevEl = document.getElementById('akun' + k + 'Deviasi');
       if (akunDevEl) {
-        akunDevEl.textContent = formatSignedRupiah(a.deviasi) + ' (' + formatSignedPercent(a.persenDeviasi, 1) + ')';
+        akunDevEl.innerHTML = a.deviasiDipaPersen.toFixed(1).replace('.', ',') + '% (Nilai ' + Math.round(a.nilaiDeviasiDipa) + ') &bull; ' + formatSignedRupiah(a.deviasi);
         akunDevEl.classList.remove('text-danger', 'text-warning', 'text-success');
-        akunDevEl.classList.add(deviasiColorClass(a.deviasi));
+        akunDevEl.classList.add(dipaColorClass(a.dipaStatus));
       }
 
       const cardEl = document.querySelector('[data-akun-card="' + k + '"]');
@@ -1095,14 +1190,18 @@ document.addEventListener('DOMContentLoaded', function () {
     } else {
       picBody.innerHTML = stats.byPic.map(function (p) {
         const sisaClass = p.sisa < 0 ? 'rma-sisa-neg' : 'rma-sisa-pos';
-        const devCls = deviasiColorClass(p.deviasi) + ' font-weight-bold';
+        const devCls = dipaColorClass(p.dipaStatus) + ' font-weight-bold';
         return '<tr class="rma-pic-row-filter" data-pic-name="' + escapeHtml(p.pic) + '">' +
           '<td class="font-weight-bold">' + escapeHtml(p.pic) + '</td>' +
           '<td class="text-center">' + p.count + '</td>' +
           '<td class="text-right">' + formatRupiah(p.rencana) + '</td>' +
           '<td class="text-right text-teal font-weight-bold">' + formatRupiah(p.realisasi) + '</td>' +
           '<td class="text-right ' + sisaClass + '">' + formatRupiah(p.sisa) + '</td>' +
-          '<td class="text-right ' + devCls + '">' + formatSignedRupiah(p.deviasi) + ' <small>(' + formatSignedPercent(p.persenDeviasi, 1) + ')</small></td>' +
+          '<td class="text-right">' +
+            '<span class="' + devCls + '">' + p.deviasiDipaPersen.toFixed(1).replace('.', ',') + '%</span>' +
+            '<span class="rma-dipa-badge ' + dipaBadgeClass(p.dipaStatus) + ' ml-1">' + escapeHtml(p.dipaLabel) + '</span>' +
+            '<div class="text-muted" style="font-size: 0.72rem;">' + formatSignedRupiah(p.deviasi) + ' &bull; Nilai ' + Math.round(p.nilaiDeviasiDipa) + '</div>' +
+          '</td>' +
           '<td class="text-right font-weight-bold">' + p.persen.toFixed(1).replace('.', ',') + '%</td>' +
         '</tr>';
       }).join('');
@@ -1117,6 +1216,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const footSisa = document.getElementById('footTotalSisa');
     footSisa.textContent = formatRupiah(stats.totalSisa);
     footSisa.classList.toggle('rma-sisa-neg', stats.totalSisa < 0);
+    const footDeviasi = document.getElementById('footTotalDeviasi');
+    if (footDeviasi) {
+      footDeviasi.innerHTML = '<span class="' + dipaColorClass(stats.deviasiDipaStatus) + '">' + stats.deviasiDipaTertimbang.toFixed(2).replace('.', ',') + '%</span>'
+        + ' <span class="rma-dipa-badge ' + dipaBadgeClass(stats.deviasiDipaStatus) + ' ml-1">Nilai ' + stats.nilaiIkpaDeviasi.toFixed(1).replace('.', ',') + '</span>';
+    }
     document.getElementById('footTotalPersen').textContent = stats.persen.toFixed(1).replace('.', ',') + '%';
 
     // DataTable rebuild
@@ -1129,8 +1233,11 @@ document.addEventListener('DOMContentLoaded', function () {
     tbody.innerHTML = filtered.map(function (r, idx) {
       const sisa = r.rencana - r.realisasi;
       const pct = r.rencana > 0 ? ((r.realisasi / r.rencana) * 100) : 0;
+      const dipa = calcDeviasiDipa(r.rencana, r.realisasi);
+      const isDec = (r.tanggal || '').slice(5, 7) === '12';
       const badgeAkun = r.akun === '51' ? 'rma-akun-51' : (r.akun === '53' ? 'rma-akun-53' : 'rma-akun-52');
       const sisaClass = sisa < 0 ? 'rma-sisa-neg' : 'rma-sisa-pos';
+      const devColor = dipaColorClass(dipa.status);
       return '<tr data-id="' + r.id + '">' +
         '<td class="text-center"><input type="checkbox" class="row-check" value="' + r.id + '"></td>' +
         '<td class="text-center">' + (idx + 1) + '</td>' +
@@ -1142,6 +1249,11 @@ document.addEventListener('DOMContentLoaded', function () {
         '<td class="text-right font-weight-bold" data-order="' + r.rencana + '">' + formatRupiah(r.rencana) + '</td>' +
         '<td class="text-right text-teal font-weight-bold" data-order="' + r.realisasi + '">' + formatRupiah(r.realisasi) + '</td>' +
         '<td class="text-right ' + sisaClass + '" data-order="' + sisa + '">' + formatRupiah(sisa) + '</td>' +
+        '<td class="text-right" data-order="' + dipa.deviasiPersen.toFixed(2) + '">' +
+          '<div><span class="font-weight-bold ' + devColor + '">' + dipa.deviasiPersen.toFixed(1).replace('.', ',') + '%</span> ' +
+          '<span class="rma-dipa-badge ' + dipaBadgeClass(dipa.status) + '">' + escapeHtml(dipa.statusLabel) + '</span></div>' +
+          '<div class="text-muted" style="font-size: 0.72rem; line-height: 1.2;">' + formatSignedRupiah(dipa.selisih) + ' &bull; Nilai ' + dipa.nilaiKinerja.toFixed(0) + (isDec ? ' &bull; <em>Des (non-IKPA)</em>' : '') + '</div>' +
+        '</td>' +
         '<td class="text-center font-weight-bold" data-order="' + pct.toFixed(2) + '">' + pct.toFixed(1) + '%</td>' +
         '<td class="text-center text-nowrap">' +
           '<button type="button" class="btn btn-xs btn-outline-warning btn-edit-row mr-1" data-id="' + r.id + '" title="Edit"><i class="fas fa-edit"></i></button>' +
@@ -1155,7 +1267,7 @@ document.addEventListener('DOMContentLoaded', function () {
         pageLength: opts.preserveTableState ? prevLen : 25,
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Semua']],
         order: [],
-        columnDefs: [{ orderable: false, targets: [0, 11] }],
+        columnDefs: [{ orderable: false, targets: [0, 12] }],
         language: {
           search: 'Cari:',
           lengthMenu: 'Tampilkan _MENU_ baris',
@@ -1213,9 +1325,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const real = parseNumericInput(document.getElementById('formRealisasi').value);
     const sisa = renc - real;
     const pct = renc > 0 ? ((real / renc) * 100).toFixed(1) : '0.0';
+    const dipa = calcDeviasiDipa(renc, real);
     const preview = document.getElementById('formPreviewSisa');
-    preview.textContent = 'Sisa: ' + formatRupiah(sisa) + ' (' + pct + '%)';
-    preview.classList.toggle('text-danger', sisa < 0);
+    preview.textContent = 'Sisa: ' + formatRupiah(sisa) + ' (' + pct + '%) | Deviasi Hal. III: ' + dipa.deviasiPersen.toFixed(1) + '% (' + dipa.statusLabel + ', Nilai ' + dipa.nilaiKinerja.toFixed(0) + ')';
+    preview.classList.toggle('text-danger', !dipa.memenuhiAmbang);
+    preview.classList.toggle('text-success', dipa.memenuhiAmbang && renc > 0);
   }
 
   // Event listeners filter

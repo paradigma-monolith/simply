@@ -484,8 +484,8 @@ class MonitoringAnggaran extends BaseController
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Monitoring Anggaran');
 
-        $sheet->setCellValue('A1', 'LAPORAN MONITORING ANGGARAN - RELAXTIME');
-        $sheet->mergeCells('A1:J1');
+        $sheet->setCellValue('A1', 'LAPORAN MONITORING ANGGARAN - RELAXTIME (ATURAN DEVIASI HAL. III DIPA PER-5/PB/2024)');
+        $sheet->mergeCells('A1:M1');
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14)->getColor()->setRGB('0F172A');
 
         $periodeLabel = $allMonths
@@ -501,15 +501,19 @@ class MonitoringAnggaran extends BaseController
             date('d/m/Y H:i')
         );
         $sheet->setCellValue('A2', $filterInfo);
-        $sheet->mergeCells('A2:J2');
+        $sheet->mergeCells('A2:M2');
         $sheet->getStyle('A2')->getFont()->setSize(10)->getColor()->setRGB('475569');
 
-        $headers = ['No', 'Bulan', 'RO', 'Akun', 'Kegiatan', 'PIC', 'Rencana Pencairan', 'Realisasi', 'Sisa', '% Realisasi'];
+        $headers = [
+            'No', 'Bulan', 'RO', 'Akun', 'Kegiatan', 'PIC',
+            'Rencana Pencairan', 'Realisasi', 'Sisa',
+            'Deviasi Hal. III (%)', 'Status Hal. III DIPA', 'Nilai Kinerja', '% Realisasi',
+        ];
         foreach ($headers as $idx => $h) {
             $col = chr(65 + $idx);
             $sheet->setCellValue($col . '4', $h);
         }
-        $sheet->getStyle('A4:J4')->applyFromArray([
+        $sheet->getStyle('A4:M4')->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '0F766E']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
@@ -523,6 +527,7 @@ class MonitoringAnggaran extends BaseController
             $realisasi = (int) ($item['realisasi'] ?? 0);
             $sisa = $rencana - $realisasi;
             $persen = $rencana > 0 ? ($realisasi / $rencana) : 0;
+            $dipa = RelaxtimeMonitoringAnggaranHelper::calculateDeviasiDipa($rencana, $realisasi);
 
             $sheet->setCellValue('A' . $rowNum, $no++);
             $sheet->setCellValueExplicit('B' . $rowNum, RelaxtimeMonitoringAnggaranHelper::formatMonthLabel($item['tanggal'] ?? ''), DataType::TYPE_STRING);
@@ -533,57 +538,70 @@ class MonitoringAnggaran extends BaseController
             $sheet->setCellValue('G' . $rowNum, $rencana);
             $sheet->setCellValue('H' . $rowNum, $realisasi);
             $sheet->setCellValue('I' . $rowNum, "=G{$rowNum}-H{$rowNum}");
-            $sheet->setCellValue('J' . $rowNum, $persen);
+            $sheet->setCellValue('J' . $rowNum, $dipa['deviasi_persen'] / 100);
+            $sheet->setCellValue('K' . $rowNum, $dipa['status_label']);
+            $sheet->setCellValue('L' . $rowNum, $dipa['nilai_kinerja']);
+            $sheet->setCellValue('M' . $rowNum, $persen);
 
             $sheet->getStyle("G{$rowNum}:I{$rowNum}")->getNumberFormat()->setFormatCode('#,##0');
             $sheet->getStyle("J{$rowNum}")->getNumberFormat()->setFormatCode('0.0%');
+            $sheet->getStyle("L{$rowNum}")->getNumberFormat()->setFormatCode('0.0');
+            $sheet->getStyle("M{$rowNum}")->getNumberFormat()->setFormatCode('0.0%');
             $sheet->getStyle("A{$rowNum}:D{$rowNum}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle("F{$rowNum}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("K{$rowNum}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle("E{$rowNum}")->getAlignment()->setWrapText(true);
 
             if ($sisa < 0) {
                 $sheet->getStyle("I{$rowNum}")->getFont()->getColor()->setRGB('DC2626');
             }
+            $dipaRgb = $dipa['status'] === 'optimal' ? '15803D' : ($dipa['status'] === 'waspada' ? 'B45309' : 'DC2626');
+            $sheet->getStyle("J{$rowNum}:K{$rowNum}")->getFont()->getColor()->setRGB($dipaRgb);
             $rowNum++;
         }
 
         if ($rowNum === 5) {
             $sheet->setCellValue('A5', 'Tidak ada data untuk filter terpilih.');
-            $sheet->mergeCells('A5:J5');
+            $sheet->mergeCells('A5:M5');
             $sheet->getStyle('A5')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $rowNum = 6;
         } else {
             $lastDataRow = $rowNum - 1;
-            $sheet->setCellValue("A{$rowNum}", 'TOTAL');
+            $sheet->setCellValue("A{$rowNum}", 'TOTAL / TERTIMBANG IKPA');
             $sheet->mergeCells("A{$rowNum}:F{$rowNum}");
             $sheet->setCellValue("G{$rowNum}", "=SUM(G5:G{$lastDataRow})");
             $sheet->setCellValue("H{$rowNum}", "=SUM(H5:H{$lastDataRow})");
             $sheet->setCellValue("I{$rowNum}", "=SUM(I5:I{$lastDataRow})");
-            $sheet->setCellValue("J{$rowNum}", "=IF(G{$rowNum}>0,H{$rowNum}/G{$rowNum},0)");
-            $sheet->getStyle("A{$rowNum}:J{$rowNum}")->applyFromArray([
+            $sheet->setCellValue("J{$rowNum}", ($stats['summary']['deviasi_dipa_tertimbang'] ?? 0) / 100);
+            $sheet->setCellValue("K{$rowNum}", $stats['summary']['deviasi_dipa_label'] ?? 'Optimal (≤5%)');
+            $sheet->setCellValue("L{$rowNum}", $stats['summary']['nilai_ikpa_deviasi'] ?? 100);
+            $sheet->setCellValue("M{$rowNum}", "=IF(G{$rowNum}>0,H{$rowNum}/G{$rowNum},0)");
+            $sheet->getStyle("A{$rowNum}:M{$rowNum}")->applyFromArray([
                 'font' => ['bold' => true],
                 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F1F5F9']],
             ]);
             $sheet->getStyle("G{$rowNum}:I{$rowNum}")->getNumberFormat()->setFormatCode('#,##0');
-            $sheet->getStyle("J{$rowNum}")->getNumberFormat()->setFormatCode('0.0%');
+            $sheet->getStyle("J{$rowNum}")->getNumberFormat()->setFormatCode('0.00%');
+            $sheet->getStyle("L{$rowNum}")->getNumberFormat()->setFormatCode('0.00');
+            $sheet->getStyle("M{$rowNum}")->getNumberFormat()->setFormatCode('0.0%');
         }
 
-        $sheet->getStyle("A4:J{$rowNum}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-        foreach (['A' => 6, 'B' => 16, 'C' => 18, 'D' => 8, 'E' => 50, 'F' => 16, 'G' => 20, 'H' => 20, 'I' => 20, 'J' => 13] as $col => $w) {
+        $sheet->getStyle("A4:M{$rowNum}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        foreach (['A' => 6, 'B' => 16, 'C' => 18, 'D' => 8, 'E' => 48, 'F' => 16, 'G' => 18, 'H' => 18, 'I' => 18, 'J' => 18, 'K' => 20, 'L' => 14, 'M' => 13] as $col => $w) {
             $sheet->getColumnDimension($col)->setWidth($w);
         }
 
         // Sheet 2: Ringkasan Dashboard
         $summarySheet = $spreadsheet->createSheet();
         $summarySheet->setTitle('Ringkasan Dashboard');
-        $summarySheet->setCellValue('A1', 'RINGKASAN MONITORING ANGGARAN PER AKUN');
+        $summarySheet->setCellValue('A1', 'RINGKASAN MONITORING ANGGARAN PER AKUN (DEVIASI HAL. III DIPA)');
         $summarySheet->getStyle('A1')->getFont()->setBold(true)->setSize(12);
 
-        $sumHeaders = ['Akun', 'Uraian', 'Jumlah Kegiatan', 'Rencana', 'Realisasi', 'Sisa', 'Deviasi', '% Deviasi', '% Realisasi'];
+        $sumHeaders = ['Akun', 'Uraian', 'Jumlah Kegiatan', 'Rencana', 'Realisasi', 'Sisa', 'Selisih RPD', 'Deviasi Hal. III (%)', 'Status Hal. III', 'Nilai Kinerja', '% Realisasi'];
         foreach ($sumHeaders as $idx => $h) {
             $summarySheet->setCellValue(chr(65 + $idx) . '3', $h);
         }
-        $summarySheet->getStyle('A3:I3')->applyFromArray([
+        $summarySheet->getStyle('A3:K3')->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '0F766E']],
         ]);
@@ -597,22 +615,26 @@ class MonitoringAnggaran extends BaseController
             $summarySheet->setCellValue('E' . $sr, $ak['realisasi']);
             $summarySheet->setCellValue('F' . $sr, $ak['sisa']);
             $summarySheet->setCellValue('G' . $sr, $ak['deviasi'] ?? ($ak['realisasi'] - $ak['rencana']));
-            $summarySheet->setCellValue('H' . $sr, ($ak['persen_deviasi'] ?? 0) / 100);
-            $summarySheet->setCellValue('I' . $sr, $ak['persen'] / 100);
+            $summarySheet->setCellValue('H' . $sr, ($ak['deviasi_dipa_persen'] ?? 0) / 100);
+            $summarySheet->setCellValue('I' . $sr, $ak['deviasi_dipa_label'] ?? 'Optimal (≤5%)');
+            $summarySheet->setCellValue('J' . $sr, $ak['nilai_deviasi_dipa'] ?? 100);
+            $summarySheet->setCellValue('K' . $sr, $ak['persen'] / 100);
             $summarySheet->getStyle("D{$sr}:G{$sr}")->getNumberFormat()->setFormatCode('#,##0');
-            $summarySheet->getStyle("H{$sr}:I{$sr}")->getNumberFormat()->setFormatCode('0.0%');
+            $summarySheet->getStyle("H{$sr}")->getNumberFormat()->setFormatCode('0.0%');
+            $summarySheet->getStyle("J{$sr}")->getNumberFormat()->setFormatCode('0.0');
+            $summarySheet->getStyle("K{$sr}")->getNumberFormat()->setFormatCode('0.0%');
             $sr++;
         }
-        $summarySheet->getStyle('A3:I' . ($sr - 1))->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        $summarySheet->getStyle('A3:K' . ($sr - 1))->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
 
         $picStart = $sr + 2;
         $summarySheet->setCellValue('A' . $picStart, 'RINGKASAN PER PIC');
         $summarySheet->getStyle('A' . $picStart)->getFont()->setBold(true)->setSize(12);
         $picHeaderRow = $picStart + 2;
-        foreach (['PIC', 'Jumlah Kegiatan', 'Rencana', 'Realisasi', 'Sisa', 'Deviasi', '% Deviasi', '% Realisasi'] as $idx => $h) {
+        foreach (['PIC', 'Jumlah Kegiatan', 'Rencana', 'Realisasi', 'Sisa', 'Selisih RPD', 'Deviasi Hal. III (%)', 'Status Hal. III', 'Nilai Kinerja', '% Realisasi'] as $idx => $h) {
             $summarySheet->setCellValue(chr(65 + $idx) . $picHeaderRow, $h);
         }
-        $summarySheet->getStyle("A{$picHeaderRow}:H{$picHeaderRow}")->applyFromArray([
+        $summarySheet->getStyle("A{$picHeaderRow}:J{$picHeaderRow}")->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E293B']],
         ]);
@@ -624,16 +646,20 @@ class MonitoringAnggaran extends BaseController
             $summarySheet->setCellValue('D' . $pr, $picRow['realisasi']);
             $summarySheet->setCellValue('E' . $pr, $picRow['sisa']);
             $summarySheet->setCellValue('F' . $pr, $picRow['deviasi'] ?? ($picRow['realisasi'] - $picRow['rencana']));
-            $summarySheet->setCellValue('G' . $pr, ($picRow['persen_deviasi'] ?? 0) / 100);
-            $summarySheet->setCellValue('H' . $pr, $picRow['persen'] / 100);
+            $summarySheet->setCellValue('G' . $pr, ($picRow['deviasi_dipa_persen'] ?? 0) / 100);
+            $summarySheet->setCellValue('H' . $pr, $picRow['deviasi_dipa_label'] ?? 'Optimal (≤5%)');
+            $summarySheet->setCellValue('I' . $pr, $picRow['nilai_deviasi_dipa'] ?? 100);
+            $summarySheet->setCellValue('J' . $pr, $picRow['persen'] / 100);
             $summarySheet->getStyle("C{$pr}:F{$pr}")->getNumberFormat()->setFormatCode('#,##0');
-            $summarySheet->getStyle("G{$pr}:H{$pr}")->getNumberFormat()->setFormatCode('0.0%');
+            $summarySheet->getStyle("G{$pr}")->getNumberFormat()->setFormatCode('0.0%');
+            $summarySheet->getStyle("I{$pr}")->getNumberFormat()->setFormatCode('0.0');
+            $summarySheet->getStyle("J{$pr}")->getNumberFormat()->setFormatCode('0.0%');
             $pr++;
         }
         if ($pr > $picHeaderRow + 1) {
-            $summarySheet->getStyle("A{$picHeaderRow}:H" . ($pr - 1))->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+            $summarySheet->getStyle("A{$picHeaderRow}:J" . ($pr - 1))->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
         }
-        foreach (['A' => 18, 'B' => 24, 'C' => 18, 'D' => 20, 'E' => 20, 'F' => 18, 'G' => 18, 'H' => 14, 'I' => 14] as $col => $w) {
+        foreach (['A' => 18, 'B' => 24, 'C' => 18, 'D' => 20, 'E' => 20, 'F' => 18, 'G' => 18, 'H' => 18, 'I' => 20, 'J' => 14, 'K' => 14] as $col => $w) {
             $summarySheet->getColumnDimension($col)->setWidth($w);
         }
 

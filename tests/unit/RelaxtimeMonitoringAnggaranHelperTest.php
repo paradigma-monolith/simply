@@ -232,13 +232,56 @@ final class RelaxtimeMonitoringAnggaranHelperTest extends TestCase
         $this->assertSame(250000, $stats['summary']['total_deviasi']);
         $this->assertSame(103.13, $stats['summary']['persen_realisasi']);
         $this->assertSame(3.13, $stats['summary']['persen_deviasi']);
+        $this->assertSame(9.38, $stats['summary']['deviasi_dipa_tertimbang']);
+        $this->assertSame(90.62, $stats['summary']['nilai_ikpa_deviasi']);
+        $this->assertSame(1, $stats['summary']['deviasi_optimal_count']);
+        $this->assertSame(2, $stats['summary']['deviasi_melebihi_ambang_count']);
         $this->assertSame(1, $stats['summary']['over_budget_count']);
         $this->assertCount(2, $stats['by_month']);
         $this->assertSame(-250000, $stats['by_akun']['52']['deviasi']);
         $this->assertSame(-25.0, $stats['by_akun']['52']['persen_deviasi']);
+        $this->assertSame(25.0, $stats['by_akun']['52']['deviasi_dipa_persen']);
+        $this->assertSame(75.0, $stats['by_akun']['52']['nilai_deviasi_dipa']);
         $this->assertSame('ADUM', $stats['by_pic'][0]['pic']);
         $this->assertSame(0, $stats['by_pic'][0]['deviasi']);
+        $this->assertSame(0.0, $stats['by_pic'][0]['deviasi_dipa_persen']);
         $this->assertSame('Belum Ditentukan', $stats['by_pic'][1]['pic']);
         $this->assertSame(500000, $stats['by_pic'][1]['deviasi']);
+        $this->assertSame(25.0, $stats['by_pic'][1]['deviasi_dipa_persen']);
+    }
+
+    public function testCalculateDeviasiDipaFollowsPer5Pb2024Rules(): void
+    {
+        $optimal = RelaxtimeMonitoringAnggaranHelper::calculateDeviasiDipa(1000000, 960000);
+        $this->assertSame(4.0, $optimal['deviasi_persen']);
+        $this->assertSame(100.0, $optimal['nilai_kinerja']);
+        $this->assertTrue($optimal['memenuhi_ambang']);
+        $this->assertSame('optimal', $optimal['status']);
+
+        $boundary = RelaxtimeMonitoringAnggaranHelper::calculateDeviasiDipa(1000000, 1050000);
+        $this->assertSame(5.0, $boundary['deviasi_persen']);
+        $this->assertSame(100.0, $boundary['nilai_kinerja']);
+        $this->assertTrue($boundary['memenuhi_ambang']);
+
+        $waspada = RelaxtimeMonitoringAnggaranHelper::calculateDeviasiDipa(1000000, 900000);
+        $this->assertSame(10.0, $waspada['deviasi_persen']);
+        $this->assertSame(90.0, $waspada['nilai_kinerja']);
+        $this->assertFalse($waspada['memenuhi_ambang']);
+        $this->assertSame('waspada', $waspada['status']);
+        $this->assertSame('Under RPD (>5%)', $waspada['status_label']);
+
+        $capped = RelaxtimeMonitoringAnggaranHelper::calculateDeviasiDipa(1000000, 3500000);
+        $this->assertSame(100.0, $capped['deviasi_persen']);
+        $this->assertSame(0.0, $capped['nilai_kinerja']);
+        $this->assertSame('tinggi', $capped['status']);
+        $this->assertSame('Over RPD (>5%)', $capped['status_label']);
+
+        $zeroPlanWithReal = RelaxtimeMonitoringAnggaranHelper::calculateDeviasiDipa(0, 500000);
+        $this->assertSame(100.0, $zeroPlanWithReal['deviasi_persen']);
+        $this->assertSame(0.0, $zeroPlanWithReal['nilai_kinerja']);
+
+        $bothZero = RelaxtimeMonitoringAnggaranHelper::calculateDeviasiDipa(0, 0);
+        $this->assertSame(0.0, $bothZero['deviasi_persen']);
+        $this->assertSame(100.0, $bothZero['nilai_kinerja']);
     }
 }
