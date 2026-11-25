@@ -122,9 +122,16 @@ class MonitoringAnggaran extends BaseController
             return redirect()->back()->withInput()->with('error', $msg);
         }
 
+        $newId = (int) $this->monitoringModel->getInsertID();
+        $savedRow = $newId > 0 ? $this->monitoringModel->find($newId) : null;
+
         $msg = 'Data monitoring anggaran berhasil ditambahkan.';
         if ($this->request->isAJAX()) {
-            return $this->response->setJSON(['success' => true, 'message' => $msg]);
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => $msg,
+                'row' => $savedRow ? $this->formatRowForClient($savedRow) : null,
+            ]);
         }
         return redirect()->to('/relaxtime/monitoring-anggaran')->with('success', $msg);
     }
@@ -181,9 +188,14 @@ class MonitoringAnggaran extends BaseController
             return redirect()->back()->withInput()->with('error', $msg);
         }
 
+        $updatedRow = $this->monitoringModel->find((int) $id);
         $msg = 'Data monitoring anggaran berhasil diperbarui.';
         if ($this->request->isAJAX()) {
-            return $this->response->setJSON(['success' => true, 'message' => $msg]);
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => $msg,
+                'row' => $updatedRow ? $this->formatRowForClient($updatedRow) : null,
+            ]);
         }
         return redirect()->to('/relaxtime/monitoring-anggaran')->with('success', $msg);
     }
@@ -203,7 +215,11 @@ class MonitoringAnggaran extends BaseController
 
         $msg = 'Data monitoring anggaran berhasil dihapus.';
         if ($this->request->isAJAX()) {
-            return $this->response->setJSON(['success' => true, 'message' => $msg]);
+            return $this->response->setJSON([
+                'success' => true,
+                'deleted_id' => (int) $id,
+                'message' => $msg,
+            ]);
         }
         return redirect()->to('/relaxtime/monitoring-anggaran')->with('success', $msg);
     }
@@ -229,6 +245,7 @@ class MonitoringAnggaran extends BaseController
             'success' => true,
             'message' => count($ids) . ' data monitoring anggaran berhasil dihapus.',
             'deleted_count' => count($ids),
+            'deleted_ids' => $ids,
         ]);
     }
 
@@ -611,6 +628,21 @@ class MonitoringAnggaran extends BaseController
             ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
             ->setHeader('Cache-Control', 'max-age=0')
             ->setBody($binary);
+    }
+
+    private function formatRowForClient(array $row): array
+    {
+        return [
+            'id' => (int) ($row['id_monitoring'] ?? 0),
+            'tanggal' => (string) ($row['tanggal'] ?? ''),
+            'ro' => (string) ($row['ro'] ?? ''),
+            'akun' => (string) ($row['akun'] ?? ''),
+            'kegiatan' => (string) ($row['kegiatan'] ?? ''),
+            'rencana' => (int) ($row['rencana'] ?? 0),
+            'pic' => (string) ($row['pic'] ?? ''),
+            'realisasi' => (int) ($row['realisasi'] ?? 0),
+            'sumber_input' => (string) ($row['sumber_input'] ?? 'manual'),
+        ];
     }
 
     private function respondValidationError(array $errors)

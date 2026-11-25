@@ -159,6 +159,13 @@ foreach ($items as $it) {
     color: #fff !important;
     border-color: #0f766e !important;
   }
+  @keyframes rkksFlash {
+    0% { box-shadow: inset 0 0 0 999px rgba(20, 184, 166, 0.35); }
+    100% { box-shadow: inset 0 0 0 999px rgba(20, 184, 166, 0); }
+  }
+  .rkks-row-flash {
+    animation: rkksFlash 1.8s ease-out;
+  }
 </style>
 
 <section class="content rkks-page">
@@ -241,34 +248,34 @@ foreach ($items as $it) {
           <div class="rkks-kpi" style="--accent: #0f172a;">
             <div class="rkks-kpi-lbl">Total Pagu RKKS</div>
             <div class="rkks-kpi-val" id="kpiRkksTotal">Rp <?= number_format($totalPagu, 0, ',', '.') ?></div>
-            <div class="small text-muted"><?= (int) ($summary['counts_by_level']['ro'] ?? 0) ?> RO • <?= (int) ($summary['counts_by_level']['detail'] ?? 0) ?> Detail</div>
+            <div class="small text-muted" id="kpiRkksTotalSub"><?= (int) ($summary['counts_by_level']['ro'] ?? 0) ?> RO • <?= (int) ($summary['counts_by_level']['detail'] ?? 0) ?> Detail</div>
           </div>
         </div>
         <div class="col-6 col-lg mb-2 mb-lg-0">
           <div class="rkks-kpi" style="--accent: #2563eb;">
             <div class="rkks-kpi-lbl">Akun 51 (Pegawai)</div>
-            <div class="rkks-kpi-val text-primary">Rp <?= number_format((int) ($byAkun['51']['pagu'] ?? 0), 0, ',', '.') ?></div>
-            <div class="small text-muted"><?= number_format((float) ($byAkun['51']['persen'] ?? 0), 1, ',', '.') ?>% pagu</div>
+            <div class="rkks-kpi-val text-primary" id="kpiAkun51">Rp <?= number_format((int) ($byAkun['51']['pagu'] ?? 0), 0, ',', '.') ?></div>
+            <div class="small text-muted" id="kpiAkun51Pct"><?= number_format((float) ($byAkun['51']['persen'] ?? 0), 1, ',', '.') ?>% pagu</div>
           </div>
         </div>
         <div class="col-6 col-lg mb-2 mb-lg-0">
           <div class="rkks-kpi" style="--accent: #0f766e;">
             <div class="rkks-kpi-lbl">Akun 52 (Barang)</div>
-            <div class="rkks-kpi-val text-teal">Rp <?= number_format((int) ($byAkun['52']['pagu'] ?? 0), 0, ',', '.') ?></div>
-            <div class="small text-muted"><?= number_format((float) ($byAkun['52']['persen'] ?? 0), 1, ',', '.') ?>% pagu</div>
+            <div class="rkks-kpi-val text-teal" id="kpiAkun52">Rp <?= number_format((int) ($byAkun['52']['pagu'] ?? 0), 0, ',', '.') ?></div>
+            <div class="small text-muted" id="kpiAkun52Pct"><?= number_format((float) ($byAkun['52']['persen'] ?? 0), 1, ',', '.') ?>% pagu</div>
           </div>
         </div>
         <div class="col-6 col-lg mb-2 mb-lg-0">
           <div class="rkks-kpi" style="--accent: #d97706;">
             <div class="rkks-kpi-lbl">Akun 53 (Modal)</div>
-            <div class="rkks-kpi-val text-warning">Rp <?= number_format((int) ($byAkun['53']['pagu'] ?? 0), 0, ',', '.') ?></div>
-            <div class="small text-muted"><?= number_format((float) ($byAkun['53']['persen'] ?? 0), 1, ',', '.') ?>% pagu</div>
+            <div class="rkks-kpi-val text-warning" id="kpiAkun53">Rp <?= number_format((int) ($byAkun['53']['pagu'] ?? 0), 0, ',', '.') ?></div>
+            <div class="small text-muted" id="kpiAkun53Pct"><?= number_format((float) ($byAkun['53']['persen'] ?? 0), 1, ',', '.') ?>% pagu</div>
           </div>
         </div>
         <div class="col-6 col-lg">
           <div class="rkks-kpi" style="--accent: #dc2626;">
             <div class="rkks-kpi-lbl">Sumber Dana &amp; Blokir (*)</div>
-            <div class="small font-weight-bold text-dark mt-1">
+            <div class="small font-weight-bold text-dark mt-1" id="kpiSdBadges">
               <?php if (empty($bySd)): ?>
                 -
               <?php else: ?>
@@ -277,7 +284,7 @@ foreach ($items as $it) {
                 <?php endforeach; ?>
               <?php endif; ?>
             </div>
-            <div class="small <?= $blokirCount > 0 ? 'text-danger font-weight-bold' : 'text-muted' ?> mt-1">
+            <div class="small <?= $blokirCount > 0 ? 'text-danger font-weight-bold' : 'text-muted' ?> mt-1" id="kpiBlokirInfo">
               Blokir (*): <?= $blokirCount ?> item (Rp <?= number_format($totalBlokir, 0, ',', '.') ?>)
             </div>
           </div>
@@ -295,7 +302,7 @@ foreach ($items as $it) {
             </li>
             <li class="nav-item">
               <a class="nav-link font-weight-bold" data-toggle="tab" href="#tabRekapRo" role="tab">
-                <i class="fas fa-list-alt mr-1"></i> Rekap RO &amp; Subkomponen (<?= count($rekapSubkomponen) ?>)
+                <i class="fas fa-list-alt mr-1"></i> Rekap RO &amp; Subkomponen (<span id="rekapTabCount"><?= count($rekapSubkomponen) ?></span>)
               </a>
             </li>
           </ul>
@@ -401,7 +408,7 @@ foreach ($items as $it) {
                 <tfoot>
                   <tr class="bg-light font-weight-bold">
                     <th colspan="6" class="text-right">TOTAL REKAP:</th>
-                    <th class="text-right text-teal">Rp <?= number_format($sumRekap, 0, ',', '.') ?></th>
+                    <th class="text-right text-teal" id="rekapTotalFoot">Rp <?= number_format($sumRekap, 0, ',', '.') ?></th>
                   </tr>
                 </tfoot>
               </table>
@@ -614,7 +621,7 @@ foreach ($items as $it) {
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const ACTIVE_DOK_ID = <?= $activeDokId ?>;
-  const ITEMS = <?= json_encode($itemsJson, JSON_UNESCAPED_UNICODE) ?>;
+  let ITEMS = <?= json_encode($itemsJson, JSON_UNESCAPED_UNICODE) ?>;
   const LEVEL_ORDER = ['program', 'kegiatan', 'kro', 'ro', 'komponen', 'subkomponen', 'akun', 'header_detail', 'detail'];
   const LEVEL_LABELS = {
     program: 'Program',
@@ -639,18 +646,32 @@ document.addEventListener('DOMContentLoaded', function () {
     detail: []
   };
 
-  const itemById = {};
-  const childrenMap = {};
-  ITEMS.forEach(it => {
-    itemById[it.id] = it;
-    const pid = it.parent_id || 0;
-    if (!childrenMap[pid]) childrenMap[pid] = [];
-    childrenMap[pid].push(it.id);
-  });
-
+  let itemById = {};
+  let childrenMap = {};
+  let rekapDtInstance = null;
   const collapsedIds = new Set();
   let currentDepth = 'subkomponen';
   let onlyBlokir = false;
+
+  const Toast = Swal.mixin({
+    toast: true,
+    position: 'top-end',
+    showConfirmButton: false,
+    timer: 1800,
+    timerProgressBar: true
+  });
+
+  function rebuildIndexes() {
+    itemById = {};
+    childrenMap = {};
+    ITEMS.forEach(it => {
+      itemById[it.id] = it;
+      const pid = it.parent_id || 0;
+      if (!childrenMap[pid]) childrenMap[pid] = [];
+      childrenMap[pid].push(it.id);
+    });
+  }
+  rebuildIndexes();
 
   function escapeHtml(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -786,6 +807,139 @@ document.addEventListener('DOMContentLoaded', function () {
     }).join('');
 
     tbody.innerHTML = html || '<tr><td colspan="9" class="text-center text-muted py-4">Tidak ada baris RKKS yang sesuai filter.</td></tr>';
+  }
+
+  function applyLiveState(state, opts = {}) {
+    if (!state) return;
+    const treeWrap = document.querySelector('.rkks-tree-wrap');
+    const prevTreeTop = treeWrap ? treeWrap.scrollTop : 0;
+    const prevTreeLeft = treeWrap ? treeWrap.scrollLeft : 0;
+    const prevWinY = window.scrollY;
+
+    ITEMS = state.items || [];
+    rebuildIndexes();
+
+    // Pertahankan state expand/collapse dan pastikan induk item baru terbuka
+    Array.from(collapsedIds).forEach(cid => {
+      if (!itemById[cid]) collapsedIds.delete(cid);
+    });
+    if (opts.expandParentId) {
+      let pId = parseInt(opts.expandParentId, 10);
+      let guard = 0;
+      while (pId && itemById[pId] && guard < 20) {
+        collapsedIds.delete(pId);
+        pId = itemById[pId].parent_id;
+        guard++;
+      }
+    }
+
+    // Update KPI Cards
+    const sum = state.summary || {};
+    const totalPagu = Number(sum.total_pagu || 0);
+    const counts = sum.counts_by_level || {};
+    const byAkun = sum.by_akun_group || {};
+    const bySd = sum.by_sumber_dana || [];
+
+    const kpiTotal = document.getElementById('kpiRkksTotal');
+    if (kpiTotal) kpiTotal.textContent = formatRp(totalPagu);
+    const kpiSub = document.getElementById('kpiRkksTotalSub');
+    if (kpiSub) kpiSub.textContent = (counts.ro || 0) + ' RO • ' + (counts.detail || 0) + ' Detail';
+
+    ['51', '52', '53'].forEach(code => {
+      const ak = byAkun[code] || {};
+      const valEl = document.getElementById('kpiAkun' + code);
+      const pctEl = document.getElementById('kpiAkun' + code + 'Pct');
+      if (valEl) valEl.textContent = formatRp(ak.pagu || 0);
+      if (pctEl) pctEl.textContent = Number(ak.persen || 0).toFixed(1).replace('.', ',') + '% pagu';
+    });
+
+    const sdEl = document.getElementById('kpiSdBadges');
+    if (sdEl) {
+      sdEl.innerHTML = bySd.length
+        ? bySd.map(sd => '<span class="badge badge-light border mr-1">' + escapeHtml(sd.sumber_dana) + ': ' + Number(sd.persen || 0).toFixed(1).replace('.', ',') + '%</span>').join('')
+        : '-';
+    }
+
+    const blkEl = document.getElementById('kpiBlokirInfo');
+    if (blkEl) {
+      const bCnt = Number(sum.blokir_count || 0);
+      const bTot = Number(sum.total_blokir || 0);
+      blkEl.className = 'small ' + (bCnt > 0 ? 'text-danger font-weight-bold' : 'text-muted') + ' mt-1';
+      blkEl.textContent = 'Blokir (*): ' + bCnt + ' item (' + formatRp(bTot) + ')';
+    }
+
+    // Update pagu pada dropdown dokumen aktif
+    const selDokEl = document.getElementById('selectDokumen');
+    if (selDokEl && selDokEl.selectedIndex >= 0) {
+      const opt = selDokEl.options[selDokEl.selectedIndex];
+      opt.text = opt.text.replace(/—\s*Rp\s*[\d\.]+$/, '— ' + formatRp(totalPagu));
+    }
+
+    // Update Rekap tab & table
+    const rekap = state.rekap || [];
+    const tabCnt = document.getElementById('rekapTabCount');
+    if (tabCnt) tabCnt.textContent = rekap.length;
+
+    const rekapEl = document.getElementById('rekapTable');
+    if (rekapEl) {
+      let prevSearch = '', prevPage = 0, prevLen = 25;
+      if (rekapDtInstance) {
+        prevSearch = rekapDtInstance.search() || '';
+        prevPage = rekapDtInstance.page() || 0;
+        prevLen = rekapDtInstance.page.len() || 25;
+        rekapDtInstance.destroy();
+        rekapDtInstance = null;
+      }
+      let sumRekap = 0;
+      const rekapTbody = rekapEl.querySelector('tbody');
+      rekapTbody.innerHTML = rekap.map((rk, i) => {
+        sumRekap += Number(rk.pagu || 0);
+        return '<tr>' +
+          '<td class="text-center">' + (i + 1) + '</td>' +
+          '<td class="font-weight-bold">' + escapeHtml(rk.ro_komponen) + '</td>' +
+          '<td class="text-center font-weight-bold">' + escapeHtml(rk.subkomponen_kode) + '</td>' +
+          '<td>' + escapeHtml(rk.kegiatan) + '</td>' +
+          '<td class="text-center"><span class="badge badge-info">' + escapeHtml(rk.akun) + '</span></td>' +
+          '<td class="text-center">' + escapeHtml(rk.sumber_dana || '-') + '</td>' +
+          '<td class="text-right font-weight-bold">' + formatRp(rk.pagu || 0) + '</td>' +
+        '</tr>';
+      }).join('');
+      const rekapFoot = document.getElementById('rekapTotalFoot');
+      if (rekapFoot) rekapFoot.textContent = formatRp(sumRekap);
+
+      if (typeof $ !== 'undefined' && $.fn.DataTable) {
+        rekapDtInstance = $('#rekapTable').DataTable({ pageLength: prevLen, order: [] });
+        if (prevSearch) rekapDtInstance.search(prevSearch);
+        rekapDtInstance.draw(false);
+        const info = rekapDtInstance.page.info();
+        const safeP = Math.max(0, Math.min(prevPage, Math.max(0, info.pages - 1)));
+        if (safeP > 0) rekapDtInstance.page(safeP).draw('page');
+      }
+    }
+
+    // Render tree & restore exact scroll position
+    renderTree();
+    if (treeWrap) {
+      treeWrap.scrollTop = prevTreeTop;
+      treeWrap.scrollLeft = prevTreeLeft;
+    }
+    window.scrollTo(window.scrollX, prevWinY);
+
+    requestAnimationFrame(() => {
+      if (treeWrap) {
+        treeWrap.scrollTop = prevTreeTop;
+        treeWrap.scrollLeft = prevTreeLeft;
+      }
+      window.scrollTo(window.scrollX, prevWinY);
+      if (opts.highlightId) {
+        const targetTr = document.querySelector('#rkksTreeBody tr[data-id="' + opts.highlightId + '"]');
+        if (targetTr) {
+          targetTr.classList.remove('rkks-row-flash');
+          void targetTr.offsetWidth;
+          targetTr.classList.add('rkks-row-flash');
+        }
+      }
+    });
   }
 
   function configureRuhModalFields(levelType) {
@@ -1010,15 +1164,21 @@ document.addEventListener('DOMContentLoaded', function () {
       const blkBtn = e.target.closest('.btn-toggle-blokir');
       if (blkBtn) {
         const id = parseInt(blkBtn.getAttribute('data-id'), 10);
-        const res = await fetch('/relaxtime/rkks/item/toggle-blokir/' + id, {
-          method: 'POST',
-          headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        });
-        const json = await res.json();
-        if (res.ok && json.success) {
-          window.location.reload();
-        } else {
-          Swal.fire('Gagal', json.message || 'Gagal mengubah blokir.', 'error');
+        blkBtn.disabled = true;
+        try {
+          const res = await fetch('/relaxtime/rkks/item/toggle-blokir/' + id, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+          });
+          const json = await res.json();
+          if (res.ok && json.success) {
+            applyLiveState(json.state, { highlightId: id });
+            Toast.fire({ icon: 'success', title: json.message });
+          } else {
+            Swal.fire('Gagal', json.message || 'Gagal mengubah blokir.', 'error');
+          }
+        } finally {
+          blkBtn.disabled = false;
         }
         return;
       }
@@ -1042,8 +1202,8 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         const json = await res.json();
         if (res.ok && json.success) {
-          await Swal.fire({ icon: 'success', title: 'Terhapus', text: json.message, timer: 1200, showConfirmButton: false });
-          window.location.reload();
+          applyLiveState(json.state);
+          Toast.fire({ icon: 'success', title: json.message });
         } else {
           Swal.fire('Gagal', json.message || 'Gagal menghapus item.', 'error');
         }
@@ -1055,6 +1215,7 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('formRuhItem').addEventListener('submit', async function (e) {
     e.preventDefault();
     const id = document.getElementById('ruhIdItem').value;
+    const parentId = document.getElementById('ruhParentId').value;
     const sel = document.getElementById('ruhLevelType');
     const wasDisabled = sel.disabled;
     sel.disabled = false;
@@ -1065,19 +1226,28 @@ document.addEventListener('DOMContentLoaded', function () {
     fd.set('jumlah', String(parseRp(document.getElementById('ruhJumlah').value)));
     fd.set('nilai_blokir', String(parseRp(document.getElementById('ruhNilaiBlokir').value)));
 
-    const url = id ? '/relaxtime/rkks/item/update/' + id : '/relaxtime/rkks/item/store';
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' },
-      body: fd
-    });
-    const json = await res.json();
-    if (res.ok && json.success) {
-      $('#modalRuhItem').modal('hide');
-      await Swal.fire({ icon: 'success', title: 'Tersimpan', text: json.message, timer: 1200, showConfirmButton: false });
-      window.location.reload();
-    } else {
-      Swal.fire('Gagal', json.message || 'Gagal menyimpan item RKKS.', 'error');
+    const btn = document.getElementById('btnSubmitRuh');
+    btn.disabled = true;
+    try {
+      const url = id ? '/relaxtime/rkks/item/update/' + id : '/relaxtime/rkks/item/store';
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: fd
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        $('#modalRuhItem').modal('hide');
+        applyLiveState(json.state, {
+          highlightId: json.id_item || id,
+          expandParentId: id ? null : parentId
+        });
+        Toast.fire({ icon: 'success', title: json.message });
+      } else {
+        Swal.fire('Gagal', json.message || 'Gagal menyimpan item RKKS.', 'error');
+      }
+    } finally {
+      btn.disabled = false;
     }
   });
 
@@ -1108,7 +1278,7 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   if (typeof $ !== 'undefined' && $.fn.DataTable && document.getElementById('rekapTable')) {
-    $('#rekapTable').DataTable({ pageLength: 25, order: [] });
+    rekapDtInstance = $('#rekapTable').DataTable({ pageLength: 25, order: [] });
   }
 
   if (ITEMS.length > 0) {

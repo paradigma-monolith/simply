@@ -304,6 +304,7 @@ class Rkks extends BaseController
         return $this->response->setJSON([
             'success' => true,
             'id_item' => $newId,
+            'state' => $this->buildLiveState($idDokumen),
             'message' => 'Item RKKS berhasil direkam.',
         ]);
     }
@@ -370,6 +371,8 @@ class Rkks extends BaseController
 
         return $this->response->setJSON([
             'success' => true,
+            'id_item' => (int) $id,
+            'state' => $this->buildLiveState((int) $existing['id_dokumen']),
             'message' => 'Perubahan item RKKS berhasil disimpan & pagu dihitung ulang.',
         ]);
     }
@@ -386,6 +389,7 @@ class Rkks extends BaseController
             'success' => true,
             'deleted_count' => $res['deleted_count'],
             'total_pagu' => $res['total_pagu'],
+            'state' => $this->buildLiveState((int) $existing['id_dokumen']),
             'message' => $res['deleted_count'] . ' node RKKS berhasil dihapus & pagu diperbarui.',
         ]);
     }
@@ -409,8 +413,42 @@ class Rkks extends BaseController
         return $this->response->setJSON([
             'success' => true,
             'is_blokir' => $newFlag,
+            'state' => $this->buildLiveState((int) $existing['id_dokumen']),
             'message' => $newFlag ? 'Item ditandai Blokir (*).' : 'Status Blokir (*) dilepas.',
         ]);
+    }
+
+    private function buildLiveState(int $idDokumen): array
+    {
+        $items = $this->rkksModel->getItemsByDokumen($idDokumen);
+        $itemsJs = [];
+        foreach ($items as $it) {
+            $itemsJs[] = [
+                'id' => (int) $it['id_item'],
+                'parent_id' => $it['parent_id'] !== null ? (int) $it['parent_id'] : null,
+                'level' => (string) $it['level_type'],
+                'header_depth' => (int) ($it['header_depth'] ?? 0),
+                'kode' => (string) ($it['kode'] ?? ''),
+                'uraian' => (string) ($it['uraian'] ?? ''),
+                'lokasi' => (string) ($it['lokasi'] ?? ''),
+                'kppn' => (string) ($it['kppn'] ?? ''),
+                'jenis_komponen' => (string) ($it['jenis_komponen'] ?? ''),
+                'volume' => $it['volume'] !== null ? (float) $it['volume'] : null,
+                'satuan' => (string) ($it['satuan'] ?? ''),
+                'harga_satuan' => (int) ($it['harga_satuan'] ?? 0),
+                'jumlah' => (int) ($it['jumlah'] ?? 0),
+                'sumber_dana' => (string) ($it['sumber_dana'] ?? ''),
+                'is_blokir' => !empty($it['is_blokir']) ? 1 : 0,
+                'nilai_blokir' => (int) ($it['nilai_blokir'] ?? 0),
+                'catatan' => (string) ($it['catatan'] ?? ''),
+            ];
+        }
+
+        return [
+            'items' => $itemsJs,
+            'summary' => RelaxtimeRkksHelper::buildSummary($items),
+            'rekap' => RelaxtimeRkksHelper::buildRekapSubkomponen($items),
+        ];
     }
 
     public function exportExcel()

@@ -613,7 +613,15 @@ foreach ($allDateRows as $r) {
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  const ALL_ROWS = <?= json_encode($allRowsJson, JSON_UNESCAPED_UNICODE) ?>;
+  const ALL_ROWS_INITIAL = <?= json_encode($allRowsJson, JSON_UNESCAPED_UNICODE) ?>;
+  let ALL_ROWS = ALL_ROWS_INITIAL;
+  const Toast = Swal.mixin({
+    toast: true,
+    position: 'top-end',
+    showConfirmButton: false,
+    timer: 1800,
+    timerProgressBar: true
+  });
   const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
   const MONTHS_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   let dataTableInstance = null;
@@ -831,7 +839,53 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  function renderDashboardAndTable() {
+  function isRowInActiveMonthRange(tanggal) {
+    const allMonthsFlag = document.getElementById('filterAllMonths').value === '1';
+    if (allMonthsFlag) return true;
+    const bMulai = document.getElementById('filterBulanMulai').value;
+    const bSelesai = document.getElementById('filterBulanSelesai').value;
+    const ym = (tanggal || '').slice(0, 7);
+    if (bMulai && ym < bMulai) return false;
+    if (bSelesai && ym > bSelesai) return false;
+    return true;
+  }
+
+  function ensureSelectAndDatalistOption(pic, ro) {
+    if (pic && pic.trim() !== '') {
+      const pClean = pic.trim();
+      const selPic = document.getElementById('filterPic');
+      if (selPic && !Array.from(selPic.options).some(o => o.value.toLowerCase() === pClean.toLowerCase())) {
+        const opt = document.createElement('option');
+        opt.value = pClean;
+        opt.textContent = pClean;
+        selPic.appendChild(opt);
+      }
+      const dlPic = document.getElementById('picDatalist');
+      if (dlPic && !Array.from(dlPic.options).some(o => o.value.toLowerCase() === pClean.toLowerCase())) {
+        const opt = document.createElement('option');
+        opt.value = pClean;
+        dlPic.appendChild(opt);
+      }
+    }
+    if (ro && ro.trim() !== '') {
+      const rClean = ro.trim();
+      const dlRo = document.getElementById('roDatalist');
+      if (dlRo && !Array.from(dlRo.options).some(o => o.value === rClean)) {
+        const opt = document.createElement('option');
+        opt.value = rClean;
+        dlRo.appendChild(opt);
+      }
+    }
+  }
+
+  function renderDashboardAndTable(opts = {}) {
+    const prevScrollY = window.scrollY;
+    let prevPage = 0, prevSearch = '', prevLen = 25;
+    if (dataTableInstance && opts.preserveTableState) {
+      prevPage = dataTableInstance.page() || 0;
+      prevSearch = dataTableInstance.search() || '';
+      prevLen = dataTableInstance.page.len() || 25;
+    }
     const akunVal = document.getElementById('filterAkun').value;
     const picVal = document.getElementById('filterPic').value;
 
@@ -935,7 +989,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (typeof $ !== 'undefined' && $.fn.DataTable) {
       dataTableInstance = $('#monitoringTable').DataTable({
-        pageLength: 25,
+        pageLength: opts.preserveTableState ? prevLen : 25,
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Semua']],
         order: [],
         columnDefs: [{ orderable: false, targets: [0, 11] }],
@@ -947,6 +1001,21 @@ document.addEventListener('DOMContentLoaded', function () {
           infoEmpty: 'Tidak ada data',
           paginate: { next: 'Berikutnya', previous: 'Sebelumnya' }
         }
+      });
+
+      if (opts.preserveTableState) {
+        if (prevSearch) dataTableInstance.search(prevSearch);
+        dataTableInstance.draw(false);
+        const info = dataTableInstance.page.info();
+        const safePage = Math.max(0, Math.min(prevPage, Math.max(0, info.pages - 1)));
+        if (safePage > 0) dataTableInstance.page(safePage).draw('page');
+      }
+    }
+
+    if (opts.preserveTableState) {
+      window.scrollTo(window.scrollX, prevScrollY);
+      requestAnimationFrame(function () {
+        window.scrollTo(window.scrollX, prevScrollY);
       });
     }
 
@@ -1082,8 +1151,21 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
       }
       $('#modalManualAnggaran').modal('hide');
-      await Swal.fire({ icon: 'success', title: 'Berhasil', text: json.message, timer: 1400, showConfirmButton: false });
-      window.location.reload();
+      if (json.row) {
+        ensureSelectAndDatalistOption(json.row.pic, json.row.ro);
+        const idx = ALL_ROWS.findIndex(r => r.id === json.row.id);
+        if (isRowInActiveMonthRange(json.row.tanggal)) {
+          if (idx >= 0) {
+            ALL_ROWS[idx] = json.row;
+          } else {
+            ALL_ROWS.push(json.row);
+          }
+        } else if (idx >= 0) {
+          ALL_ROWS.splice(idx, 1);
+        }
+      }
+      renderDashboardAndTable({ preserveTableState: true });
+      Toast.fire({ icon: 'success', title: json.message });
     } catch (err) {
       Swal.fire('Error', 'Terjadi kesalahan koneksi saat menyimpan.', 'error');
     } finally {
@@ -1133,8 +1215,10 @@ document.addEventListener('DOMContentLoaded', function () {
       });
       const json = await res.json();
       if (res.ok && json.success) {
-        await Swal.fire({ icon: 'success', title: 'Terhapus', text: json.message, timer: 1200, showConfirmButton: false });
-        window.location.reload();
+        const delId = parseInt(json.deleted_id || id, 10);
+        ALL_ROWS = ALL_ROWS.filter(r => r.id !== delId);
+        renderDashboardAndTable({ preserveTableState: true });
+        Toast.fire({ icon: 'success', title: json.message });
       } else {
         Swal.fire('Gagal', json.message || 'Gagal menghapus data.', 'error');
       }
@@ -1177,8 +1261,11 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     const json = await res.json();
     if (res.ok && json.success) {
-      await Swal.fire({ icon: 'success', title: 'Berhasil', text: json.message, timer: 1400, showConfirmButton: false });
-      window.location.reload();
+      const delSet = new Set((json.deleted_ids || ids).map(v => parseInt(v, 10)));
+      ALL_ROWS = ALL_ROWS.filter(r => !delSet.has(r.id));
+      document.getElementById('checkAllRows').checked = false;
+      renderDashboardAndTable({ preserveTableState: true });
+      Toast.fire({ icon: 'success', title: json.message });
     } else {
       Swal.fire('Gagal', json.message || 'Gagal menghapus data terpilih.', 'error');
     }
