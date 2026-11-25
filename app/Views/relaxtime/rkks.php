@@ -79,9 +79,11 @@ foreach ($items as $it) {
     max-height: 70vh;
     overflow: auto;
     border-top: 1px solid #e2e8f0;
+    contain: layout style;
   }
   .rkks-tree-table {
     width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
     font-size: 0.83rem;
   }
@@ -102,6 +104,11 @@ foreach ($items as $it) {
     padding: 5px 8px;
     border: 1px solid #e2e8f0;
     vertical-align: middle;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+  }
+  .rkks-hidden {
+    display: none !important;
   }
   .rkks-row-program { background: #dbeafe; font-weight: 700; color: #1e3a8a; }
   .rkks-row-kegiatan { background: #e2e8f0; font-weight: 700; color: #0f172a; }
@@ -648,7 +655,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
   let itemById = {};
   let childrenMap = {};
+  let ancestorsById = {};
+  let descendantsById = {};
+  let searchTextById = {};
+  let akunGroupById = {};
+  let sdById = {};
+  let rowElById = {};
+  let toggleIconById = {};
   let rekapDtInstance = null;
+  let pendingRekapData = null;
+  let rekapDirty = false;
+  let searchTimer = null;
   const collapsedIds = new Set();
   let currentDepth = 'subkomponen';
   let onlyBlokir = false;
@@ -664,11 +681,48 @@ document.addEventListener('DOMContentLoaded', function () {
   function rebuildIndexes() {
     itemById = {};
     childrenMap = {};
+    ancestorsById = {};
+    descendantsById = {};
+    searchTextById = {};
+    akunGroupById = {};
+    sdById = {};
+
     ITEMS.forEach(it => {
       itemById[it.id] = it;
       const pid = it.parent_id || 0;
       if (!childrenMap[pid]) childrenMap[pid] = [];
       childrenMap[pid].push(it.id);
+    });
+
+    ITEMS.forEach(it => {
+      const ancs = [];
+      let pid = it.parent_id;
+      let guard = 0;
+      let akunGrp = it.level === 'akun' ? it.kode.slice(0, 2) : '';
+      let sd = it.sumber_dana || '';
+
+      while (pid && itemById[pid] && guard < 20) {
+        ancs.push(pid);
+        const parent = itemById[pid];
+        if (!akunGrp && parent.level === 'akun') akunGrp = parent.kode.slice(0, 2);
+        if (!sd && parent.sumber_dana) sd = parent.sumber_dana;
+        pid = parent.parent_id;
+        guard++;
+      }
+
+      ancestorsById[it.id] = ancs;
+      akunGroupById[it.id] = akunGrp;
+      sdById[it.id] = sd;
+      searchTextById[it.id] = (it.kode + ' ' + it.uraian + ' ' + it.lokasi + ' ' + it.kppn).toLowerCase();
+      descendantsById[it.id] = [];
+    });
+
+    // Isi descendantsById untuk setiap leluhur dalam sekali jalan
+    ITEMS.forEach(it => {
+      const ancs = ancestorsById[it.id] || [];
+      for (let i = 0; i < ancs.length; i++) {
+        descendantsById[ancs[i]].push(it.id);
+      }
     });
   }
   rebuildIndexes();
@@ -696,81 +750,21 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  function getAncestorIds(item) {
-    const res = [];
-    let pid = item.parent_id;
-    let guard = 0;
-    while (pid && itemById[pid] && guard < 20) {
-      res.push(pid);
-      pid = itemById[pid].parent_id;
-      guard++;
-    }
-    return res;
-  }
-
-  function getAkunGroup(item) {
-    if (item.level === 'akun') return item.kode.slice(0, 2);
-    let pid = item.parent_id;
-    let guard = 0;
-    while (pid && itemById[pid] && guard < 15) {
-      if (itemById[pid].level === 'akun') return itemById[pid].kode.slice(0, 2);
-      pid = itemById[pid].parent_id;
-      guard++;
-    }
-    return '';
-  }
-
-  function getInheritedSd(item) {
-    if (item.sumber_dana) return item.sumber_dana;
-    let pid = item.parent_id;
-    let guard = 0;
-    while (pid && itemById[pid] && guard < 15) {
-      if (itemById[pid].sumber_dana) return itemById[pid].sumber_dana;
-      pid = itemById[pid].parent_id;
-      guard++;
-    }
-    return '';
-  }
-
-  function renderTree() {
+  function mountTreeRows() {
     const tbody = document.getElementById('rkksTreeBody');
     if (!tbody) return;
+    rowElById = {};
+    toggleIconById = {};
 
-    const searchQ = (document.getElementById('rkksSearch').value || '').trim().toLowerCase();
-    const akunFilter = document.getElementById('rkksFilterAkun').value;
-    const sdFilter = document.getElementById('rkksFilterSd').value;
-    const isFiltering = Boolean(searchQ || akunFilter || sdFilter || onlyBlokir);
-
-    const visibleIds = new Set();
-    if (isFiltering) {
-      ITEMS.forEach(it => {
-        if (searchQ) {
-          const hay = (it.kode + ' ' + it.uraian + ' ' + it.lokasi + ' ' + it.kppn).toLowerCase();
-          if (!hay.includes(searchQ)) return;
-        }
-        if (akunFilter && getAkunGroup(it) !== akunFilter) return;
-        if (sdFilter && getInheritedSd(it) !== sdFilter) return;
-        if (onlyBlokir && !it.is_blokir) return;
-        visibleIds.add(it.id);
-        getAncestorIds(it).forEach(aid => visibleIds.add(aid));
-      });
-    }
-
-    const html = ITEMS.map(it => {
-      if (isFiltering) {
-        if (!visibleIds.has(it.id)) return '';
-      } else {
-        const ancestors = getAncestorIds(it);
-        if (ancestors.some(aid => collapsedIds.has(aid))) return '';
-      }
-
+    const parts = [];
+    for (let i = 0; i < ITEMS.length; i++) {
+      const it = ITEMS[i];
       const hasKids = (childrenMap[it.id] || []).length > 0;
-      const isCollapsed = !isFiltering && collapsedIds.has(it.id);
       const depthIdx = LEVEL_ORDER.indexOf(it.level) + (it.level === 'header_detail' && it.header_depth === 2 ? 1 : 0);
       const padLeft = Math.max(0, depthIdx * 14);
 
       const toggleBtn = hasKids
-        ? '<button type="button" class="rkks-toggle-btn btn-toggle-node" data-id="' + it.id + '"><i class="fas ' + (isCollapsed ? 'fa-plus' : 'fa-minus') + '"></i></button>'
+        ? '<button type="button" class="rkks-toggle-btn btn-toggle-node" data-id="' + it.id + '"><i class="fas fa-minus" data-icon-id="' + it.id + '"></i></button>'
         : '<span style="display:inline-block;width:23px;"></span>';
 
       const lvlBadge = '<span class="rkks-lvl-tag">' + escapeHtml(LEVEL_LABELS[it.level] || it.level) + '</span>';
@@ -788,25 +782,162 @@ document.addEventListener('DOMContentLoaded', function () {
         ? '<button type="button" class="btn ' + (it.is_blokir ? 'btn-danger' : 'btn-outline-secondary') + ' rkks-btn-ruh btn-toggle-blokir" data-id="' + it.id + '" title="Toggle Blokir (*)">*</button> '
         : '';
 
-      return '<tr class="rkks-row-' + escapeHtml(it.level) + '" data-id="' + it.id + '">' +
-        '<td style="white-space:nowrap;">' + escapeHtml(it.kode) + '</td>' +
-        '<td><div style="padding-left:' + padLeft + 'px;">' + toggleBtn + lvlBadge + escapeHtml(it.uraian) + metaHtml + '</div></td>' +
-        '<td class="text-right">' + (it.volume !== null ? it.volume : '') + '</td>' +
-        '<td>' + escapeHtml(it.satuan) + '</td>' +
-        '<td class="text-right">' + (it.harga_satuan > 0 ? formatRp(it.harga_satuan) : '') + '</td>' +
-        '<td class="text-right font-weight-bold">' + formatRp(it.jumlah) + '</td>' +
-        '<td class="text-center">' + escapeHtml(it.sumber_dana) + '</td>' +
-        '<td class="text-center">' + (it.is_blokir ? '<span class="badge badge-danger">*</span>' : '') + '</td>' +
-        '<td class="text-center text-nowrap">' +
-          addChildBtn +
-          '<button type="button" class="btn btn-outline-primary rkks-btn-ruh btn-edit-item" data-id="' + it.id + '" title="Ubah"><i class="fas fa-edit"></i></button> ' +
-          blokirBtn +
-          '<button type="button" class="btn btn-outline-danger rkks-btn-ruh btn-delete-item" data-id="' + it.id + '" title="Hapus"><i class="fas fa-trash"></i></button>' +
-        '</td>' +
+      parts.push(
+        '<tr class="rkks-row-' + escapeHtml(it.level) + '" data-id="' + it.id + '">' +
+          '<td style="white-space:nowrap;">' + escapeHtml(it.kode) + '</td>' +
+          '<td><div style="padding-left:' + padLeft + 'px;">' + toggleBtn + lvlBadge + escapeHtml(it.uraian) + metaHtml + '</div></td>' +
+          '<td class="text-right">' + (it.volume !== null ? it.volume : '') + '</td>' +
+          '<td>' + escapeHtml(it.satuan) + '</td>' +
+          '<td class="text-right">' + (it.harga_satuan > 0 ? formatRp(it.harga_satuan) : '') + '</td>' +
+          '<td class="text-right font-weight-bold">' + formatRp(it.jumlah) + '</td>' +
+          '<td class="text-center">' + escapeHtml(it.sumber_dana) + '</td>' +
+          '<td class="text-center">' + (it.is_blokir ? '<span class="badge badge-danger">*</span>' : '') + '</td>' +
+          '<td class="text-center text-nowrap">' +
+            addChildBtn +
+            '<button type="button" class="btn btn-outline-primary rkks-btn-ruh btn-edit-item" data-id="' + it.id + '" title="Ubah"><i class="fas fa-edit"></i></button> ' +
+            blokirBtn +
+            '<button type="button" class="btn btn-outline-danger rkks-btn-ruh btn-delete-item" data-id="' + it.id + '" title="Hapus"><i class="fas fa-trash"></i></button>' +
+          '</td>' +
+        '</tr>'
+      );
+    }
+
+    parts.push('<tr id="rkksEmptyRow" class="rkks-hidden"><td colspan="9" class="text-center text-muted py-4">Tidak ada baris RKKS yang sesuai filter.</td></tr>');
+    tbody.innerHTML = parts.join('');
+
+    const rows = tbody.children;
+    for (let i = 0; i < rows.length; i++) {
+      const tr = rows[i];
+      const idAttr = tr.getAttribute('data-id');
+      if (idAttr) {
+        const idNum = parseInt(idAttr, 10);
+        rowElById[idNum] = tr;
+        const iconEl = tr.querySelector('[data-icon-id]');
+        if (iconEl) toggleIconById[idNum] = iconEl;
+      }
+    }
+  }
+
+  function toggleSingleNode(id) {
+    const isCurrentlyCollapsed = collapsedIds.has(id);
+    if (!isCurrentlyCollapsed) {
+      collapsedIds.add(id);
+      if (toggleIconById[id]) toggleIconById[id].className = 'fas fa-plus';
+      const desc = descendantsById[id] || [];
+      for (let i = 0; i < desc.length; i++) {
+        const el = rowElById[desc[i]];
+        if (el) el.classList.add('rkks-hidden');
+      }
+      return;
+    }
+
+    collapsedIds.delete(id);
+    if (toggleIconById[id]) toggleIconById[id].className = 'fas fa-minus';
+    const queue = (childrenMap[id] || []).slice();
+    while (queue.length > 0) {
+      const cid = queue.shift();
+      const el = rowElById[cid];
+      if (el) el.classList.remove('rkks-hidden');
+      if (!collapsedIds.has(cid)) {
+        const grand = childrenMap[cid] || [];
+        for (let i = 0; i < grand.length; i++) queue.push(grand[i]);
+      }
+    }
+  }
+
+  function updateVisibility() {
+    const searchQ = (document.getElementById('rkksSearch').value || '').trim().toLowerCase();
+    const akunFilter = document.getElementById('rkksFilterAkun').value;
+    const sdFilter = document.getElementById('rkksFilterSd').value;
+    const isFiltering = Boolean(searchQ || akunFilter || sdFilter || onlyBlokir);
+
+    let visibleIds = null;
+    if (isFiltering) {
+      visibleIds = new Set();
+      for (let i = 0; i < ITEMS.length; i++) {
+        const it = ITEMS[i];
+        if (searchQ && searchTextById[it.id].indexOf(searchQ) === -1) continue;
+        if (akunFilter && akunGroupById[it.id] !== akunFilter) continue;
+        if (sdFilter && sdById[it.id] !== sdFilter) continue;
+        if (onlyBlokir && !it.is_blokir) continue;
+        visibleIds.add(it.id);
+        const ancs = ancestorsById[it.id] || [];
+        for (let j = 0; j < ancs.length; j++) visibleIds.add(ancs[j]);
+      }
+    }
+
+    let visibleCount = 0;
+    for (let i = 0; i < ITEMS.length; i++) {
+      const it = ITEMS[i];
+      const tr = rowElById[it.id];
+      if (!tr) continue;
+
+      let show = true;
+      if (isFiltering) {
+        show = visibleIds.has(it.id);
+      } else {
+        const ancs = ancestorsById[it.id] || [];
+        for (let j = 0; j < ancs.length; j++) {
+          if (collapsedIds.has(ancs[j])) {
+            show = false;
+            break;
+          }
+        }
+      }
+
+      tr.classList.toggle('rkks-hidden', !show);
+      if (show) visibleCount++;
+
+      const iconEl = toggleIconById[it.id];
+      if (iconEl) {
+        const isCollapsed = !isFiltering && collapsedIds.has(it.id);
+        iconEl.className = 'fas ' + (isCollapsed ? 'fa-plus' : 'fa-minus');
+      }
+    }
+
+    const emptyRow = document.getElementById('rkksEmptyRow');
+    if (emptyRow) emptyRow.classList.toggle('rkks-hidden', visibleCount > 0);
+  }
+
+  function rebuildRekapTable(rekap) {
+    const rekapEl = document.getElementById('rekapTable');
+    if (!rekapEl) return;
+
+    let prevSearch = '', prevPage = 0, prevLen = 25;
+    if (rekapDtInstance) {
+      prevSearch = rekapDtInstance.search() || '';
+      prevPage = rekapDtInstance.page() || 0;
+      prevLen = rekapDtInstance.page.len() || 25;
+      rekapDtInstance.destroy();
+      rekapDtInstance = null;
+    }
+
+    let sumRekap = 0;
+    const rekapTbody = rekapEl.querySelector('tbody');
+    rekapTbody.innerHTML = rekap.map((rk, i) => {
+      sumRekap += Number(rk.pagu || 0);
+      return '<tr>' +
+        '<td class="text-center">' + (i + 1) + '</td>' +
+        '<td class="font-weight-bold">' + escapeHtml(rk.ro_komponen) + '</td>' +
+        '<td class="text-center font-weight-bold">' + escapeHtml(rk.subkomponen_kode) + '</td>' +
+        '<td>' + escapeHtml(rk.kegiatan) + '</td>' +
+        '<td class="text-center"><span class="badge badge-info">' + escapeHtml(rk.akun) + '</span></td>' +
+        '<td class="text-center">' + escapeHtml(rk.sumber_dana || '-') + '</td>' +
+        '<td class="text-right font-weight-bold">' + formatRp(rk.pagu || 0) + '</td>' +
       '</tr>';
     }).join('');
+    const rekapFoot = document.getElementById('rekapTotalFoot');
+    if (rekapFoot) rekapFoot.textContent = formatRp(sumRekap);
 
-    tbody.innerHTML = html || '<tr><td colspan="9" class="text-center text-muted py-4">Tidak ada baris RKKS yang sesuai filter.</td></tr>';
+    if (typeof $ !== 'undefined' && $.fn.DataTable) {
+      rekapDtInstance = $('#rekapTable').DataTable({ pageLength: prevLen, order: [] });
+      if (prevSearch) rekapDtInstance.search(prevSearch);
+      rekapDtInstance.draw(false);
+      const info = rekapDtInstance.page.info();
+      const safeP = Math.max(0, Math.min(prevPage, Math.max(0, info.pages - 1)));
+      if (safeP > 0) rekapDtInstance.page(safeP).draw('page');
+    }
+    rekapDirty = false;
   }
 
   function applyLiveState(state, opts = {}) {
@@ -819,7 +950,6 @@ document.addEventListener('DOMContentLoaded', function () {
     ITEMS = state.items || [];
     rebuildIndexes();
 
-    // Pertahankan state expand/collapse dan pastikan induk item baru terbuka
     Array.from(collapsedIds).forEach(cid => {
       if (!itemById[cid]) collapsedIds.delete(cid);
     });
@@ -833,7 +963,6 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
-    // Update KPI Cards
     const sum = state.summary || {};
     const totalPagu = Number(sum.total_pagu || 0);
     const counts = sum.counts_by_level || {};
@@ -868,57 +997,26 @@ document.addEventListener('DOMContentLoaded', function () {
       blkEl.textContent = 'Blokir (*): ' + bCnt + ' item (' + formatRp(bTot) + ')';
     }
 
-    // Update pagu pada dropdown dokumen aktif
     const selDokEl = document.getElementById('selectDokumen');
     if (selDokEl && selDokEl.selectedIndex >= 0) {
       const opt = selDokEl.options[selDokEl.selectedIndex];
       opt.text = opt.text.replace(/—\s*Rp\s*[\d\.]+$/, '— ' + formatRp(totalPagu));
     }
 
-    // Update Rekap tab & table
-    const rekap = state.rekap || [];
+    pendingRekapData = state.rekap || [];
     const tabCnt = document.getElementById('rekapTabCount');
-    if (tabCnt) tabCnt.textContent = rekap.length;
+    if (tabCnt) tabCnt.textContent = pendingRekapData.length;
 
-    const rekapEl = document.getElementById('rekapTable');
-    if (rekapEl) {
-      let prevSearch = '', prevPage = 0, prevLen = 25;
-      if (rekapDtInstance) {
-        prevSearch = rekapDtInstance.search() || '';
-        prevPage = rekapDtInstance.page() || 0;
-        prevLen = rekapDtInstance.page.len() || 25;
-        rekapDtInstance.destroy();
-        rekapDtInstance = null;
-      }
-      let sumRekap = 0;
-      const rekapTbody = rekapEl.querySelector('tbody');
-      rekapTbody.innerHTML = rekap.map((rk, i) => {
-        sumRekap += Number(rk.pagu || 0);
-        return '<tr>' +
-          '<td class="text-center">' + (i + 1) + '</td>' +
-          '<td class="font-weight-bold">' + escapeHtml(rk.ro_komponen) + '</td>' +
-          '<td class="text-center font-weight-bold">' + escapeHtml(rk.subkomponen_kode) + '</td>' +
-          '<td>' + escapeHtml(rk.kegiatan) + '</td>' +
-          '<td class="text-center"><span class="badge badge-info">' + escapeHtml(rk.akun) + '</span></td>' +
-          '<td class="text-center">' + escapeHtml(rk.sumber_dana || '-') + '</td>' +
-          '<td class="text-right font-weight-bold">' + formatRp(rk.pagu || 0) + '</td>' +
-        '</tr>';
-      }).join('');
-      const rekapFoot = document.getElementById('rekapTotalFoot');
-      if (rekapFoot) rekapFoot.textContent = formatRp(sumRekap);
-
-      if (typeof $ !== 'undefined' && $.fn.DataTable) {
-        rekapDtInstance = $('#rekapTable').DataTable({ pageLength: prevLen, order: [] });
-        if (prevSearch) rekapDtInstance.search(prevSearch);
-        rekapDtInstance.draw(false);
-        const info = rekapDtInstance.page.info();
-        const safeP = Math.max(0, Math.min(prevPage, Math.max(0, info.pages - 1)));
-        if (safeP > 0) rekapDtInstance.page(safeP).draw('page');
-      }
+    const rekapPane = document.getElementById('tabRekapRo');
+    if (rekapPane && rekapPane.classList.contains('active')) {
+      rebuildRekapTable(pendingRekapData);
+    } else {
+      rekapDirty = true;
     }
 
-    // Render tree & restore exact scroll position
-    renderTree();
+    mountTreeRows();
+    updateVisibility();
+
     if (treeWrap) {
       treeWrap.scrollTop = prevTreeTop;
       treeWrap.scrollLeft = prevTreeLeft;
@@ -931,13 +1029,11 @@ document.addEventListener('DOMContentLoaded', function () {
         treeWrap.scrollLeft = prevTreeLeft;
       }
       window.scrollTo(window.scrollX, prevWinY);
-      if (opts.highlightId) {
-        const targetTr = document.querySelector('#rkksTreeBody tr[data-id="' + opts.highlightId + '"]');
-        if (targetTr) {
-          targetTr.classList.remove('rkks-row-flash');
-          void targetTr.offsetWidth;
-          targetTr.classList.add('rkks-row-flash');
-        }
+      if (opts.highlightId && rowElById[opts.highlightId]) {
+        const targetTr = rowElById[opts.highlightId];
+        targetTr.classList.remove('rkks-row-flash');
+        void targetTr.offsetWidth;
+        targetTr.classList.add('rkks-row-flash');
       }
     });
   }
@@ -1096,9 +1192,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const toggleBtn = e.target.closest('.btn-toggle-node');
       if (toggleBtn) {
         const id = parseInt(toggleBtn.getAttribute('data-id'), 10);
-        if (collapsedIds.has(id)) collapsedIds.delete(id);
-        else collapsedIds.add(id);
-        renderTree();
+        toggleSingleNode(id);
         return;
       }
 
@@ -1251,10 +1345,17 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  // Search, Filters, Depth buttons
-  ['rkksSearch', 'rkksFilterAkun', 'rkksFilterSd'].forEach(id => {
+  // Search (debounced 120ms), Filters, Depth buttons
+  const searchInput = document.getElementById('rkksSearch');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(updateVisibility, 120);
+    });
+  }
+  ['rkksFilterAkun', 'rkksFilterSd'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener(id === 'rkksSearch' ? 'input' : 'change', renderTree);
+    if (el) el.addEventListener('change', updateVisibility);
   });
 
   const btnBlkFilter = document.getElementById('btnFilterBlokir');
@@ -1263,7 +1364,7 @@ document.addEventListener('DOMContentLoaded', function () {
       onlyBlokir = !onlyBlokir;
       btnBlkFilter.classList.toggle('btn-danger', onlyBlokir);
       btnBlkFilter.classList.toggle('btn-outline-danger', !onlyBlokir);
-      renderTree();
+      updateVisibility();
     });
   }
 
@@ -1273,7 +1374,7 @@ document.addEventListener('DOMContentLoaded', function () {
       btn.classList.add('active');
       currentDepth = btn.getAttribute('data-depth');
       applyDepthCollapse(currentDepth);
-      renderTree();
+      updateVisibility();
     });
   });
 
@@ -1281,9 +1382,16 @@ document.addEventListener('DOMContentLoaded', function () {
     rekapDtInstance = $('#rekapTable').DataTable({ pageLength: 25, order: [] });
   }
 
+  $('a[href="#tabRekapRo"]').on('shown.bs.tab', function () {
+    if (rekapDirty && pendingRekapData !== null) {
+      rebuildRekapTable(pendingRekapData);
+    }
+  });
+
   if (ITEMS.length > 0) {
+    mountTreeRows();
     applyDepthCollapse(currentDepth);
-    renderTree();
+    updateVisibility();
   }
 });
 </script>
