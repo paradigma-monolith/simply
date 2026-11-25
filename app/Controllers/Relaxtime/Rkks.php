@@ -62,7 +62,7 @@ class Rkks extends BaseController
         $rekapSubkomponen = RelaxtimeRkksHelper::buildRekapSubkomponen($items);
 
         $data = [
-            'title' => 'RELAXTIME | RKKS (SAKTI)',
+            'title' => 'SIMANDJA | RKKS (SAKTI)',
             'activeMenu' => 'relaxtimeRkks',
             'dokumenList' => $dokumenList,
             'activeDokumen' => $activeDokumen,
