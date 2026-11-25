@@ -486,7 +486,9 @@ class RelaxtimeMonitoringAnggaranHelper
                 'rencana' => 0,
                 'realisasi' => 0,
                 'sisa' => 0,
+                'deviasi' => 0,
                 'persen' => 0.0,
+                'persen_deviasi' => 0.0,
                 'count' => 0,
             ];
         }
@@ -526,7 +528,9 @@ class RelaxtimeMonitoringAnggaranHelper
                     'rencana' => 0,
                     'realisasi' => 0,
                     'sisa' => 0,
+                    'deviasi' => 0,
                     'persen' => 0.0,
+                    'persen_deviasi' => 0.0,
                     'count' => 0,
                 ];
             }
@@ -540,7 +544,9 @@ class RelaxtimeMonitoringAnggaranHelper
                     'rencana' => 0,
                     'realisasi' => 0,
                     'sisa' => 0,
+                    'deviasi' => 0,
                     'persen' => 0.0,
+                    'persen_deviasi' => 0.0,
                     'count' => 0,
                 ];
             }
@@ -560,7 +566,9 @@ class RelaxtimeMonitoringAnggaranHelper
                         'rencana' => 0,
                         'realisasi' => 0,
                         'sisa' => 0,
+                        'deviasi' => 0,
                         'persen' => 0.0,
+                        'persen_deviasi' => 0.0,
                         'count' => 0,
                     ];
                 }
@@ -571,14 +579,12 @@ class RelaxtimeMonitoringAnggaranHelper
         }
 
         foreach ($byAkun as &$item) {
-            $item['sisa'] = $item['rencana'] - $item['realisasi'];
-            $item['persen'] = $item['rencana'] > 0 ? round(($item['realisasi'] / $item['rencana']) * 100, 2) : 0.0;
+            self::finalizeBucketMetrics($item);
         }
         unset($item);
 
         foreach ($byPic as &$item) {
-            $item['sisa'] = $item['rencana'] - $item['realisasi'];
-            $item['persen'] = $item['rencana'] > 0 ? round(($item['realisasi'] / $item['rencana']) * 100, 2) : 0.0;
+            self::finalizeBucketMetrics($item);
         }
         unset($item);
         uasort($byPic, static function (array $a, array $b): int {
@@ -587,20 +593,23 @@ class RelaxtimeMonitoringAnggaranHelper
 
         ksort($byMonth);
         foreach ($byMonth as &$item) {
-            $item['sisa'] = $item['rencana'] - $item['realisasi'];
-            $item['persen'] = $item['rencana'] > 0 ? round(($item['realisasi'] / $item['rencana']) * 100, 2) : 0.0;
+            self::finalizeBucketMetrics($item);
         }
         unset($item);
 
         $totalSisa = $totalRencana - $totalRealisasi;
+        $totalDeviasi = $totalRealisasi - $totalRencana;
         $persenRealisasi = $totalRencana > 0 ? round(($totalRealisasi / $totalRencana) * 100, 2) : 0.0;
+        $persenDeviasi = $totalRencana > 0 ? round(($totalDeviasi / $totalRencana) * 100, 2) : 0.0;
 
         return [
             'summary' => [
                 'total_rencana' => $totalRencana,
                 'total_realisasi' => $totalRealisasi,
                 'total_sisa' => $totalSisa,
+                'total_deviasi' => $totalDeviasi,
                 'persen_realisasi' => $persenRealisasi,
+                'persen_deviasi' => $persenDeviasi,
                 'total_kegiatan' => count($rows),
                 'terealisasi_count' => $terealisasiCount,
                 'over_budget_count' => $overBudgetCount,
@@ -609,6 +618,21 @@ class RelaxtimeMonitoringAnggaranHelper
             'by_pic' => array_values($byPic),
             'by_month' => array_values($byMonth),
         ];
+    }
+
+    /**
+     * Hitung sisa, deviasi, persentase serapan, dan persentase deviasi pada item agregasi.
+     */
+    private static function finalizeBucketMetrics(array &$item): void
+    {
+        $rencana = (int) ($item['rencana'] ?? 0);
+        $realisasi = (int) ($item['realisasi'] ?? 0);
+        $deviasi = $realisasi - $rencana;
+
+        $item['sisa'] = $rencana - $realisasi;
+        $item['deviasi'] = $deviasi;
+        $item['persen'] = $rencana > 0 ? round(($realisasi / $rencana) * 100, 2) : 0.0;
+        $item['persen_deviasi'] = $rencana > 0 ? round(($deviasi / $rencana) * 100, 2) : 0.0;
     }
 
     private static function extractCellValue(Cell $cell)

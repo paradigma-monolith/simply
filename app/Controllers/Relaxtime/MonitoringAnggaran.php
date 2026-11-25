@@ -579,11 +579,11 @@ class MonitoringAnggaran extends BaseController
         $summarySheet->setCellValue('A1', 'RINGKASAN MONITORING ANGGARAN PER AKUN');
         $summarySheet->getStyle('A1')->getFont()->setBold(true)->setSize(12);
 
-        $sumHeaders = ['Akun', 'Uraian', 'Jumlah Kegiatan', 'Rencana', 'Realisasi', 'Sisa', '% Realisasi'];
+        $sumHeaders = ['Akun', 'Uraian', 'Jumlah Kegiatan', 'Rencana', 'Realisasi', 'Sisa', 'Deviasi', '% Deviasi', '% Realisasi'];
         foreach ($sumHeaders as $idx => $h) {
             $summarySheet->setCellValue(chr(65 + $idx) . '3', $h);
         }
-        $summarySheet->getStyle('A3:G3')->applyFromArray([
+        $summarySheet->getStyle('A3:I3')->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '0F766E']],
         ]);
@@ -596,21 +596,23 @@ class MonitoringAnggaran extends BaseController
             $summarySheet->setCellValue('D' . $sr, $ak['rencana']);
             $summarySheet->setCellValue('E' . $sr, $ak['realisasi']);
             $summarySheet->setCellValue('F' . $sr, $ak['sisa']);
-            $summarySheet->setCellValue('G' . $sr, $ak['persen'] / 100);
-            $summarySheet->getStyle("D{$sr}:F{$sr}")->getNumberFormat()->setFormatCode('#,##0');
-            $summarySheet->getStyle("G{$sr}")->getNumberFormat()->setFormatCode('0.0%');
+            $summarySheet->setCellValue('G' . $sr, $ak['deviasi'] ?? ($ak['realisasi'] - $ak['rencana']));
+            $summarySheet->setCellValue('H' . $sr, ($ak['persen_deviasi'] ?? 0) / 100);
+            $summarySheet->setCellValue('I' . $sr, $ak['persen'] / 100);
+            $summarySheet->getStyle("D{$sr}:G{$sr}")->getNumberFormat()->setFormatCode('#,##0');
+            $summarySheet->getStyle("H{$sr}:I{$sr}")->getNumberFormat()->setFormatCode('0.0%');
             $sr++;
         }
-        $summarySheet->getStyle('A3:G' . ($sr - 1))->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        $summarySheet->getStyle('A3:I' . ($sr - 1))->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
 
         $picStart = $sr + 2;
         $summarySheet->setCellValue('A' . $picStart, 'RINGKASAN PER PIC');
         $summarySheet->getStyle('A' . $picStart)->getFont()->setBold(true)->setSize(12);
         $picHeaderRow = $picStart + 2;
-        foreach (['PIC', 'Jumlah Kegiatan', 'Rencana', 'Realisasi', 'Sisa', '% Realisasi'] as $idx => $h) {
+        foreach (['PIC', 'Jumlah Kegiatan', 'Rencana', 'Realisasi', 'Sisa', 'Deviasi', '% Deviasi', '% Realisasi'] as $idx => $h) {
             $summarySheet->setCellValue(chr(65 + $idx) . $picHeaderRow, $h);
         }
-        $summarySheet->getStyle("A{$picHeaderRow}:F{$picHeaderRow}")->applyFromArray([
+        $summarySheet->getStyle("A{$picHeaderRow}:H{$picHeaderRow}")->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E293B']],
         ]);
@@ -621,15 +623,17 @@ class MonitoringAnggaran extends BaseController
             $summarySheet->setCellValue('C' . $pr, $picRow['rencana']);
             $summarySheet->setCellValue('D' . $pr, $picRow['realisasi']);
             $summarySheet->setCellValue('E' . $pr, $picRow['sisa']);
-            $summarySheet->setCellValue('F' . $pr, $picRow['persen'] / 100);
-            $summarySheet->getStyle("C{$pr}:E{$pr}")->getNumberFormat()->setFormatCode('#,##0');
-            $summarySheet->getStyle("F{$pr}")->getNumberFormat()->setFormatCode('0.0%');
+            $summarySheet->setCellValue('F' . $pr, $picRow['deviasi'] ?? ($picRow['realisasi'] - $picRow['rencana']));
+            $summarySheet->setCellValue('G' . $pr, ($picRow['persen_deviasi'] ?? 0) / 100);
+            $summarySheet->setCellValue('H' . $pr, $picRow['persen'] / 100);
+            $summarySheet->getStyle("C{$pr}:F{$pr}")->getNumberFormat()->setFormatCode('#,##0');
+            $summarySheet->getStyle("G{$pr}:H{$pr}")->getNumberFormat()->setFormatCode('0.0%');
             $pr++;
         }
         if ($pr > $picHeaderRow + 1) {
-            $summarySheet->getStyle("A{$picHeaderRow}:F" . ($pr - 1))->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+            $summarySheet->getStyle("A{$picHeaderRow}:H" . ($pr - 1))->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
         }
-        foreach (['A' => 18, 'B' => 24, 'C' => 18, 'D' => 20, 'E' => 20, 'F' => 18, 'G' => 14] as $col => $w) {
+        foreach (['A' => 18, 'B' => 24, 'C' => 18, 'D' => 20, 'E' => 20, 'F' => 18, 'G' => 18, 'H' => 14, 'I' => 14] as $col => $w) {
             $summarySheet->getColumnDimension($col)->setWidth($w);
         }
 

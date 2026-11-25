@@ -229,10 +229,16 @@ final class RelaxtimeMonitoringAnggaranHelperTest extends TestCase
         $this->assertSame(8000000, $stats['summary']['total_rencana']);
         $this->assertSame(8250000, $stats['summary']['total_realisasi']);
         $this->assertSame(-250000, $stats['summary']['total_sisa']);
+        $this->assertSame(250000, $stats['summary']['total_deviasi']);
         $this->assertSame(103.13, $stats['summary']['persen_realisasi']);
+        $this->assertSame(3.13, $stats['summary']['persen_deviasi']);
         $this->assertSame(1, $stats['summary']['over_budget_count']);
         $this->assertCount(2, $stats['by_month']);
+        $this->assertSame(-250000, $stats['by_akun']['52']['deviasi']);
+        $this->assertSame(-25.0, $stats['by_akun']['52']['persen_deviasi']);
         $this->assertSame('ADUM', $stats['by_pic'][0]['pic']);
+        $this->assertSame(0, $stats['by_pic'][0]['deviasi']);
         $this->assertSame('Belum Ditentukan', $stats['by_pic'][1]['pic']);
+        $this->assertSame(500000, $stats['by_pic'][1]['deviasi']);
     }
 }
