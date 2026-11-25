@@ -371,7 +371,8 @@ class SinadiMonitoringDlHelper
         string $sort = 'penghasilan',
         ?array $dukWhitelist = null,
         bool $onlyApproved = true,
-        ?array $costComponents = null
+        ?array $costComponents = null,
+        bool $includeZeroDuk = false
     ): array {
         $sortMode = self::normalizeSort($sort);
         $timFilter = trim($timKerjaFilter);
@@ -574,6 +575,57 @@ class SinadiMonitoringDlHelper
                 'status_surat'      => trim((string) ($row['status_surat'] ?? '')),
                 'sumber_anggaran'   => trim((string) ($row['sumber_anggaran'] ?? '')),
             ];
+        }
+
+        // Lengkapi pegawai DUK yang belum memiliki perjalanan dinas (nilai 0) bila diminta
+        if ($includeZeroDuk && $dukWhitelist !== null) {
+            foreach ($dukByNip as $dukNip => $dukEntry) {
+                $dukNipStr = (string) $dukNip;
+                if ($dukNipStr === '') {
+                    continue;
+                }
+                $personKey = 'nip:' . $dukNipStr;
+                if (isset($allGrouped[$personKey])) {
+                    continue;
+                }
+
+                $dukNama = (string) ($dukEntry['nama'] ?? '-');
+                $dukNamaKey = self::normalizeNameKey($dukNama);
+                $timInfo = null;
+                if (isset($byNip[$dukNipStr])) {
+                    $timInfo = $byNip[$dukNipStr];
+                } elseif ($dukNamaKey !== '' && isset($byName[$dukNamaKey])) {
+                    $timInfo = $byName[$dukNamaKey];
+                }
+
+                $idTim = (string) ($timInfo['id_tim_kerja'] ?? '');
+                $namaTim = self::formatTimKerjaName((string) ($timInfo['nama_tim_kerja'] ?? ''));
+
+                $allGrouped[$personKey] = [
+                    'person_key'             => $personKey,
+                    'nip'                    => $dukNipStr,
+                    'nama'                   => $dukNama,
+                    'jabatan'                => ($dukEntry['jabatan'] ?? '') !== '' ? (string) $dukEntry['jabatan'] : (string) ($timInfo['jabatan'] ?? ''),
+                    'golongan'               => ($dukEntry['golongan'] ?? '') !== '' ? (string) $dukEntry['golongan'] : (string) ($timInfo['golongan'] ?? ''),
+                    'id_tim_kerja'           => $idTim,
+                    'nama_tim_kerja'         => $namaTim,
+                    'jumlah_dl'              => 0,
+                    'jumlah_dl_luar_kota'    => 0,
+                    'jumlah_dl_dalam_kota'   => 0,
+                    'total_hari'             => 0,
+                    'total_transport'        => 0.0,
+                    'total_harian'           => 0.0,
+                    'total_penginapan'       => 0.0,
+                    'total_penghasilan'      => 0.0,
+                    'penghasilan_luar_kota'  => 0.0,
+                    'penghasilan_dalam_kota' => 0.0,
+                    'rata_rata_penghasilan'  => 0.0,
+                    'dl_terakhir'            => '',
+                    'riwayat'                => [],
+                    '_seen_perjalanan'       => [],
+                    '_perjalanan_ids'        => [],
+                ];
+            }
         }
 
         // Bangun ringkasan total penghasilan per Tim Kerja (dari semua pegawai DUK & Disetujui pada periode filter)

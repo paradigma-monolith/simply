@@ -642,7 +642,7 @@ class Data extends BaseController
     }
 
     if (!\App\Libraries\SinadiMonitoringDlHelper::canAccess($username, is_array($aksesRow) ? $aksesRow : null)) {
-      return redirect()->to('/home')->with('error', 'Anda tidak memiliki akses ke halaman Monitoring Perjalanan Dinas.');
+      return redirect()->to('/home')->with('error', 'Anda tidak memiliki akses ke halaman Monitoring Dinas Luar.');
     }
 
     $dateRange = \App\Libraries\SinadiMonitoringDlHelper::resolveDateRange(
@@ -666,14 +666,14 @@ class Data extends BaseController
     $pesertaRows = $db->table('sinadi_perjalanan_dinas_peserta AS p')
       ->select(
         'p.id_peserta, p.id_perjalanan, p.nip_pegawai, p.nama_pegawai, p.jabatan_pegawai, p.golongan, '
-        . 'p.tgl_pergi, p.tgl_pulang, p.kota, p.kota_asal, '
-        . 'p.transport_jumlah, p.harian_jumlah, p.penginapan_jumlah, p.jumlah_transfer, '
-        . 'd.nama_kegiatan, d.jenis_perjalanan_dinas, d.tgl_pelaksanaan, d.tgl_pelaksanaan_akhir, d.tempat_perjalanan, d.status_surat, d.sumber_anggaran'
+          . 'p.tgl_pergi, p.tgl_pulang, p.kota, p.kota_asal, '
+          . 'p.transport_jumlah, p.harian_jumlah, p.penginapan_jumlah, p.jumlah_transfer, '
+          . 'd.nama_kegiatan, d.jenis_perjalanan_dinas, d.tgl_pelaksanaan, d.tgl_pelaksanaan_akhir, d.tempat_perjalanan, d.status_surat, d.sumber_anggaran'
       )
       ->join('sinadi_perjalanan_dinas AS d', 'd.id_perjalanan = p.id_perjalanan')
       ->groupStart()
-        ->where("LOWER(TRIM(COALESCE(d.status_surat, '')))", 'disetujui')
-        ->orWhereIn('d.id_perjalanan', \App\Libraries\SinadiMonitoringDlHelper::INCLUDED_PERJALANAN_IDS)
+      ->where("LOWER(TRIM(COALESCE(d.status_surat, '')))", 'disetujui')
+      ->orWhereIn('d.id_perjalanan', \App\Libraries\SinadiMonitoringDlHelper::INCLUDED_PERJALANAN_IDS)
       ->groupEnd()
       ->where('d.tgl_pelaksanaan >=', $dateRange['start'])
       ->where('d.tgl_pelaksanaan <=', $dateRange['end'])
@@ -700,7 +700,8 @@ class Data extends BaseController
       $sortMode,
       $dukWhitelist,
       true,
-      $costComponents
+      $costComponents,
+      true
     );
 
     $timKerjaList = $db->table('tim_kerja')
@@ -744,7 +745,7 @@ class Data extends BaseController
     }
 
     $data = [
-      'title'           => 'Sinadi | Monitoring Perjalanan Dinas',
+      'title'           => 'Sinadi | Monitoring Dinas Luar',
       'activeMenu'      => 'sinadiSaya',
       'startDate'       => $dateRange['start'],
       'endDate'         => $dateRange['end'],
@@ -806,23 +807,23 @@ class Data extends BaseController
       ->where('status_bekerja', 'aktif')
       ->orderBy("golongan.urutan", "desc")
       ->findAll();
-      
-    $data['verifikator'] = $this->sinadiVerifikatorModel->orderBy('created_at','desc')->first();
+
+    $data['verifikator'] = $this->sinadiVerifikatorModel->orderBy('created_at', 'desc')->first();
     try {
-      $data['verifikatorApbn'] = $this->sinadiVerifikatorApbnModel->orderBy('created_at','desc')->first();
+      $data['verifikatorApbn'] = $this->sinadiVerifikatorApbnModel->orderBy('created_at', 'desc')->first();
     } catch (\Throwable $e) {
       $data['verifikatorApbn'] = null; // Tabel belum ada
     }
     try {
-      $data['verifikatorRpl'] = $this->sinadiVerifikatorRplModel->orderBy('created_at','desc')->first();
+      $data['verifikatorRpl'] = $this->sinadiVerifikatorRplModel->orderBy('created_at', 'desc')->first();
     } catch (\Throwable $e) {
       $data['verifikatorRpl'] = null; // Tabel belum ada
     }
-    
+
     // $get = $data['verifikator'];
     // $array = unserialize($get['verifikator_1']);
     // in_array("42", $array) ? "checked" : "";
-    
+
     // dd($data['pegawai']);
 
     return view("sinadi/setting", $data);
@@ -927,52 +928,52 @@ class Data extends BaseController
     $kegiatan = $this->sinadiPerjalananDinasModel->where('id_perjalanan', $id_perjalanan)->first();
 
     if (empty($peserta)) {
-        return redirect()->back()->with('error', 'Tidak ada file Nota Dinas untuk kegiatan ini.');
+      return redirect()->back()->with('error', 'Tidak ada file Nota Dinas untuk kegiatan ini.');
     }
 
     if (class_exists('ZipArchive')) {
-        $zip = new \ZipArchive();
-        
-        // Membersihkan nama kegiatan dari karakter ilegal Windows (\ / : * ? " < > |)
-        // dan mengganti karakter non-alphanumeric dengan underscore, menjaga panjang penuh
-        $nama_kegiatan = preg_replace('/[\\\\\/:\*\?"<>\|]/', '', $kegiatan['nama_kegiatan']);
-        $nama_kegiatan = preg_replace('/[^A-Za-z0-9]+/', '_', $nama_kegiatan);
-        $nama_kegiatan = trim($nama_kegiatan, '_');
-        $zipName = 'Nota_Dinas_' . $nama_kegiatan . '_' . time() . '.zip';
-        
-        $tempFile = tempnam(sys_get_temp_dir(), 'zip');
+      $zip = new \ZipArchive();
 
-        if ($zip->open($tempFile, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === TRUE) {
-            foreach ($peserta as $data) {
-                $filePath = './nota-dinas/' . $data['file'];
-                if (file_exists($filePath) && is_file($filePath)) {
-                    // Membersihkan nama pegawai dari karakter ilegal Windows
-                    $nama_peserta = preg_replace('/[\\\\\/:\*\?"<>\|]/', '', $data['nama_pegawai']);
-                    $nama_peserta = preg_replace('/[^A-Za-z0-9]+/', '_', $nama_peserta);
-                    $nama_peserta = trim($nama_peserta, '_');
-                    
-                    // Gunakan nama peserta dan nama kegiatan utuh dengan ekstensi .pdf
-                    $zip->addFile($filePath, $nama_peserta . '_' . $nama_kegiatan . '.pdf');
-                }
-            }
-            $zip->close();
+      // Membersihkan nama kegiatan dari karakter ilegal Windows (\ / : * ? " < > |)
+      // dan mengganti karakter non-alphanumeric dengan underscore, menjaga panjang penuh
+      $nama_kegiatan = preg_replace('/[\\\\\/:\*\?"<>\|]/', '', $kegiatan['nama_kegiatan']);
+      $nama_kegiatan = preg_replace('/[^A-Za-z0-9]+/', '_', $nama_kegiatan);
+      $nama_kegiatan = trim($nama_kegiatan, '_');
+      $zipName = 'Nota_Dinas_' . $nama_kegiatan . '_' . time() . '.zip';
 
-            if (file_exists($tempFile) && filesize($tempFile) > 0) {
-                header('Content-Type: application/zip');
-                header('Content-Disposition: attachment; filename="' . $zipName . '"');
-                header('Content-Length: ' . filesize($tempFile));
-                readfile($tempFile);
-                unlink($tempFile);
-                exit;
-            } else {
-                if(file_exists($tempFile)) unlink($tempFile);
-                return redirect()->back()->with('error', 'Gagal membuat file ZIP atau file Nota Dinas tidak ditemukan di server.');
-            }
-        } else {
-            return redirect()->back()->with('error', 'Gagal membuka file ZIP.');
+      $tempFile = tempnam(sys_get_temp_dir(), 'zip');
+
+      if ($zip->open($tempFile, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === TRUE) {
+        foreach ($peserta as $data) {
+          $filePath = './nota-dinas/' . $data['file'];
+          if (file_exists($filePath) && is_file($filePath)) {
+            // Membersihkan nama pegawai dari karakter ilegal Windows
+            $nama_peserta = preg_replace('/[\\\\\/:\*\?"<>\|]/', '', $data['nama_pegawai']);
+            $nama_peserta = preg_replace('/[^A-Za-z0-9]+/', '_', $nama_peserta);
+            $nama_peserta = trim($nama_peserta, '_');
+
+            // Gunakan nama peserta dan nama kegiatan utuh dengan ekstensi .pdf
+            $zip->addFile($filePath, $nama_peserta . '_' . $nama_kegiatan . '.pdf');
+          }
         }
+        $zip->close();
+
+        if (file_exists($tempFile) && filesize($tempFile) > 0) {
+          header('Content-Type: application/zip');
+          header('Content-Disposition: attachment; filename="' . $zipName . '"');
+          header('Content-Length: ' . filesize($tempFile));
+          readfile($tempFile);
+          unlink($tempFile);
+          exit;
+        } else {
+          if (file_exists($tempFile)) unlink($tempFile);
+          return redirect()->back()->with('error', 'Gagal membuat file ZIP atau file Nota Dinas tidak ditemukan di server.');
+        }
+      } else {
+        return redirect()->back()->with('error', 'Gagal membuka file ZIP.');
+      }
     } else {
-        return redirect()->back()->with('error', 'Ekstensi ZipArchive tidak tersedia di server.');
+      return redirect()->back()->with('error', 'Ekstensi ZipArchive tidak tersedia di server.');
     }
   }
 
@@ -1004,7 +1005,7 @@ class Data extends BaseController
       $builder->where('sinadi_perjalanan_dinas_peserta.tgl_pergi >=', $start_date);
       $builder->where('sinadi_perjalanan_dinas_peserta.tgl_pergi <=', $end_date);
     }
-    
+
     // Filter Status Surat
     $builder->where('sinadi_perjalanan_dinas.status_surat', 'Disetujui');
 
@@ -1032,35 +1033,51 @@ class Data extends BaseController
     $sheet = $spreadsheet->getActiveSheet();
 
     // Headers
-    $sheet->mergeCells('A1:A2'); $sheet->setCellValue('A1', 'No');
-    $sheet->mergeCells('B1:B2'); $sheet->setCellValue('B1', 'Nama Pegawai');
-    $sheet->mergeCells('C1:C2'); $sheet->setCellValue('C1', 'NIP');
-    $sheet->mergeCells('D1:D2'); $sheet->setCellValue('D1', 'Jabatan');
-    $sheet->mergeCells('E1:E2'); $sheet->setCellValue('E1', 'Golongan');
-    $sheet->mergeCells('F1:F2'); $sheet->setCellValue('F1', 'Nomor ST');
-    $sheet->mergeCells('G1:G2'); $sheet->setCellValue('G1', 'Tanggal ST');
-    $sheet->mergeCells('H1:H2'); $sheet->setCellValue('H1', 'Nomor SPPD');
-    $sheet->mergeCells('I1:I2'); $sheet->setCellValue('I1', 'Tanggal SPPD');
-    $sheet->mergeCells('J1:J2'); $sheet->setCellValue('J1', 'Kota Asal');
-    $sheet->mergeCells('K1:K2'); $sheet->setCellValue('K1', 'Kota Tujuan');
+    $sheet->mergeCells('A1:A2');
+    $sheet->setCellValue('A1', 'No');
+    $sheet->mergeCells('B1:B2');
+    $sheet->setCellValue('B1', 'Nama Pegawai');
+    $sheet->mergeCells('C1:C2');
+    $sheet->setCellValue('C1', 'NIP');
+    $sheet->mergeCells('D1:D2');
+    $sheet->setCellValue('D1', 'Jabatan');
+    $sheet->mergeCells('E1:E2');
+    $sheet->setCellValue('E1', 'Golongan');
+    $sheet->mergeCells('F1:F2');
+    $sheet->setCellValue('F1', 'Nomor ST');
+    $sheet->mergeCells('G1:G2');
+    $sheet->setCellValue('G1', 'Tanggal ST');
+    $sheet->mergeCells('H1:H2');
+    $sheet->setCellValue('H1', 'Nomor SPPD');
+    $sheet->mergeCells('I1:I2');
+    $sheet->setCellValue('I1', 'Tanggal SPPD');
+    $sheet->mergeCells('J1:J2');
+    $sheet->setCellValue('J1', 'Kota Asal');
+    $sheet->mergeCells('K1:K2');
+    $sheet->setCellValue('K1', 'Kota Tujuan');
 
-    $sheet->mergeCells('L1:N1'); $sheet->setCellValue('L1', 'Transport');
+    $sheet->mergeCells('L1:N1');
+    $sheet->setCellValue('L1', 'Transport');
     $sheet->setCellValue('L2', 'Hari');
     $sheet->setCellValue('M2', 'Nilai');
     $sheet->setCellValue('N2', 'Jumlah');
 
-    $sheet->mergeCells('O1:Q1'); $sheet->setCellValue('O1', 'Uang Harian');
+    $sheet->mergeCells('O1:Q1');
+    $sheet->setCellValue('O1', 'Uang Harian');
     $sheet->setCellValue('O2', 'Hari');
     $sheet->setCellValue('P2', 'Nilai');
     $sheet->setCellValue('Q2', 'Jumlah');
 
-    $sheet->mergeCells('R1:T1'); $sheet->setCellValue('R1', 'Penginapan');
+    $sheet->mergeCells('R1:T1');
+    $sheet->setCellValue('R1', 'Penginapan');
     $sheet->setCellValue('R2', 'Hari');
     $sheet->setCellValue('S2', 'Nilai');
     $sheet->setCellValue('T2', 'Jumlah');
 
-    $sheet->mergeCells('U1:U2'); $sheet->setCellValue('U1', 'Jumlah Transfer');
-    $sheet->mergeCells('V1:V2'); $sheet->setCellValue('V1', 'Keterangan');
+    $sheet->mergeCells('U1:U2');
+    $sheet->setCellValue('U1', 'Jumlah Transfer');
+    $sheet->mergeCells('V1:V2');
+    $sheet->setCellValue('V1', 'Keterangan');
 
     // Styling Headers
     $sheet->getStyle('A1:V2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
@@ -1070,7 +1087,7 @@ class Data extends BaseController
 
     $row = 3;
     $no = 1;
-    
+
     $total_transport = 0;
     $total_harian = 0;
     $total_penginapan = 0;
@@ -1113,7 +1130,7 @@ class Data extends BaseController
       $sheet->setCellValue('V' . $row, $item['nama_kegiatan']);
 
       $sheet->getStyle('A' . $row . ':V' . $row)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
-      
+
       // Format Currency
       $sheet->getStyle('M' . $row . ':N' . $row)->getNumberFormat()->setFormatCode('#,##0');
       $sheet->getStyle('P' . $row . ':Q' . $row)->getNumberFormat()->setFormatCode('#,##0');
@@ -1121,7 +1138,7 @@ class Data extends BaseController
 
       $row++;
     }
-    
+
     // Footer Total
     $sheet->mergeCells('A' . $row . ':M' . $row);
     $sheet->setCellValue('A' . $row, 'TOTAL');
@@ -1132,10 +1149,10 @@ class Data extends BaseController
     $sheet->setCellValue('Q' . $row, $total_harian);
     $sheet->setCellValue('T' . $row, $total_penginapan);
     $sheet->setCellValue('U' . $row, $total_transfer);
-    
+
     $sheet->getStyle('A' . $row . ':V' . $row)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
     $sheet->getStyle('A' . $row . ':V' . $row)->getFont()->setBold(true);
-    
+
     // Format Currency for Total Row
     $sheet->getStyle('N' . $row)->getNumberFormat()->setFormatCode('#,##0');
     $sheet->getStyle('Q' . $row)->getNumberFormat()->setFormatCode('#,##0');
@@ -1144,7 +1161,7 @@ class Data extends BaseController
 
     // Auto size columns
     foreach (range('A', 'V') as $col) {
-        $sheet->getColumnDimension($col)->setAutoSize(true);
+      $sheet->getColumnDimension($col)->setAutoSize(true);
     }
 
     $writer = new Xlsx($spreadsheet);

@@ -487,4 +487,46 @@ final class SinadiMonitoringDlHelperTest extends TestCase
         $this->assertEqualsWithDelta(3000000.0, $result['rows'][0]['total_penghasilan'], 0.01);
         $this->assertEqualsWithDelta(3000000.0, $result['summary']['total_penghasilan'], 0.01);
     }
+
+    public function testAggregateIncludesZeroTripDukEmployeesWhenEnabled(): void
+    {
+        $dukRows = [
+            ['nip' => '198001012005011001', 'nama' => 'Budi Santoso, SKM', 'golongan' => 'III/d', 'jabatan' => 'Epidemiolog'],
+            ['nip' => '197603032008121002', 'nama' => 'TATANG SUPRIATNA', 'golongan' => 'II/d', 'jabatan' => 'Operator Layanan Operasional (SMU) (JFU)'],
+        ];
+        $whitelist = SinadiMonitoringDlHelper::buildDukWhitelist($dukRows);
+
+        $timMap = SinadiMonitoringDlHelper::buildPegawaiTimMap([
+            ['nip' => '198001012005011001', 'nama' => 'Budi Santoso, SKM', 'id_tim_kerja' => '1', 'nama_tim_kerja' => 'Tim Surveilans'],
+            ['nip' => '197603032008121002', 'nama' => 'TATANG SUPRIATNA', 'id_tim_kerja' => '11', 'nama_tim_kerja' => 'Sub Adum'],
+        ]);
+
+        $pesertaRows = [
+            [
+                'id_perjalanan'   => 101,
+                'status_surat'    => 'Disetujui',
+                'nip_pegawai'     => '198001012005011001',
+                'nama_pegawai'    => 'Budi Santoso, SKM',
+                'tgl_pergi'       => '2026-02-01',
+                'tgl_pulang'      => '2026-02-02',
+                'jumlah_transfer' => 1500000,
+            ],
+        ];
+
+        $all = SinadiMonitoringDlHelper::aggregate($pesertaRows, $timMap, 'all', 'penghasilan', $whitelist, true, null, true);
+        $this->assertCount(2, $all['rows']);
+        $this->assertSame('Budi Santoso, SKM', $all['rows'][0]['nama']);
+        $this->assertSame('TATANG SUPRIATNA', $all['rows'][1]['nama']);
+        $this->assertSame(0, $all['rows'][1]['jumlah_dl']);
+        $this->assertSame(0, $all['rows'][1]['total_hari']);
+        $this->assertEqualsWithDelta(0.0, $all['rows'][1]['total_penghasilan'], 0.01);
+        $this->assertSame([], $all['rows'][1]['riwayat']);
+        $this->assertSame('Tim Kerja Dukungan Manajemen', $all['rows'][1]['nama_tim_kerja']);
+
+        // Filter khusus Tim 11 tetap memunculkan TATANG SUPRIATNA dengan nilai 0
+        $filtered = SinadiMonitoringDlHelper::aggregate($pesertaRows, $timMap, '11', 'penghasilan', $whitelist, true, null, true);
+        $this->assertCount(1, $filtered['rows']);
+        $this->assertSame('TATANG SUPRIATNA', $filtered['rows'][0]['nama']);
+        $this->assertSame(0, $filtered['rows'][0]['jumlah_dl']);
+    }
 }
