@@ -693,6 +693,8 @@ class MonitoringAnggaran extends BaseController
             'pic' => (string) ($row['pic'] ?? ''),
             'realisasi' => (int) ($row['realisasi'] ?? 0),
             'sumber_input' => (string) ($row['sumber_input'] ?? 'manual'),
+            'created_at' => (string) ($row['created_at'] ?? ''),
+            'updated_at' => (string) ($row['updated_at'] ?? ''),
         ];
     }
 

@@ -93,10 +93,7 @@ class RelaxtimeMonitoringAnggaranModel extends Model
         }
 
         return $builder
-            ->orderBy('tanggal', 'ASC')
-            ->orderBy('akun', 'ASC')
-            ->orderBy('ro', 'ASC')
-            ->orderBy('id_monitoring', 'ASC')
+            ->orderBy('id_monitoring', 'DESC')
             ->get()
             ->getResultArray();
     }

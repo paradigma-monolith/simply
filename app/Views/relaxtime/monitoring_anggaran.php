@@ -33,6 +33,8 @@ foreach ($allDateRows as $r) {
         'pic' => (string) ($r['pic'] ?? ''),
         'realisasi' => (int) ($r['realisasi'] ?? 0),
         'sumber_input' => (string) ($r['sumber_input'] ?? 'manual'),
+        'created_at' => (string) ($r['created_at'] ?? ''),
+        'updated_at' => (string) ($r['updated_at'] ?? ''),
     ];
 }
 ?>
@@ -533,7 +535,10 @@ foreach ($allDateRows as $r) {
           <h5 class="mb-0 font-weight-bold"><i class="fas fa-table text-teal mr-1"></i> Rincian Kegiatan Anggaran</h5>
           <small class="text-muted">Aturan Deviasi Hal. III DIPA (PER-5/PB/2024): <code>|Realisasi - Rencana| / Rencana</code> (maks. 100%), ambang optimal <strong>&le; 5%</strong> = Nilai <strong>100</strong></small>
         </div>
-        <div class="d-flex align-items-center" style="gap: 8px;">
+        <div class="d-flex flex-wrap align-items-center" style="gap: 8px;">
+          <span class="badge badge-light border text-muted px-2 py-1 font-weight-normal" id="tableLastUpdatedInfo">
+            <i class="far fa-clock text-teal mr-1"></i> Terakhir diperbarui: -
+          </span>
           <button type="button" class="btn btn-outline-danger btn-sm d-none" id="btnBulkDelete">
             <i class="fas fa-trash-alt mr-1"></i> Hapus Terpilih (<span id="bulkDeleteCount">0</span>)
           </button>
@@ -556,6 +561,7 @@ foreach ($allDateRows as $r) {
                 <th class="text-right" style="width: 125px;">Sisa</th>
                 <th class="text-right" style="width: 165px;" title="Rumus Hal. III DIPA PER-5/PB/2024: |Realisasi - RPD| / RPD (maks 100%). Ambang optimal <= 5% (Nilai 100).">Deviasi Hal. III DIPA</th>
                 <th class="text-center" style="width: 68px;">%</th>
+                <th style="width: 120px;">Waktu Update</th>
                 <th class="text-center" style="width: 82px;">Aksi</th>
               </tr>
             </thead>
@@ -568,6 +574,7 @@ foreach ($allDateRows as $r) {
                 <th class="text-right" id="footTotalSisa">Rp 0</th>
                 <th class="text-right" id="footTotalDeviasi">0,00%</th>
                 <th class="text-center" id="footTotalPersen">0%</th>
+                <th></th>
                 <th></th>
               </tr>
             </tfoot>
@@ -821,6 +828,29 @@ document.addEventListener('DOMContentLoaded', function () {
     const parts = isoDate.split('-');
     const m = parseInt(parts[1], 10) - 1;
     return (MONTHS_FULL[m] || parts[1]) + ' ' + parts[0];
+  }
+
+  function formatDateTimeIndo(dtStr) {
+    const raw = String(dtStr || '').trim();
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+    if (!m) {
+      return { dateStr: '-', timeStr: '', fullStr: '-', orderKey: '' };
+    }
+    const year = m[1];
+    const monIdx = parseInt(m[2], 10) - 1;
+    const day = parseInt(m[3], 10);
+    const hh = m[4] || '00';
+    const ii = m[5] || '00';
+    const ss = m[6] || '00';
+    const dateStr = day + ' ' + (MONTHS_SHORT[monIdx] || m[2]) + ' ' + year;
+    const timeStr = m[4] ? (hh + ':' + ii + ' WIB') : '';
+    const fullStr = timeStr ? (dateStr + ', ' + timeStr) : dateStr;
+    return {
+      dateStr: dateStr,
+      timeStr: timeStr,
+      fullStr: fullStr,
+      orderKey: year + '-' + m[2] + '-' + m[3] + ' ' + hh + ':' + ii + ':' + ss
+    };
   }
 
   function calcDeviasiDipa(rencana, realisasi) {
@@ -1120,7 +1150,7 @@ document.addEventListener('DOMContentLoaded', function () {
   function renderDashboardAndTable(opts = {}) {
     const prevScrollY = window.scrollY;
     let prevPage = 0, prevSearch = '', prevLen = 25;
-    if (dataTableInstance && opts.preserveTableState) {
+    if (dataTableInstance && (opts.preserveTableState || opts.preserveLengthOnly)) {
       prevPage = dataTableInstance.page() || 0;
       prevSearch = dataTableInstance.search() || '';
       prevLen = dataTableInstance.page.len() || 25;
@@ -1234,6 +1264,18 @@ document.addEventListener('DOMContentLoaded', function () {
     // Table Footer (initial state before DataTable init)
     updateTableFooter(filtered, false);
 
+    // Table Last Updated badge
+    let latestTsRaw = '';
+    filtered.forEach(function (r) {
+      const ts = r.updated_at || r.created_at || '';
+      if (ts && ts > latestTsRaw) latestTsRaw = ts;
+    });
+    const lastUpdEl = document.getElementById('tableLastUpdatedInfo');
+    if (lastUpdEl) {
+      const latestFmt = formatDateTimeIndo(latestTsRaw);
+      lastUpdEl.innerHTML = '<i class="far fa-clock text-teal mr-1"></i> Terakhir diperbarui: <strong>' + escapeHtml(latestFmt.fullStr) + '</strong>';
+    }
+
     // DataTable rebuild
     if (dataTableInstance) {
       dataTableInstance.destroy();
@@ -1249,6 +1291,12 @@ document.addEventListener('DOMContentLoaded', function () {
       const badgeAkun = r.akun === '51' ? 'rma-akun-51' : (r.akun === '53' ? 'rma-akun-53' : 'rma-akun-52');
       const sisaClass = sisa < 0 ? 'rma-sisa-neg' : 'rma-sisa-pos';
       const devColor = dipaColorClass(dipa.status);
+      const updRaw = r.updated_at || r.created_at || '';
+      const updFmt = formatDateTimeIndo(updRaw);
+      const createdFmt = formatDateTimeIndo(r.created_at || '');
+      const isEdited = Boolean(r.updated_at && r.created_at && r.updated_at !== r.created_at);
+      const sourceLabel = r.sumber_input === 'import' ? 'Import' : 'Manual';
+      const updTooltip = 'Dibuat: ' + createdFmt.fullStr + ' | Diperbarui: ' + updFmt.fullStr + ' (' + sourceLabel + ')';
       return '<tr data-id="' + r.id + '" data-row-idx="' + idx + '">' +
         '<td class="text-center"><input type="checkbox" class="row-check" value="' + r.id + '"></td>' +
         '<td class="text-center">' + (idx + 1) + '</td>' +
@@ -1266,6 +1314,10 @@ document.addEventListener('DOMContentLoaded', function () {
           '<div class="text-muted" style="font-size: 0.72rem; line-height: 1.2;">' + formatSignedRupiah(dipa.selisih) + ' &bull; Nilai ' + dipa.nilaiKinerja.toFixed(0) + (isDec ? ' &bull; <em>Des (non-IKPA)</em>' : '') + '</div>' +
         '</td>' +
         '<td class="text-center font-weight-bold" data-order="' + pct.toFixed(2) + '">' + pct.toFixed(1) + '%</td>' +
+        '<td data-order="' + escapeHtml(updFmt.orderKey) + '" title="' + escapeHtml(updTooltip) + '">' +
+          '<div style="font-size: 0.78rem; white-space: nowrap;">' + escapeHtml(updFmt.dateStr) + '</div>' +
+          (updFmt.timeStr ? '<div class="text-muted" style="font-size: 0.7rem; line-height: 1.15; white-space: nowrap;">' + escapeHtml(updFmt.timeStr) + (isEdited ? ' &bull; Diedit' : '') + '</div>' : '') +
+        '</td>' +
         '<td class="text-center text-nowrap">' +
           '<button type="button" class="btn btn-xs btn-outline-warning btn-edit-row mr-1" data-id="' + r.id + '" title="Edit"><i class="fas fa-edit"></i></button>' +
           '<button type="button" class="btn btn-xs btn-outline-danger btn-delete-row" data-id="' + r.id + '" title="Hapus"><i class="fas fa-trash"></i></button>' +
@@ -1275,10 +1327,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (typeof $ !== 'undefined' && $.fn.DataTable) {
       dataTableInstance = $('#monitoringTable').DataTable({
-        pageLength: opts.preserveTableState ? prevLen : 25,
+        pageLength: (opts.preserveTableState || opts.preserveLengthOnly) ? prevLen : 25,
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Semua']],
         order: [],
-        columnDefs: [{ orderable: false, targets: [0, 12] }],
+        columnDefs: [{ orderable: false, targets: [0, 13] }],
         footerCallback: function () {
           const api = this.api();
           const hasSearch = String(api.search() || '').trim() !== '';
@@ -1675,13 +1727,13 @@ document.addEventListener('DOMContentLoaded', function () {
           if (idx >= 0) {
             ALL_ROWS[idx] = json.row;
           } else {
-            ALL_ROWS.push(json.row);
+            ALL_ROWS.unshift(json.row);
           }
         } else if (idx >= 0) {
           ALL_ROWS.splice(idx, 1);
         }
       }
-      renderDashboardAndTable({ preserveTableState: true });
+      renderDashboardAndTable({ preserveTableState: Boolean(id), preserveLengthOnly: !id });
       Toast.fire({ icon: 'success', title: json.message });
     } catch (err) {
       Swal.fire('Error', 'Terjadi kesalahan koneksi saat menyimpan.', 'error');
