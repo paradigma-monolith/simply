@@ -464,7 +464,7 @@ $activeMenu = $activeMenu ?? '';
           <li class="nav-item">
             <a href="/sinadi/perjalananSaya" class="nav-link  <?= in_array($activeMenu, ['sinadiSaya']) ? "active" : ""; ?>">
               <i class="far fa-circle nav-icon"></i>
-              <p>Monitoring Dinas Luar</p>
+              <p>Monitoring Perjalanan Dinas</p>
             </a>
           </li>
         <?php endif; ?>
