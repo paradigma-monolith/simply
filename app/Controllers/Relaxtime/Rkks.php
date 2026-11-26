@@ -22,17 +22,6 @@ class Rkks extends BaseController
         $this->rkksModel->ensureTables();
     }
 
-    /**
-     * Release the active PHP session lock once session data has been read so
-     * heavy Excel/DB operations do not block parallel requests from this user.
-     */
-    private function releaseSessionLock(): void
-    {
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_write_close();
-        }
-    }
-
     public function index()
     {
         $tahunFilter = (int) ($this->request->getGet('tahun') ?? 0);
