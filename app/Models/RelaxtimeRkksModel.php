@@ -158,6 +158,68 @@ class RelaxtimeRkksModel extends Model
 
     public function replaceDokumenItems(int $idDokumen, array $parsedItems, ?int $userId): int
     {
+        if (empty($parsedItems)) {
+            $this->db->transStart();
+            $this->db->table('relaxtime_rkks_items')->where('id_dokumen', $idDokumen)->delete();
+            $this->db->table('relaxtime_rkks_dokumen')
+                ->where('id_dokumen', $idDokumen)
+                ->update([
+                    'total_pagu' => 0,
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ]);
+            $this->db->transComplete();
+
+            return 0;
+        }
+
+        // Precompute leaf-to-program rollups in memory to avoid hundreds of follow-up UPDATE queries.
+        RelaxtimeRkksHelper::recalculateTreeAmounts($parsedItems);
+        $summary = RelaxtimeRkksHelper::buildSummary($parsedItems);
+        $totalPagu = (int) ($summary['total_pagu'] ?? 0);
+
+        $tempToIdx = [];
+        $hasChildTempIds = [];
+        foreach ($parsedItems as $idx => $item) {
+            if (isset($item['temp_id'])) {
+                $tempToIdx[(int) $item['temp_id']] = $idx;
+            }
+        }
+        foreach ($parsedItems as $item) {
+            $parentTemp = $item['parent_temp_id'] ?? null;
+            if ($parentTemp !== null && isset($tempToIdx[(int) $parentTemp])) {
+                $hasChildTempIds[(int) $parentTemp] = true;
+            }
+        }
+
+        // Group items by tree depth so each depth wave can be batch-inserted once parents have real IDs.
+        $depthByIdx = [];
+        $visiting = [];
+        $getDepth = static function (int $idx) use (&$getDepth, &$depthByIdx, &$visiting, &$parsedItems, $tempToIdx): int {
+            if (isset($depthByIdx[$idx])) {
+                return $depthByIdx[$idx];
+            }
+            if (isset($visiting[$idx])) {
+                return 0;
+            }
+            $visiting[$idx] = true;
+            $parentTemp = $parsedItems[$idx]['parent_temp_id'] ?? null;
+            $parentIdx = ($parentTemp !== null && isset($tempToIdx[(int) $parentTemp])) ? $tempToIdx[(int) $parentTemp] : null;
+            $depth = ($parentIdx !== null && $parentIdx !== $idx) ? (1 + $getDepth($parentIdx)) : 0;
+            unset($visiting[$idx]);
+
+            return $depthByIdx[$idx] = $depth;
+        };
+
+        $byDepth = [];
+        $maxDepth = 0;
+        foreach ($parsedItems as $idx => $item) {
+            $d = $getDepth($idx);
+            if ($d > $maxDepth) {
+                $maxDepth = $d;
+            }
+            $byDepth[$d][] = $idx;
+        }
+
         $now = date('Y-m-d H:i:s');
         $tempToRealId = [];
         $itemsTable = $this->db->table('relaxtime_rkks_items');
@@ -165,47 +227,86 @@ class RelaxtimeRkksModel extends Model
         $this->db->transStart();
         $itemsTable->where('id_dokumen', $idDokumen)->delete();
 
-        $inserted = 0;
-        foreach ($parsedItems as $idx => $item) {
-            $parentTemp = $item['parent_temp_id'] ?? null;
-            $realParentId = ($parentTemp !== null && isset($tempToRealId[$parentTemp]))
-                ? $tempToRealId[$parentTemp]
-                : null;
-
-            $row = [
-                'id_dokumen' => $idDokumen,
-                'parent_id' => $realParentId,
-                'level_type' => (string) ($item['level_type'] ?? 'detail'),
-                'header_depth' => (int) ($item['header_depth'] ?? 0),
-                'kode' => mb_substr((string) ($item['kode'] ?? ''), 0, 50),
-                'uraian' => (string) ($item['uraian'] ?? ''),
-                'lokasi' => mb_substr((string) ($item['lokasi'] ?? ''), 0, 150),
-                'kppn' => mb_substr((string) ($item['kppn'] ?? ''), 0, 100),
-                'jenis_komponen' => mb_substr((string) ($item['jenis_komponen'] ?? ''), 0, 10),
-                'volume' => $item['volume'] !== null ? (float) $item['volume'] : null,
-                'satuan' => mb_substr((string) ($item['satuan'] ?? ''), 0, 80),
-                'harga_satuan' => (int) ($item['harga_satuan'] ?? 0),
-                'jumlah' => (int) ($item['jumlah'] ?? 0),
-                'sumber_dana' => mb_substr((string) ($item['sumber_dana'] ?? ''), 0, 20),
-                'is_blokir' => !empty($item['is_blokir']) ? 1 : 0,
-                'nilai_blokir' => (int) ($item['nilai_blokir'] ?? 0),
-                'catatan' => $item['catatan'] ?? null,
-                'urutan' => $idx + 1,
-                'created_by' => $userId,
-                'updated_by' => $userId,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-
-            $itemsTable->insert($row);
-            $realId = (int) $this->db->insertID();
-            if (isset($item['temp_id'])) {
-                $tempToRealId[(int) $item['temp_id']] = $realId;
+        for ($depth = 0; $depth <= $maxDepth; $depth++) {
+            $indices = $byDepth[$depth] ?? [];
+            if (empty($indices)) {
+                continue;
             }
-            $inserted++;
+
+            $batchRows = [];
+            $neededParentUrutanToTemp = [];
+
+            foreach ($indices as $idx) {
+                $item = $parsedItems[$idx];
+                $parentTemp = $item['parent_temp_id'] ?? null;
+                $realParentId = ($parentTemp !== null && isset($tempToRealId[(int) $parentTemp]))
+                    ? $tempToRealId[(int) $parentTemp]
+                    : null;
+                $urutan = $idx + 1;
+
+                if (isset($item['temp_id'])) {
+                    $tid = (int) $item['temp_id'];
+                    if (isset($hasChildTempIds[$tid])) {
+                        $neededParentUrutanToTemp[$urutan] = $tid;
+                    }
+                }
+
+                $batchRows[] = [
+                    'id_dokumen' => $idDokumen,
+                    'parent_id' => $realParentId,
+                    'level_type' => (string) ($item['level_type'] ?? 'detail'),
+                    'header_depth' => (int) ($item['header_depth'] ?? 0),
+                    'kode' => mb_substr((string) ($item['kode'] ?? ''), 0, 50),
+                    'uraian' => (string) ($item['uraian'] ?? ''),
+                    'lokasi' => mb_substr((string) ($item['lokasi'] ?? ''), 0, 150),
+                    'kppn' => mb_substr((string) ($item['kppn'] ?? ''), 0, 100),
+                    'jenis_komponen' => mb_substr((string) ($item['jenis_komponen'] ?? ''), 0, 10),
+                    'volume' => $item['volume'] !== null ? (float) $item['volume'] : null,
+                    'satuan' => mb_substr((string) ($item['satuan'] ?? ''), 0, 80),
+                    'harga_satuan' => (int) ($item['harga_satuan'] ?? 0),
+                    'jumlah' => (int) ($item['jumlah'] ?? 0),
+                    'sumber_dana' => mb_substr((string) ($item['sumber_dana'] ?? ''), 0, 20),
+                    'is_blokir' => !empty($item['is_blokir']) ? 1 : 0,
+                    'nilai_blokir' => (int) ($item['nilai_blokir'] ?? 0),
+                    'catatan' => $item['catatan'] ?? null,
+                    'urutan' => $urutan,
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            foreach (array_chunk($batchRows, 200) as $chunk) {
+                $itemsTable->insertBatch($chunk);
+            }
+
+            if (!empty($neededParentUrutanToTemp)) {
+                $neededUrutans = array_keys($neededParentUrutanToTemp);
+                foreach (array_chunk($neededUrutans, 500) as $urutanChunk) {
+                    $insertedParents = $this->db->table('relaxtime_rkks_items')
+                        ->select('id_item, urutan')
+                        ->where('id_dokumen', $idDokumen)
+                        ->whereIn('urutan', $urutanChunk)
+                        ->get()
+                        ->getResultArray();
+                    foreach ($insertedParents as $pRow) {
+                        $u = (int) $pRow['urutan'];
+                        if (isset($neededParentUrutanToTemp[$u])) {
+                            $tempToRealId[$neededParentUrutanToTemp[$u]] = (int) $pRow['id_item'];
+                        }
+                    }
+                }
+            }
         }
 
-        $totalPagu = $this->recalculateAndPersistRollup($idDokumen);
+        $this->db->table('relaxtime_rkks_dokumen')
+            ->where('id_dokumen', $idDokumen)
+            ->update([
+                'total_pagu' => $totalPagu,
+                'updated_at' => $now,
+            ]);
+
         $this->db->transComplete();
 
         return $this->db->transStatus() ? $totalPagu : 0;
@@ -222,9 +323,9 @@ class RelaxtimeRkksModel extends Model
 
         $insertAfterUrutan = 0;
         if ($parentId !== null) {
-            $subtreeIds = $this->collectSubtreeIds($allItems, $parentId);
+            $subtreeMap = array_flip($this->collectSubtreeIds($allItems, $parentId));
             foreach ($allItems as $it) {
-                if (in_array((int) $it['id_item'], $subtreeIds, true)) {
+                if (isset($subtreeMap[(int) $it['id_item']])) {
                     $insertAfterUrutan = max($insertAfterUrutan, (int) $it['urutan']);
                 }
             }
@@ -343,16 +444,24 @@ class RelaxtimeRkksModel extends Model
 
         RelaxtimeRkksHelper::recalculateTreeAmounts($items);
 
-        $table = $this->db->table('relaxtime_rkks_items');
+        $updateRows = [];
         foreach ($items as $it) {
             $id = (int) $it['id_item'];
             $newJml = (int) $it['jumlah'];
             $newBlk = (int) $it['nilai_blokir'];
             if ($original[$id]['jumlah'] !== $newJml || $original[$id]['nilai_blokir'] !== $newBlk) {
-                $table->where('id_item', $id)->update([
+                $updateRows[] = [
+                    'id_item' => $id,
                     'jumlah' => $newJml,
                     'nilai_blokir' => $newBlk,
-                ]);
+                ];
+            }
+        }
+
+        if (!empty($updateRows)) {
+            $table = $this->db->table('relaxtime_rkks_items');
+            foreach (array_chunk($updateRows, 200) as $chunk) {
+                $table->updateBatch($chunk, 'id_item');
             }
         }
 
@@ -378,12 +487,15 @@ class RelaxtimeRkksModel extends Model
         }
 
         $result = [];
+        $visited = [];
         $queue = [$rootId];
-        while (!empty($queue)) {
-            $curr = array_shift($queue);
-            if (in_array($curr, $result, true)) {
+        $qIdx = 0;
+        while ($qIdx < count($queue)) {
+            $curr = $queue[$qIdx++];
+            if (isset($visited[$curr])) {
                 continue;
             }
+            $visited[$curr] = true;
             $result[] = $curr;
             foreach ($childrenMap[$curr] ?? [] as $childId) {
                 $queue[] = $childId;

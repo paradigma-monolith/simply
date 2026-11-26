@@ -116,6 +116,9 @@ foreach ($items as $it) {
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
+  .rkks-hidden {
+    display: none !important;
+  }
   #rekapTable {
     font-size: 0.75rem;
     line-height: 1.28;
@@ -678,7 +681,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
   let itemById = {};
   let childrenMap = {};
+  let ancestorsById = {};
+  let descendantsById = {};
+  let searchTextById = {};
+  let akunGroupById = {};
+  let sdById = {};
+  let rowElById = {};
+  let toggleIconById = {};
+  let emptyRowEl = null;
   let rekapDtInstance = null;
+  let pendingRekapData = null;
+  let rekapLastLen = 25;
+  let searchDebounceTimer = null;
   const collapsedIds = new Set();
   let currentDepth = 'subkomponen';
   let onlyBlokir = false;
@@ -694,11 +708,47 @@ document.addEventListener('DOMContentLoaded', function () {
   function rebuildIndexes() {
     itemById = {};
     childrenMap = {};
+    ancestorsById = {};
+    descendantsById = {};
+    searchTextById = {};
+    akunGroupById = {};
+    sdById = {};
+
     ITEMS.forEach(it => {
       itemById[it.id] = it;
+      descendantsById[it.id] = [];
       const pid = it.parent_id || 0;
       if (!childrenMap[pid]) childrenMap[pid] = [];
       childrenMap[pid].push(it.id);
+      searchTextById[it.id] = (it.kode + ' ' + it.uraian + ' ' + it.lokasi + ' ' + it.kppn).toLowerCase();
+    });
+
+    ITEMS.forEach(it => {
+      const ancestors = [];
+      let akunGroup = it.level === 'akun' ? it.kode.slice(0, 2) : '';
+      let sd = it.sumber_dana || '';
+      let pid = it.parent_id;
+      let guard = 0;
+
+      while (pid && itemById[pid] && guard < 20) {
+        const pNode = itemById[pid];
+        ancestors.push(pid);
+        if (descendantsById[pid]) {
+          descendantsById[pid].push(it.id);
+        }
+        if (!akunGroup && pNode.level === 'akun') {
+          akunGroup = pNode.kode.slice(0, 2);
+        }
+        if (!sd && pNode.sumber_dana) {
+          sd = pNode.sumber_dana;
+        }
+        pid = pNode.parent_id;
+        guard++;
+      }
+
+      ancestorsById[it.id] = ancestors;
+      akunGroupById[it.id] = akunGroup;
+      sdById[it.id] = sd;
     });
   }
   rebuildIndexes();
@@ -726,76 +776,24 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  function getAncestorIds(item) {
-    const res = [];
-    let pid = item.parent_id;
-    let guard = 0;
-    while (pid && itemById[pid] && guard < 20) {
-      res.push(pid);
-      pid = itemById[pid].parent_id;
-      guard++;
-    }
-    return res;
+  function isTreeFiltering() {
+    const searchEl = document.getElementById('rkksSearch');
+    const akunEl = document.getElementById('rkksFilterAkun');
+    const sdEl = document.getElementById('rkksFilterSd');
+    const searchQ = searchEl ? (searchEl.value || '').trim() : '';
+    return Boolean(searchQ || (akunEl && akunEl.value) || (sdEl && sdEl.value) || onlyBlokir);
   }
 
-  function getAkunGroup(item) {
-    if (item.level === 'akun') return item.kode.slice(0, 2);
-    let pid = item.parent_id;
-    let guard = 0;
-    while (pid && itemById[pid] && guard < 15) {
-      if (itemById[pid].level === 'akun') return itemById[pid].kode.slice(0, 2);
-      pid = itemById[pid].parent_id;
-      guard++;
-    }
-    return '';
-  }
-
-  function getInheritedSd(item) {
-    if (item.sumber_dana) return item.sumber_dana;
-    let pid = item.parent_id;
-    let guard = 0;
-    while (pid && itemById[pid] && guard < 15) {
-      if (itemById[pid].sumber_dana) return itemById[pid].sumber_dana;
-      pid = itemById[pid].parent_id;
-      guard++;
-    }
-    return '';
-  }
-
-  function renderTree() {
+  function mountTreeRows() {
     const tbody = document.getElementById('rkksTreeBody');
     if (!tbody) return;
 
-    const searchQ = (document.getElementById('rkksSearch').value || '').trim().toLowerCase();
-    const akunFilter = document.getElementById('rkksFilterAkun').value;
-    const sdFilter = document.getElementById('rkksFilterSd').value;
-    const isFiltering = Boolean(searchQ || akunFilter || sdFilter || onlyBlokir);
-
-    const visibleIds = new Set();
-    if (isFiltering) {
-      ITEMS.forEach(it => {
-        if (searchQ) {
-          const hay = (it.kode + ' ' + it.uraian + ' ' + it.lokasi + ' ' + it.kppn).toLowerCase();
-          if (!hay.includes(searchQ)) return;
-        }
-        if (akunFilter && getAkunGroup(it) !== akunFilter) return;
-        if (sdFilter && getInheritedSd(it) !== sdFilter) return;
-        if (onlyBlokir && !it.is_blokir) return;
-        visibleIds.add(it.id);
-        getAncestorIds(it).forEach(aid => visibleIds.add(aid));
-      });
-    }
+    rowElById = {};
+    toggleIconById = {};
 
     const html = ITEMS.map(it => {
-      if (isFiltering) {
-        if (!visibleIds.has(it.id)) return '';
-      } else {
-        const ancestors = getAncestorIds(it);
-        if (ancestors.some(aid => collapsedIds.has(aid))) return '';
-      }
-
       const hasKids = (childrenMap[it.id] || []).length > 0;
-      const isCollapsed = !isFiltering && collapsedIds.has(it.id);
+      const isCollapsed = collapsedIds.has(it.id);
       const depthIdx = LEVEL_ORDER.indexOf(it.level) + (it.level === 'header_detail' && it.header_depth === 2 ? 1 : 0);
       const padLeft = Math.max(0, depthIdx * 10);
 
@@ -836,7 +834,180 @@ document.addEventListener('DOMContentLoaded', function () {
       '</tr>';
     }).join('');
 
-    tbody.innerHTML = html || '<tr><td colspan="9" class="text-center text-muted py-4">Tidak ada baris RKKS yang sesuai filter.</td></tr>';
+    tbody.innerHTML = html + '<tr id="rkksEmptyRow" class="rkks-hidden"><td colspan="9" class="text-center text-muted py-4">Tidak ada baris RKKS yang sesuai filter.</td></tr>';
+    emptyRowEl = document.getElementById('rkksEmptyRow');
+
+    const rows = tbody.querySelectorAll('tr[data-id]');
+    for (let i = 0; i < rows.length; i++) {
+      const tr = rows[i];
+      const id = parseInt(tr.getAttribute('data-id'), 10);
+      rowElById[id] = tr;
+      const icon = tr.querySelector('.btn-toggle-node i');
+      if (icon) toggleIconById[id] = icon;
+    }
+  }
+
+  function toggleSingleNode(id) {
+    if (collapsedIds.has(id)) {
+      collapsedIds.delete(id);
+    } else {
+      collapsedIds.add(id);
+    }
+
+    if (isTreeFiltering()) {
+      updateVisibility();
+      return;
+    }
+
+    const isCollapsed = collapsedIds.has(id);
+    const icon = toggleIconById[id];
+    if (icon) {
+      icon.classList.toggle('fa-plus', isCollapsed);
+      icon.classList.toggle('fa-minus', !isCollapsed);
+    }
+
+    const desc = descendantsById[id] || [];
+    for (let i = 0; i < desc.length; i++) {
+      const did = desc[i];
+      const tr = rowElById[did];
+      if (!tr) continue;
+      if (isCollapsed) {
+        tr.classList.add('rkks-hidden');
+      } else {
+        const ancestors = ancestorsById[did] || [];
+        let hidden = false;
+        for (let j = 0; j < ancestors.length; j++) {
+          if (collapsedIds.has(ancestors[j])) {
+            hidden = true;
+            break;
+          }
+        }
+        tr.classList.toggle('rkks-hidden', hidden);
+      }
+    }
+  }
+
+  function updateVisibility() {
+    if (!document.getElementById('rkksTreeBody')) return;
+
+    const searchQ = (document.getElementById('rkksSearch').value || '').trim().toLowerCase();
+    const akunFilter = document.getElementById('rkksFilterAkun').value;
+    const sdFilter = document.getElementById('rkksFilterSd').value;
+    const isFiltering = Boolean(searchQ || akunFilter || sdFilter || onlyBlokir);
+
+    let visibleIds = null;
+    if (isFiltering) {
+      visibleIds = new Set();
+      for (let i = 0; i < ITEMS.length; i++) {
+        const it = ITEMS[i];
+        if (searchQ && !searchTextById[it.id].includes(searchQ)) continue;
+        if (akunFilter && akunGroupById[it.id] !== akunFilter) continue;
+        if (sdFilter && sdById[it.id] !== sdFilter) continue;
+        if (onlyBlokir && !it.is_blokir) continue;
+        visibleIds.add(it.id);
+        const ancs = ancestorsById[it.id] || [];
+        for (let j = 0; j < ancs.length; j++) {
+          visibleIds.add(ancs[j]);
+        }
+      }
+    }
+
+    let visibleCount = 0;
+    for (let i = 0; i < ITEMS.length; i++) {
+      const it = ITEMS[i];
+      const tr = rowElById[it.id];
+      if (!tr) continue;
+
+      let show = true;
+      if (isFiltering) {
+        show = visibleIds.has(it.id);
+      } else {
+        const ancs = ancestorsById[it.id] || [];
+        for (let j = 0; j < ancs.length; j++) {
+          if (collapsedIds.has(ancs[j])) {
+            show = false;
+            break;
+          }
+        }
+      }
+
+      tr.classList.toggle('rkks-hidden', !show);
+      if (show) visibleCount++;
+
+      const icon = toggleIconById[it.id];
+      if (icon) {
+        const isCollapsed = !isFiltering && collapsedIds.has(it.id);
+        icon.classList.toggle('fa-plus', isCollapsed);
+        icon.classList.toggle('fa-minus', !isCollapsed);
+      }
+    }
+
+    if (emptyRowEl) {
+      emptyRowEl.classList.toggle('rkks-hidden', visibleCount > 0);
+    }
+  }
+
+  function renderTree() {
+    updateVisibility();
+  }
+
+  function initOrSyncRekapTable(forceSync = false) {
+    const tabPane = document.getElementById('tabRekapRo');
+    const isActive = tabPane && tabPane.classList.contains('active');
+    if (!isActive && !forceSync) {
+      return;
+    }
+
+    const rekapEl = document.getElementById('rekapTable');
+    if (!rekapEl) return;
+
+    if (pendingRekapData !== null) {
+      let prevSearch = '';
+      let prevPage = 0;
+      let prevLen = rekapLastLen;
+
+      if (rekapDtInstance) {
+        prevSearch = rekapDtInstance.search() || '';
+        prevPage = rekapDtInstance.page() || 0;
+        prevLen = rekapDtInstance.page.len() || 25;
+        rekapLastLen = prevLen;
+        rekapDtInstance.destroy();
+        rekapDtInstance = null;
+      }
+
+      let sumRekap = 0;
+      const rekapTbody = rekapEl.querySelector('tbody');
+      rekapTbody.innerHTML = pendingRekapData.map((rk, i) => {
+        sumRekap += Number(rk.pagu || 0);
+        return '<tr>' +
+          '<td class="text-center">' + (i + 1) + '</td>' +
+          '<td class="font-weight-bold">' + escapeHtml(rk.ro_komponen) + '</td>' +
+          '<td class="text-center font-weight-bold">' + escapeHtml(rk.subkomponen_kode) + '</td>' +
+          '<td>' + escapeHtml(rk.kegiatan) + '</td>' +
+          '<td class="text-center"><span class="badge badge-info">' + escapeHtml(rk.akun) + '</span></td>' +
+          '<td class="text-center">' + escapeHtml(rk.sumber_dana || '-') + '</td>' +
+          '<td class="text-right font-weight-bold">' + formatRp(rk.pagu || 0) + '</td>' +
+        '</tr>';
+      }).join('');
+
+      const rekapFoot = document.getElementById('rekapTotalFoot');
+      if (rekapFoot) rekapFoot.textContent = formatRp(sumRekap);
+      pendingRekapData = null;
+
+      if (typeof $ !== 'undefined' && $.fn.DataTable) {
+        rekapDtInstance = $('#rekapTable').DataTable({ pageLength: prevLen, order: [] });
+        if (prevSearch) rekapDtInstance.search(prevSearch);
+        rekapDtInstance.draw(false);
+        const info = rekapDtInstance.page.info();
+        const safeP = Math.max(0, Math.min(prevPage, Math.max(0, info.pages - 1)));
+        if (safeP > 0) rekapDtInstance.page(safeP).draw('page');
+      }
+      return;
+    }
+
+    if (!rekapDtInstance && typeof $ !== 'undefined' && $.fn.DataTable) {
+      rekapDtInstance = $('#rekapTable').DataTable({ pageLength: rekapLastLen, order: [] });
+    }
   }
 
   function applyLiveState(state, opts = {}) {
@@ -905,50 +1076,16 @@ document.addEventListener('DOMContentLoaded', function () {
       opt.text = opt.text.replace(/—\s*Rp\s*[\d\.]+$/, '— ' + formatRp(totalPagu));
     }
 
-    // Update Rekap tab & table
+    // Update Rekap tab counter & defer heavy DataTable DOM rebuild until tab is visible
     const rekap = state.rekap || [];
     const tabCnt = document.getElementById('rekapTabCount');
     if (tabCnt) tabCnt.textContent = rekap.length;
+    pendingRekapData = rekap;
+    initOrSyncRekapTable(false);
 
-    const rekapEl = document.getElementById('rekapTable');
-    if (rekapEl) {
-      let prevSearch = '', prevPage = 0, prevLen = 25;
-      if (rekapDtInstance) {
-        prevSearch = rekapDtInstance.search() || '';
-        prevPage = rekapDtInstance.page() || 0;
-        prevLen = rekapDtInstance.page.len() || 25;
-        rekapDtInstance.destroy();
-        rekapDtInstance = null;
-      }
-      let sumRekap = 0;
-      const rekapTbody = rekapEl.querySelector('tbody');
-      rekapTbody.innerHTML = rekap.map((rk, i) => {
-        sumRekap += Number(rk.pagu || 0);
-        return '<tr>' +
-          '<td class="text-center">' + (i + 1) + '</td>' +
-          '<td class="font-weight-bold">' + escapeHtml(rk.ro_komponen) + '</td>' +
-          '<td class="text-center font-weight-bold">' + escapeHtml(rk.subkomponen_kode) + '</td>' +
-          '<td>' + escapeHtml(rk.kegiatan) + '</td>' +
-          '<td class="text-center"><span class="badge badge-info">' + escapeHtml(rk.akun) + '</span></td>' +
-          '<td class="text-center">' + escapeHtml(rk.sumber_dana || '-') + '</td>' +
-          '<td class="text-right font-weight-bold">' + formatRp(rk.pagu || 0) + '</td>' +
-        '</tr>';
-      }).join('');
-      const rekapFoot = document.getElementById('rekapTotalFoot');
-      if (rekapFoot) rekapFoot.textContent = formatRp(sumRekap);
-
-      if (typeof $ !== 'undefined' && $.fn.DataTable) {
-        rekapDtInstance = $('#rekapTable').DataTable({ pageLength: prevLen, order: [] });
-        if (prevSearch) rekapDtInstance.search(prevSearch);
-        rekapDtInstance.draw(false);
-        const info = rekapDtInstance.page.info();
-        const safeP = Math.max(0, Math.min(prevPage, Math.max(0, info.pages - 1)));
-        if (safeP > 0) rekapDtInstance.page(safeP).draw('page');
-      }
-    }
-
-    // Render tree & restore exact scroll position
-    renderTree();
+    // Mount updated rows once, apply visibility, & restore exact scroll position
+    mountTreeRows();
+    updateVisibility();
     if (treeWrap) {
       treeWrap.scrollTop = prevTreeTop;
       treeWrap.scrollLeft = prevTreeLeft;
@@ -962,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       window.scrollTo(window.scrollX, prevWinY);
       if (opts.highlightId) {
-        const targetTr = document.querySelector('#rkksTreeBody tr[data-id="' + opts.highlightId + '"]');
+        const targetTr = rowElById[opts.highlightId];
         if (targetTr) {
           targetTr.classList.remove('rkks-row-flash');
           void targetTr.offsetWidth;
@@ -1126,9 +1263,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const toggleBtn = e.target.closest('.btn-toggle-node');
       if (toggleBtn) {
         const id = parseInt(toggleBtn.getAttribute('data-id'), 10);
-        if (collapsedIds.has(id)) collapsedIds.delete(id);
-        else collapsedIds.add(id);
-        renderTree();
+        toggleSingleNode(id);
         return;
       }
 
@@ -1281,10 +1416,17 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  // Search, Filters, Depth buttons
-  ['rkksSearch', 'rkksFilterAkun', 'rkksFilterSd'].forEach(id => {
+  // Search (debounced), Filters, Depth buttons
+  const searchInputEl = document.getElementById('rkksSearch');
+  if (searchInputEl) {
+    searchInputEl.addEventListener('input', () => {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(updateVisibility, 100);
+    });
+  }
+  ['rkksFilterAkun', 'rkksFilterSd'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener(id === 'rkksSearch' ? 'input' : 'change', renderTree);
+    if (el) el.addEventListener('change', updateVisibility);
   });
 
   const btnBlkFilter = document.getElementById('btnFilterBlokir');
@@ -1293,7 +1435,7 @@ document.addEventListener('DOMContentLoaded', function () {
       onlyBlokir = !onlyBlokir;
       btnBlkFilter.classList.toggle('btn-danger', onlyBlokir);
       btnBlkFilter.classList.toggle('btn-outline-danger', !onlyBlokir);
-      renderTree();
+      updateVisibility();
     });
   }
 
@@ -1303,17 +1445,21 @@ document.addEventListener('DOMContentLoaded', function () {
       btn.classList.add('active');
       currentDepth = btn.getAttribute('data-depth');
       applyDepthCollapse(currentDepth);
-      renderTree();
+      updateVisibility();
     });
   });
 
-  if (typeof $ !== 'undefined' && $.fn.DataTable && document.getElementById('rekapTable')) {
-    rekapDtInstance = $('#rekapTable').DataTable({ pageLength: 25, order: [] });
+  if (typeof $ !== 'undefined') {
+    $('a[href="#tabRekapRo"]').on('shown.bs.tab', () => {
+      initOrSyncRekapTable(true);
+    });
+    initOrSyncRekapTable(false);
   }
 
   if (ITEMS.length > 0) {
     applyDepthCollapse(currentDepth);
-    renderTree();
+    mountTreeRows();
+    updateVisibility();
   }
 });
 </script>

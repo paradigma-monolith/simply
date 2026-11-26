@@ -22,6 +22,17 @@ class Rkks extends BaseController
         $this->rkksModel->ensureTables();
     }
 
+    /**
+     * Release the active PHP session lock once session data has been read so
+     * heavy Excel/DB operations do not block parallel requests from this user.
+     */
+    private function releaseSessionLock(): void
+    {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+    }
+
     public function index()
     {
         $tahunFilter = (int) ($this->request->getGet('tahun') ?? 0);
@@ -111,6 +122,8 @@ class Rkks extends BaseController
 
         $modeImport = (string) ($this->request->getPost('mode_import') ?: 'new_version');
         $targetDokId = (int) ($this->request->getPost('id_dokumen_target') ?: 0);
+        $userId = session()->get('id_user') ?? null;
+        $this->releaseSessionLock();
 
         $uploadDir = WRITEPATH . 'uploads';
         if (!is_dir($uploadDir)) {
@@ -143,8 +156,6 @@ class Rkks extends BaseController
             ])->setStatusCode(400);
         }
 
-        $userId = session()->get('id_user') ?? null;
-
         if ($modeImport === 'replace_active' && $targetDokId > 0 && $this->rkksModel->getDokumen($targetDokId)) {
             $dokumenId = $targetDokId;
             $this->rkksModel->update($dokumenId, [
@@ -176,6 +187,9 @@ class Rkks extends BaseController
 
     public function storeDokumen()
     {
+        $userId = session()->get('id_user') ?? null;
+        $this->releaseSessionLock();
+
         $tahun = (int) ($this->request->getPost('tahun_anggaran') ?: date('Y'));
         $nama = trim((string) $this->request->getPost('nama_dokumen'));
         if ($nama === '') {
@@ -190,7 +204,7 @@ class Rkks extends BaseController
             'nama_dokumen' => $nama,
             'kode_satker' => trim((string) $this->request->getPost('kode_satker')),
             'nama_satker' => trim((string) $this->request->getPost('nama_satker')),
-            'created_by' => session()->get('id_user') ?? null,
+            'created_by' => $userId,
         ]);
 
         return $this->response->setJSON([
@@ -202,6 +216,7 @@ class Rkks extends BaseController
 
     public function deleteDokumen($id)
     {
+        $this->releaseSessionLock();
         $dok = $this->rkksModel->getDokumen((int) $id);
         if (!$dok) {
             return $this->response->setJSON(['success' => false, 'message' => 'Dokumen RKKS tidak ditemukan.'])->setStatusCode(404);
@@ -213,6 +228,9 @@ class Rkks extends BaseController
 
     public function storeItem()
     {
+        $userId = session()->get('id_user') ?? null;
+        $this->releaseSessionLock();
+
         $idDokumen = (int) $this->request->getPost('id_dokumen');
         $dok = $this->rkksModel->getDokumen($idDokumen);
         if (!$dok) {
@@ -298,7 +316,7 @@ class Rkks extends BaseController
             'is_blokir' => $isBlokir,
             'nilai_blokir' => max(0, $nilaiBlokir),
             'catatan' => trim((string) $this->request->getPost('catatan')),
-            'created_by' => session()->get('id_user') ?? null,
+            'created_by' => $userId,
         ]);
 
         return $this->response->setJSON([
@@ -311,6 +329,9 @@ class Rkks extends BaseController
 
     public function updateItem($id)
     {
+        $userId = session()->get('id_user') ?? null;
+        $this->releaseSessionLock();
+
         $existing = $this->rkksModel->getItem((int) $id);
         if (!$existing) {
             return $this->response->setJSON(['success' => false, 'message' => 'Item RKKS tidak ditemukan.'])->setStatusCode(404);
@@ -366,7 +387,7 @@ class Rkks extends BaseController
             'is_blokir' => $isBlokir,
             'nilai_blokir' => max(0, $nilaiBlokir),
             'catatan' => trim((string) $this->request->getPost('catatan')),
-            'updated_by' => session()->get('id_user') ?? null,
+            'updated_by' => $userId,
         ]);
 
         return $this->response->setJSON([
@@ -379,6 +400,7 @@ class Rkks extends BaseController
 
     public function deleteItem($id)
     {
+        $this->releaseSessionLock();
         $existing = $this->rkksModel->getItem((int) $id);
         if (!$existing) {
             return $this->response->setJSON(['success' => false, 'message' => 'Item RKKS tidak ditemukan.'])->setStatusCode(404);
@@ -396,6 +418,9 @@ class Rkks extends BaseController
 
     public function toggleBlokir($id)
     {
+        $userId = session()->get('id_user') ?? null;
+        $this->releaseSessionLock();
+
         $existing = $this->rkksModel->getItem((int) $id);
         if (!$existing) {
             return $this->response->setJSON(['success' => false, 'message' => 'Item RKKS tidak ditemukan.'])->setStatusCode(404);
@@ -407,7 +432,7 @@ class Rkks extends BaseController
         $this->rkksModel->updateItemAndRollup((int) $id, [
             'is_blokir' => $newFlag,
             'nilai_blokir' => $newVal,
-            'updated_by' => session()->get('id_user') ?? null,
+            'updated_by' => $userId,
         ]);
 
         return $this->response->setJSON([
@@ -463,6 +488,7 @@ class Rkks extends BaseController
             return redirect()->to('/relaxtime/rkks')->with('error', 'Belum ada dokumen RKKS untuk diekspor.');
         }
 
+        $this->releaseSessionLock();
         $items = $this->rkksModel->getItemsByDokumen((int) $dok['id_dokumen']);
         $rekapRows = RelaxtimeRkksHelper::buildRekapSubkomponen($items);
 
