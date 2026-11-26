@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Libraries\RelaxtimeMonitoringAnggaranHelper;
 use App\Libraries\RelaxtimeRkksHelper;
 use App\Models\RelaxtimeMonitoringAnggaranModel;
+use App\Models\RelaxtimeMonitoringTargetModel;
 use App\Models\RelaxtimeRkksModel;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -73,11 +74,33 @@ class MonitoringAnggaran extends BaseController
             sort($options['ros']);
         }
 
+        $targetYear = (int) date('Y');
+        if (!$allMonths && !empty($range['start_month']) && preg_match('/^(\d{4})-/', (string) $range['start_month'], $ymMatch)) {
+            $targetYear = (int) $ymMatch[1];
+        }
+
+        $isFullTargetYear = !$allMonths
+            && ($range['start_month'] ?? '') === $targetYear . '-01'
+            && ($range['end_month'] ?? '') === $targetYear . '-12';
+
+        $yearRows = $isFullTargetYear
+            ? $allDateRows
+            : $this->monitoringModel->getFiltered([
+                'tgl_mulai' => $targetYear . '-01-01',
+                'tgl_selesai' => $targetYear . '-12-31',
+            ]);
+
+        $targetModel = new RelaxtimeMonitoringTargetModel();
+        $targetConfig = $targetModel->getConfigByYear($targetYear);
+
         $data = [
             'title' => 'RELAXTIME | Monitoring Anggaran',
             'activeMenu' => 'relaxtimeMonitoringAnggaran',
             'rows' => $filteredRows,
             'allDateRows' => $allDateRows,
+            'yearRows' => $yearRows,
+            'targetYear' => $targetYear,
+            'targetConfig' => $targetConfig,
             'stats' => RelaxtimeMonitoringAnggaranHelper::buildDashboardStats($filteredRows),
             'filters' => [
                 'bulan_mulai' => $allMonths ? '' : $range['start_month'],
@@ -93,6 +116,49 @@ class MonitoringAnggaran extends BaseController
         ];
 
         return view('relaxtime/monitoring_anggaran', $data);
+    }
+
+    public function saveTargetTriwulan()
+    {
+        $userId = session()->get('id_user') ?? null;
+        $this->releaseSessionLock();
+
+        $tahun = (int) ($this->request->getPost('tahun_anggaran') ?: date('Y'));
+        if ($tahun < 2020 || $tahun > 2100) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Tahun anggaran tidak valid.',
+            ])->setStatusCode(400);
+        }
+
+        $paguPost = $this->request->getPost('pagu');
+        $persenPost = $this->request->getPost('target_persen');
+        $paguPost = is_array($paguPost) ? $paguPost : [];
+        $persenPost = is_array($persenPost) ? $persenPost : [];
+
+        $config = [];
+        for ($tw = 1; $tw <= 4; $tw++) {
+            $config[$tw] = [];
+            foreach (array_keys(RelaxtimeMonitoringAnggaranHelper::AKUN_LABELS) as $akun) {
+                $rawPagu = $paguPost[$tw][$akun] ?? ($paguPost[(string) $tw][$akun] ?? 0);
+                $rawPct = $persenPost[$tw][$akun] ?? ($persenPost[(string) $tw][$akun] ?? 0);
+                $pctStr = str_replace(',', '.', trim((string) $rawPct));
+                $config[$tw][$akun] = [
+                    'pagu' => max(0, RelaxtimeMonitoringAnggaranHelper::parseAmount($rawPagu)),
+                    'target_persen' => max(0.0, min(100.0, round((float) $pctStr, 2))),
+                ];
+            }
+        }
+
+        $targetModel = new RelaxtimeMonitoringTargetModel();
+        $savedConfig = $targetModel->saveYearConfig($tahun, $config, $userId);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'tahun' => $tahun,
+            'config' => $savedConfig,
+            'message' => 'Pagu & target realisasi triwulanan TA ' . $tahun . ' berhasil disimpan.',
+        ]);
     }
 
     public function store()

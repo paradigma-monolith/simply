@@ -15,6 +15,25 @@ class RelaxtimeMonitoringAnggaranHelper
         '53' => 'Belanja Modal',
     ];
 
+    /**
+     * Target penyerapan anggaran kumulatif triwulanan sesuai PER-5/PB/2024 (% dari pagu jenis belanja).
+     */
+    public const DEFAULT_TARGET_PENYERAPAN = [
+        '51' => [1 => 20.0, 2 => 50.0, 3 => 75.0, 4 => 95.0],
+        '52' => [1 => 15.0, 2 => 40.0, 3 => 70.0, 4 => 90.0],
+        '53' => [1 => 10.0, 2 => 40.0, 3 => 70.0, 4 => 90.0],
+    ];
+
+    /**
+     * Pagu DIPA per jenis belanja (51, 52, 53) tiap triwulan untuk TA 2026.
+     */
+    public const DEFAULT_PAGU_2026 = [
+        1 => ['51' => 14387215000, '52' => 7546620000, '53' => 119106000],
+        2 => ['51' => 14387215000, '52' => 9636536000, '53' => 962203000],
+        3 => ['51' => 14387215000, '52' => 10998804000, '53' => 1202754000],
+        4 => ['51' => 12935071000, '52' => 10810919000, '53' => 1202754000],
+    ];
+
     public const MONTH_NAMES = [
         1 => 'Januari',
         2 => 'Februari',
@@ -727,6 +746,165 @@ class RelaxtimeMonitoringAnggaranHelper
             'by_akun' => $byAkun,
             'by_pic' => array_values($byPic),
             'by_month' => array_values($byMonth),
+        ];
+    }
+
+    /**
+     * Kembalikan peta default pagu & persentase target penyerapan Triwulan I-IV untuk tahun tertentu.
+     *
+     * @return array<int, array<string, array{pagu: int, target_persen: float, updated_at: string}>>
+     */
+    public static function getDefaultPaguTargetForYear(int $tahun): array
+    {
+        $out = [];
+        for ($tw = 1; $tw <= 4; $tw++) {
+            $out[$tw] = [];
+            foreach (array_keys(self::AKUN_LABELS) as $akun) {
+                $pagu = ($tahun === 2026 && isset(self::DEFAULT_PAGU_2026[$tw][$akun]))
+                    ? (int) self::DEFAULT_PAGU_2026[$tw][$akun]
+                    : 0;
+                $targetPersen = (float) (self::DEFAULT_TARGET_PENYERAPAN[$akun][$tw] ?? 0.0);
+                $out[$tw][$akun] = [
+                    'pagu' => $pagu,
+                    'target_persen' => $targetPersen,
+                    'updated_at' => '',
+                ];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Hitung perbandingan Target Realisasi (berdasarkan Pagu per Jenis Belanja & % Target)
+     * melawan Realisasi kumulatif tiap triwulan per jenis akun (51, 52, 53).
+     *
+     * @return array<string, mixed>
+     */
+    public static function buildTargetRealisasiComparison(array $yearRows, array $paguTargetConfig, int $tahun): array
+    {
+        $realByQAkun = [];
+        for ($tw = 1; $tw <= 4; $tw++) {
+            $realByQAkun[$tw] = ['51' => 0, '52' => 0, '53' => 0];
+        }
+
+        $tahunPrefix = sprintf('%04d-', $tahun);
+        foreach ($yearRows as $row) {
+            $tgl = (string) ($row['tanggal'] ?? '');
+            if (strpos($tgl, $tahunPrefix) !== 0) {
+                continue;
+            }
+            if (!preg_match('/^\d{4}-(\d{2})/', $tgl, $m)) {
+                continue;
+            }
+            $mo = (int) $m[1];
+            if ($mo < 1 || $mo > 12) {
+                continue;
+            }
+            $tw = (int) ceil($mo / 3);
+            $akun = self::normalizeAkun($row['akun'] ?? '', '52');
+            if ($akun === '') {
+                $akun = '52';
+            }
+            if (isset($realByQAkun[$tw][$akun])) {
+                $realByQAkun[$tw][$akun] += (int) ($row['realisasi'] ?? 0);
+            }
+        }
+
+        $cumReal = ['51' => 0, '52' => 0, '53' => 0];
+        $defaults = self::getDefaultPaguTargetForYear($tahun);
+        $twNames = [1 => 'Triwulan I', 2 => 'Triwulan II', 3 => 'Triwulan III', 4 => 'Triwulan IV'];
+        $twRanges = [1 => 'Jan–Mar', 2 => 'Jan–Jun', 3 => 'Jan–Sep', 4 => 'Jan–Des'];
+
+        $quarters = [];
+        for ($tw = 1; $tw <= 4; $tw++) {
+            $akunRows = [];
+            $totalPagu = 0;
+            $totalTargetNominal = 0;
+            $totalRealTw = 0;
+            $totalRealKumulatif = 0;
+            $weightedNilaiSum = 0.0;
+
+            foreach (self::AKUN_LABELS as $akun => $label) {
+                $cumReal[$akun] += $realByQAkun[$tw][$akun];
+                $cfg = $paguTargetConfig[$tw][$akun] ?? $defaults[$tw][$akun];
+                $pagu = max(0, (int) ($cfg['pagu'] ?? 0));
+                $targetPersen = max(0.0, min(100.0, (float) ($cfg['target_persen'] ?? 0)));
+                $targetNominal = (int) round($pagu * ($targetPersen / 100.0));
+                $realTw = $realByQAkun[$tw][$akun];
+                $realKum = $cumReal[$akun];
+
+                $realPersenPagu = $pagu > 0 ? round(($realKum / $pagu) * 100, 2) : 0.0;
+                $selisihVsTarget = $realKum - $targetNominal;
+                $capaianVsTarget = $targetNominal > 0
+                    ? round(($realKum / $targetNominal) * 100, 2)
+                    : ($realKum > 0 ? 100.0 : 0.0);
+                $nilaiIkpa = $targetNominal > 0
+                    ? min(100.0, round(($realKum / $targetNominal) * 100, 2))
+                    : 100.0;
+                $tercapai = $pagu === 0 ? true : ($realKum >= $targetNominal);
+
+                $akunRows[$akun] = [
+                    'akun' => $akun,
+                    'label' => $label,
+                    'pagu' => $pagu,
+                    'target_persen' => $targetPersen,
+                    'target_nominal' => $targetNominal,
+                    'realisasi_triwulan' => $realTw,
+                    'realisasi_kumulatif' => $realKum,
+                    'realisasi_persen' => $realPersenPagu,
+                    'selisih_vs_target' => $selisihVsTarget,
+                    'persen_capaian_target' => $capaianVsTarget,
+                    'nilai_ikpa' => $nilaiIkpa,
+                    'tercapai' => $tercapai,
+                    'sisa_pagu' => $pagu - $realKum,
+                ];
+
+                $totalPagu += $pagu;
+                $totalTargetNominal += $targetNominal;
+                $totalRealTw += $realTw;
+                $totalRealKumulatif += $realKum;
+            }
+
+            if ($totalPagu > 0) {
+                foreach ($akunRows as $akRow) {
+                    if ($akRow['pagu'] > 0) {
+                        $weightedNilaiSum += $akRow['nilai_ikpa'] * ($akRow['pagu'] / $totalPagu);
+                    }
+                }
+            } else {
+                $weightedNilaiSum = 100.0;
+            }
+
+            $totalTargetPersen = $totalPagu > 0 ? round(($totalTargetNominal / $totalPagu) * 100, 2) : 0.0;
+            $totalRealPersen = $totalPagu > 0 ? round(($totalRealKumulatif / $totalPagu) * 100, 2) : 0.0;
+            $totalSelisihTarget = $totalRealKumulatif - $totalTargetNominal;
+            $totalCapaianTarget = $totalTargetNominal > 0 ? round(($totalRealKumulatif / $totalTargetNominal) * 100, 2) : 0.0;
+
+            $quarters[$tw] = [
+                'triwulan' => $tw,
+                'nama' => $twNames[$tw],
+                'periode_kumulatif' => $twRanges[$tw] . ' ' . $tahun,
+                'by_akun' => $akunRows,
+                'total' => [
+                    'pagu' => $totalPagu,
+                    'target_persen' => $totalTargetPersen,
+                    'target_nominal' => $totalTargetNominal,
+                    'realisasi_triwulan' => $totalRealTw,
+                    'realisasi_kumulatif' => $totalRealKumulatif,
+                    'realisasi_persen' => $totalRealPersen,
+                    'selisih_vs_target' => $totalSelisihTarget,
+                    'persen_capaian_target' => $totalCapaianTarget,
+                    'nilai_ikpa_tertimbang' => round(min(100.0, $weightedNilaiSum), 2),
+                    'tercapai' => $totalPagu === 0 ? true : ($totalRealKumulatif >= $totalTargetNominal),
+                    'sisa_pagu' => $totalPagu - $totalRealKumulatif,
+                ],
+            ];
+        }
+
+        return [
+            'tahun' => $tahun,
+            'quarters' => $quarters,
         ];
     }
 

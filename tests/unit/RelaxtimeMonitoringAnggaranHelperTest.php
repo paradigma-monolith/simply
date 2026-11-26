@@ -284,4 +284,47 @@ final class RelaxtimeMonitoringAnggaranHelperTest extends TestCase
         $this->assertSame(0.0, $bothZero['deviasi_persen']);
         $this->assertSame(100.0, $bothZero['nilai_kinerja']);
     }
+
+    public function testBuildTargetRealisasiComparisonComputesCumulativeByAkun(): void
+    {
+        $cfg = RelaxtimeMonitoringAnggaranHelper::getDefaultPaguTargetForYear(2026);
+        $this->assertSame(14387215000, $cfg[1]['51']['pagu']);
+        $this->assertSame(10810919000, $cfg[4]['52']['pagu']);
+        $this->assertSame(20.0, $cfg[1]['51']['target_persen']);
+        $this->assertSame(90.0, $cfg[4]['53']['target_persen']);
+
+        $yearRows = [
+            ['tanggal' => '2026-02-01', 'akun' => '51', 'realisasi' => 3000000000],
+            ['tanggal' => '2026-05-01', 'akun' => '51', 'realisasi' => 4500000000],
+            ['tanggal' => '2026-03-01', 'akun' => '52', 'realisasi' => 1500000000],
+            ['tanggal' => '2026-08-01', 'akun' => '53', 'realisasi' => 1000000000],
+            ['tanggal' => '2025-12-01', 'akun' => '52', 'realisasi' => 999999999],
+        ];
+
+        $res = RelaxtimeMonitoringAnggaranHelper::buildTargetRealisasiComparison($yearRows, $cfg, 2026);
+        $q1 = $res['quarters'][1];
+        $this->assertSame(2877443000, $q1['by_akun']['51']['target_nominal']);
+        $this->assertSame(3000000000, $q1['by_akun']['51']['realisasi_kumulatif']);
+        $this->assertTrue($q1['by_akun']['51']['tercapai']);
+        $this->assertSame(100.0, $q1['by_akun']['51']['nilai_ikpa']);
+
+        $this->assertSame(1131993000, $q1['by_akun']['52']['target_nominal']);
+        $this->assertSame(1500000000, $q1['by_akun']['52']['realisasi_kumulatif']);
+        $this->assertTrue($q1['by_akun']['52']['tercapai']);
+
+        $this->assertSame(11910600, $q1['by_akun']['53']['target_nominal']);
+        $this->assertSame(0, $q1['by_akun']['53']['realisasi_kumulatif']);
+        $this->assertFalse($q1['by_akun']['53']['tercapai']);
+
+        // TW II kumulatif untuk Akun 51 = 3.0M + 4.5M = 7.5M (> target 50% = 7.193.607.500)
+        $q2 = $res['quarters'][2];
+        $this->assertSame(7500000000, $q2['by_akun']['51']['realisasi_kumulatif']);
+        $this->assertSame(4500000000, $q2['by_akun']['51']['realisasi_triwulan']);
+        $this->assertTrue($q2['by_akun']['51']['tercapai']);
+
+        // TW III kumulatif untuk Akun 53 = 1.0M (> target 70% dari 1.202.754.000 = 841.927.800)
+        $q3 = $res['quarters'][3];
+        $this->assertSame(1000000000, $q3['by_akun']['53']['realisasi_kumulatif']);
+        $this->assertTrue($q3['by_akun']['53']['tercapai']);
+    }
 }

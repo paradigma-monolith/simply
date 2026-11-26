@@ -476,6 +476,7 @@ $routes->post('/relaxtime/monitoring-anggaran/bulk-delete', 'Relaxtime\Monitorin
 $routes->post('/relaxtime/monitoring-anggaran/import', 'Relaxtime\MonitoringAnggaran::importExcel');
 $routes->get('/relaxtime/monitoring-anggaran/template', 'Relaxtime\MonitoringAnggaran::downloadTemplate');
 $routes->get('/relaxtime/monitoring-anggaran/export', 'Relaxtime\MonitoringAnggaran::exportExcel');
+$routes->post('/relaxtime/monitoring-anggaran/save-target-triwulan', 'Relaxtime\MonitoringAnggaran::saveTargetTriwulan');
 
 $routes->get('/relaxtime/rkks', 'Relaxtime\Rkks::index');
 $routes->post('/relaxtime/rkks/import', 'Relaxtime\Rkks::importExcel');

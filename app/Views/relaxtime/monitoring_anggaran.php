@@ -37,6 +37,18 @@ foreach ($allDateRows as $r) {
         'updated_at' => (string) ($r['updated_at'] ?? ''),
     ];
 }
+
+$yearRowsJson = [];
+foreach (($yearRows ?? $allDateRows) as $yrRow) {
+    $yearRowsJson[] = [
+        'id' => (int) ($yrRow['id_monitoring'] ?? 0),
+        'tanggal' => (string) ($yrRow['tanggal'] ?? ''),
+        'akun' => (string) ($yrRow['akun'] ?? ''),
+        'realisasi' => (int) ($yrRow['realisasi'] ?? 0),
+    ];
+}
+$targetYearVal = (int) ($targetYear ?? date('Y'));
+$targetConfigVal = $targetConfig ?? \App\Libraries\RelaxtimeMonitoringAnggaranHelper::getDefaultPaguTargetForYear($targetYearVal);
 ?>
 
 <style>
@@ -255,6 +267,12 @@ foreach ($allDateRows as $r) {
   .rma-dipa-badge.is-optimal { background: #dcfce7; color: #166534; }
   .rma-dipa-badge.is-waspada { background: #fef3c7; color: #92400e; }
   .rma-dipa-badge.is-tinggi { background: #fee2e2; color: #b91c1c; }
+  .rma-tw-btn.active {
+    background: #0f766e !important;
+    color: #fff !important;
+    border-color: #0f766e !important;
+    font-weight: 700;
+  }
 </style>
 
 <section class="content rma-page">
@@ -442,6 +460,100 @@ foreach ($allDateRows as $r) {
           </div>
         </div>
       <?php endforeach; ?>
+    </div>
+
+    <!-- Target Realisasi vs Realisasi per Jenis Akun (PER-5/PB/2024) -->
+    <div class="rma-card p-3 mb-3">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3" style="gap: 10px;">
+        <div>
+          <h6 class="font-weight-bold mb-0">
+            <i class="fas fa-bullseye text-teal mr-1"></i> Target Realisasi vs Realisasi per Jenis Akun
+            <span class="badge badge-light border ml-1">TA <?= (int) $targetYearVal ?></span>
+          </h6>
+          <small class="text-muted">
+            Perbandingan Target Penyerapan Anggaran (PER-5/PB/2024) terhadap Realisasi Kumulatif Satker per Akun 51, 52, dan 53 — <span id="targetPeriodSubtitle">Jan–Des <?= (int) $targetYearVal ?></span>.
+          </small>
+        </div>
+        <div class="d-flex flex-wrap align-items-center" style="gap: 6px;">
+          <div class="btn-group btn-group-sm" role="group" aria-label="Pilih Triwulan">
+            <button type="button" class="btn btn-outline-teal rma-tw-btn" data-tw="1" style="border-color:#0f766e;">TW I</button>
+            <button type="button" class="btn btn-outline-teal rma-tw-btn" data-tw="2" style="border-color:#0f766e;">TW II</button>
+            <button type="button" class="btn btn-outline-teal rma-tw-btn" data-tw="3" style="border-color:#0f766e;">TW III</button>
+            <button type="button" class="btn btn-outline-teal rma-tw-btn" data-tw="4" style="border-color:#0f766e;">TW IV</button>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-toggle="collapse" data-target="#collapseTargetMatrix" aria-expanded="false">
+            <i class="fas fa-th-list mr-1"></i> Matriks TW I–IV
+          </button>
+          <button type="button" class="btn btn-sm bg-teal text-white font-weight-bold" id="btnEditTargetTriwulan">
+            <i class="fas fa-sliders-h mr-1"></i> Atur Pagu &amp; Target
+          </button>
+        </div>
+      </div>
+
+      <div class="row align-items-stretch">
+        <div class="col-12 col-xl-7 mb-3 mb-xl-0">
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm mb-0 rma-table">
+              <thead>
+                <tr>
+                  <th>Jenis Akun</th>
+                  <th class="text-right">Pagu DIPA</th>
+                  <th class="text-right">Target Realisasi</th>
+                  <th class="text-right">Realisasi Kumulatif</th>
+                  <th style="min-width: 120px;">Capaian vs Target</th>
+                  <th class="text-center">Status IKPA</th>
+                </tr>
+              </thead>
+              <tbody id="targetComparisonBody"></tbody>
+              <tfoot id="targetComparisonFoot"></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="col-12 col-xl-5">
+          <div class="border rounded p-2 h-100 bg-light d-flex flex-column">
+            <div class="d-flex justify-content-between align-items-center mb-1 px-1">
+              <small class="font-weight-bold text-dark"><i class="fas fa-chart-bar text-teal mr-1"></i> Grafik Pagu vs Target vs Realisasi (<span id="chartTargetTwLabel">TW IV</span>)</small>
+              <small class="text-muted" id="targetIkpaScoreBadge"></small>
+            </div>
+            <div style="position: relative; flex: 1; min-height: 215px;">
+              <canvas id="chartTargetVsRealisasi"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="collapseTargetMatrix" class="collapse mt-3 pt-3 border-top">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="font-weight-bold mb-0 small text-uppercase text-muted"><i class="fas fa-table mr-1"></i> Rekap Pagu, Target Realisasi &amp; Realisasi Kumulatif Triwulan I – IV (TA <?= (int) $targetYearVal ?>)</h6>
+          <small class="text-muted">Pagu per Jenis Belanja dapat disesuaikan lewat tombol <strong>Atur Pagu &amp; Target</strong>.</small>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm mb-0 rma-table">
+            <thead>
+              <tr>
+                <th rowspan="2" class="align-middle">Triwulan</th>
+                <th colspan="3" class="text-center">51 — Belanja Pegawai</th>
+                <th colspan="3" class="text-center">52 — Belanja Barang</th>
+                <th colspan="3" class="text-center">53 — Belanja Modal</th>
+                <th rowspan="2" class="text-right align-middle">Total Target</th>
+                <th rowspan="2" class="text-right align-middle">Total Realisasi</th>
+              </tr>
+              <tr>
+                <th class="text-right">Pagu</th>
+                <th class="text-right">Target</th>
+                <th class="text-right">Realisasi</th>
+                <th class="text-right">Pagu</th>
+                <th class="text-right">Target</th>
+                <th class="text-right">Realisasi</th>
+                <th class="text-right">Pagu</th>
+                <th class="text-right">Target</th>
+                <th class="text-right">Realisasi</th>
+              </tr>
+            </thead>
+            <tbody id="targetMatrixBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- Charts -->
@@ -752,10 +864,68 @@ foreach ($allDateRows as $r) {
   </div>
 </div>
 
+<!-- Modal Atur Pagu & Target Triwulanan -->
+<div class="modal fade" id="modalTargetTriwulan" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-teal text-white">
+        <h5 class="modal-title font-weight-bold">
+          <i class="fas fa-sliders-h mr-1"></i> Atur Pagu Per Jenis Belanja &amp; Target Realisasi (TA <?= (int) $targetYearVal ?>)
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <form id="formTargetTriwulan">
+        <input type="hidden" name="tahun_anggaran" value="<?= (int) $targetYearVal ?>">
+        <div class="modal-body">
+          <div class="d-flex flex-wrap justify-content-between align-items-center mb-2" style="gap: 8px;">
+            <small class="text-muted">Isi Pagu DIPA per jenis belanja (<strong>51</strong>, <strong>52</strong>, <strong>53</strong>) dan persentase target kumulatif untuk setiap Triwulan.</small>
+            <button type="button" class="btn btn-xs btn-outline-info" id="btnResetDefaultPct">
+              <i class="fas fa-magic mr-1"></i> Isi Target % Standar PER-5/PB/2024
+            </button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm mb-0 rma-table">
+              <thead>
+                <tr>
+                  <th rowspan="2" class="align-middle" style="width: 120px;">Triwulan</th>
+                  <th colspan="2" class="text-center">51 — Belanja Pegawai</th>
+                  <th colspan="2" class="text-center">52 — Belanja Barang</th>
+                  <th colspan="2" class="text-center">53 — Belanja Modal</th>
+                </tr>
+                <tr>
+                  <th class="text-right">Pagu (Rp)</th>
+                  <th class="text-center" style="width: 90px;">Target %</th>
+                  <th class="text-right">Pagu (Rp)</th>
+                  <th class="text-center" style="width: 90px;">Target %</th>
+                  <th class="text-right">Pagu (Rp)</th>
+                  <th class="text-center" style="width: 90px;">Target %</th>
+                </tr>
+              </thead>
+              <tbody id="modalTargetTriwulanBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Batal</button>
+          <button type="submit" class="btn bg-teal text-white btn-sm font-weight-bold" id="btnSaveTargetTriwulan">
+            <i class="fas fa-save mr-1"></i> Simpan Pagu &amp; Target
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const ALL_ROWS_INITIAL = <?= json_encode($allRowsJson, JSON_UNESCAPED_UNICODE) ?>;
   let ALL_ROWS = ALL_ROWS_INITIAL;
+  const TARGET_YEAR = <?= (int) $targetYearVal ?>;
+  let ALL_YEAR_ROWS = <?= json_encode($yearRowsJson, JSON_UNESCAPED_UNICODE) ?>;
+  let TARGET_CONFIG = <?= json_encode($targetConfigVal, JSON_UNESCAPED_UNICODE) ?>;
+  const DEFAULT_TARGET_PCT = <?= json_encode(\App\Libraries\RelaxtimeMonitoringAnggaranHelper::DEFAULT_TARGET_PENYERAPAN, JSON_UNESCAPED_UNICODE) ?>;
+  let activeTargetTw = Math.min(4, Math.max(1, Math.ceil((new Date().getMonth() + 1) / 3)));
+  let targetChartInstance = null;
   const RKKS_REKAP_OPTIONS = <?= json_encode(array_values($rkksRekapOptions ?? []), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE) ?: '[]' ?>;
   const Toast = Swal.mixin({
     toast: true,
@@ -1678,6 +1848,258 @@ document.addEventListener('DOMContentLoaded', function () {
     $('#modalManualAnggaran').on('hidden.bs.modal', closeRkksDropdown);
   }
 
+  function renderTargetComparison() {
+    const bodyEl = document.getElementById('targetComparisonBody');
+    const footEl = document.getElementById('targetComparisonFoot');
+    if (!bodyEl || !footEl) return;
+
+    const akuns = [
+      { code: '51', label: 'Belanja Pegawai', badge: 'rma-akun-51' },
+      { code: '52', label: 'Belanja Barang', badge: 'rma-akun-52' },
+      { code: '53', label: 'Belanja Modal', badge: 'rma-akun-53' }
+    ];
+    const twNames = { 1: 'Triwulan I', 2: 'Triwulan II', 3: 'Triwulan III', 4: 'Triwulan IV' };
+    const twRanges = { 1: 'Jan–Mar', 2: 'Jan–Jun', 3: 'Jan–Sep', 4: 'Jan–Des' };
+
+    const realByQAkun = {
+      1: { '51': 0, '52': 0, '53': 0 },
+      2: { '51': 0, '52': 0, '53': 0 },
+      3: { '51': 0, '52': 0, '53': 0 },
+      4: { '51': 0, '52': 0, '53': 0 }
+    };
+    const yearPrefix = String(TARGET_YEAR) + '-';
+    (ALL_YEAR_ROWS || []).forEach(function (r) {
+      const tgl = String(r.tanggal || '');
+      if (tgl.indexOf(yearPrefix) !== 0) return;
+      const mo = parseInt(tgl.slice(5, 7), 10);
+      if (Number.isNaN(mo) || mo < 1 || mo > 12) return;
+      const tw = Math.ceil(mo / 3);
+      const akun = ['51', '52', '53'].includes(String(r.akun)) ? String(r.akun) : '52';
+      realByQAkun[tw][akun] += Number(r.realisasi) || 0;
+    });
+
+    const cumReal = { '51': 0, '52': 0, '53': 0 };
+    const quarters = {};
+    for (let tw = 1; tw <= 4; tw++) {
+      let totPagu = 0, totTarget = 0, totReal = 0, weightedSum = 0;
+      const byAkun = {};
+
+      akuns.forEach(function (aCfg) {
+        const ak = aCfg.code;
+        cumReal[ak] += realByQAkun[tw][ak];
+        const rawCfg = (TARGET_CONFIG[tw] && TARGET_CONFIG[tw][ak]) ? TARGET_CONFIG[tw][ak] : { pagu: 0, target_persen: (DEFAULT_TARGET_PCT[ak] && DEFAULT_TARGET_PCT[ak][tw]) || 0 };
+        const pagu = Math.max(0, Math.round(Number(rawCfg.pagu) || 0));
+        const targetPct = Math.max(0, Math.min(100, Number(rawCfg.target_persen) || 0));
+        const targetNominal = Math.round(pagu * (targetPct / 100));
+        const realKum = cumReal[ak];
+        const realPctPagu = pagu > 0 ? (realKum / pagu) * 100 : 0;
+        const selisih = realKum - targetNominal;
+        const capaianVsTarget = targetNominal > 0 ? (realKum / targetNominal) * 100 : (realKum > 0 ? 100 : 0);
+        const nilaiIkpa = targetNominal > 0 ? Math.min(100, capaianVsTarget) : 100;
+        const tercapai = pagu === 0 ? true : realKum >= targetNominal;
+
+        byAkun[ak] = {
+          pagu: pagu,
+          targetPct: targetPct,
+          targetNominal: targetNominal,
+          realKum: realKum,
+          realPctPagu: realPctPagu,
+          selisih: selisih,
+          capaianVsTarget: capaianVsTarget,
+          nilaiIkpa: nilaiIkpa,
+          tercapai: tercapai
+        };
+        totPagu += pagu;
+        totTarget += targetNominal;
+        totReal += realKum;
+      });
+
+      if (totPagu > 0) {
+        akuns.forEach(function (aCfg) {
+          const item = byAkun[aCfg.code];
+          if (item.pagu > 0) weightedSum += item.nilaiIkpa * (item.pagu / totPagu);
+        });
+      } else {
+        weightedSum = 100;
+      }
+
+      quarters[tw] = {
+        tw: tw,
+        nama: twNames[tw],
+        periode: twRanges[tw] + ' ' + TARGET_YEAR,
+        byAkun: byAkun,
+        total: {
+          pagu: totPagu,
+          targetPct: totPagu > 0 ? (totTarget / totPagu) * 100 : 0,
+          targetNominal: totTarget,
+          realKum: totReal,
+          realPctPagu: totPagu > 0 ? (totReal / totPagu) * 100 : 0,
+          selisih: totReal - totTarget,
+          nilaiIkpa: Math.min(100, weightedSum),
+          tercapai: totPagu === 0 ? true : totReal >= totTarget
+        }
+      };
+    }
+
+    const q = quarters[activeTargetTw] || quarters[4];
+    document.querySelectorAll('.rma-tw-btn').forEach(function (b) {
+      b.classList.toggle('active', parseInt(b.getAttribute('data-tw'), 10) === activeTargetTw);
+    });
+    const subEl = document.getElementById('targetPeriodSubtitle');
+    if (subEl) subEl.textContent = q.nama + ' (' + q.periode + ')';
+    const chartLblEl = document.getElementById('chartTargetTwLabel');
+    if (chartLblEl) chartLblEl.textContent = 'TW ' + (['', 'I', 'II', 'III', 'IV'][q.tw] || q.tw);
+    const scoreBadgeEl = document.getElementById('targetIkpaScoreBadge');
+    if (scoreBadgeEl) {
+      const ikpaCls = q.total.nilaiIkpa >= 95 ? 'text-success' : (q.total.nilaiIkpa >= 80 ? 'text-warning' : 'text-danger');
+      scoreBadgeEl.innerHTML = 'Nilai Penyerapan: <strong class="' + ikpaCls + '">' + q.total.nilaiIkpa.toFixed(2).replace('.', ',') + '</strong>';
+    }
+
+    bodyEl.innerHTML = akuns.map(function (aCfg) {
+      const d = q.byAkun[aCfg.code];
+      const barPct = Math.min(100, d.realPctPagu);
+      const targetMarker = Math.min(100, d.targetPct);
+      const statusBadge = d.pagu === 0
+        ? '<span class="badge badge-light border">Pagu 0</span>'
+        : (d.tercapai
+          ? '<span class="rma-dipa-badge is-optimal">Tercapai &bull; Nilai ' + d.nilaiIkpa.toFixed(1).replace('.', ',') + '</span>'
+          : '<span class="rma-dipa-badge ' + (d.nilaiIkpa >= 80 ? 'is-waspada' : 'is-tinggi') + '">Kurang &bull; Nilai ' + d.nilaiIkpa.toFixed(1).replace('.', ',') + '</span>');
+      const selCls = d.selisih >= 0 ? 'text-success' : 'text-danger';
+
+      return '<tr>' +
+        '<td><span class="rma-badge-akun ' + aCfg.badge + '">' + aCfg.code + '</span> <span class="font-weight-bold ml-1">' + escapeHtml(aCfg.label) + '</span></td>' +
+        '<td class="text-right font-weight-bold">' + formatRupiah(d.pagu) + '</td>' +
+        '<td class="text-right">' +
+          '<div class="font-weight-bold text-primary">' + formatRupiah(d.targetNominal) + '</div>' +
+          '<div class="text-muted" style="font-size: 0.72rem;">Target: ' + d.targetPct.toFixed(1).replace('.', ',') + '%</div>' +
+        '</td>' +
+        '<td class="text-right">' +
+          '<div class="font-weight-bold text-teal">' + formatRupiah(d.realKum) + '</div>' +
+          '<div class="text-muted" style="font-size: 0.72rem;">' + d.realPctPagu.toFixed(2).replace('.', ',') + '% dari pagu</div>' +
+        '</td>' +
+        '<td>' +
+          '<div class="position-relative bg-light border rounded" style="height: 10px; overflow: hidden;">' +
+            '<div class="h-100 ' + (d.tercapai ? 'bg-success' : 'bg-warning') + '" style="width:' + barPct.toFixed(1) + '%;"></div>' +
+            '<div title="Garis Target ' + d.targetPct.toFixed(1) + '%" style="position:absolute; top:0; bottom:0; left:' + targetMarker.toFixed(1) + '%; width:2px; background:#0f172a;"></div>' +
+          '</div>' +
+          '<div class="d-flex justify-content-between mt-1" style="font-size: 0.71rem;">' +
+            '<span class="' + selCls + ' font-weight-bold">' + formatSignedRupiah(d.selisih) + '</span>' +
+            '<span class="text-muted">' + d.capaianVsTarget.toFixed(1).replace('.', ',') + '% target</span>' +
+          '</div>' +
+        '</td>' +
+        '<td class="text-center">' + statusBadge + '</td>' +
+      '</tr>';
+    }).join('');
+
+    const tot = q.total;
+    const totSelCls = tot.selisih >= 0 ? 'text-success' : 'text-danger';
+    const totBadge = tot.pagu === 0
+      ? '<span class="badge badge-light border">-</span>'
+      : '<span class="rma-dipa-badge ' + (tot.nilaiIkpa >= 95 ? 'is-optimal' : (tot.nilaiIkpa >= 80 ? 'is-waspada' : 'is-tinggi')) + '">IKPA ' + tot.nilaiIkpa.toFixed(2).replace('.', ',') + '</span>';
+
+    footEl.innerHTML = '<tr class="bg-light font-weight-bold">' +
+      '<td class="text-right">TOTAL SATKER:</td>' +
+      '<td class="text-right">' + formatRupiah(tot.pagu) + '</td>' +
+      '<td class="text-right text-primary">' + formatRupiah(tot.targetNominal) + ' <div class="text-muted font-weight-normal" style="font-size: 0.71rem;">(' + tot.targetPct.toFixed(2).replace('.', ',') + '%)</div></td>' +
+      '<td class="text-right text-teal">' + formatRupiah(tot.realKum) + ' <div class="text-muted font-weight-normal" style="font-size: 0.71rem;">(' + tot.realPctPagu.toFixed(2).replace('.', ',') + '%)</div></td>' +
+      '<td class="text-right ' + totSelCls + '">' + formatSignedRupiah(tot.selisih) + '</td>' +
+      '<td class="text-center">' + totBadge + '</td>' +
+    '</tr>';
+
+    // Matriks Lengkap TW I - IV
+    const matrixEl = document.getElementById('targetMatrixBody');
+    if (matrixEl) {
+      matrixEl.innerHTML = [1, 2, 3, 4].map(function (twIdx) {
+        const qRow = quarters[twIdx];
+        const isCurrent = twIdx === activeTargetTw;
+        let cells = '<td class="font-weight-bold' + (isCurrent ? ' text-teal' : '') + '">' + escapeHtml(qRow.nama) + '<div class="text-muted font-weight-normal" style="font-size:0.7rem;">' + escapeHtml(qRow.periode) + '</div></td>';
+        akuns.forEach(function (aCfg) {
+          const item = qRow.byAkun[aCfg.code];
+          cells += '<td class="text-right">' + formatRupiah(item.pagu) + '</td>' +
+            '<td class="text-right text-primary">' + formatRupiah(item.targetNominal) + '<div class="text-muted" style="font-size:0.7rem;">(' + item.targetPct.toFixed(0) + '%)</div></td>' +
+            '<td class="text-right font-weight-bold ' + (item.tercapai ? 'text-success' : 'text-danger') + '">' + formatRupiah(item.realKum) + '<div class="text-muted font-weight-normal" style="font-size:0.7rem;">' + item.realPctPagu.toFixed(1).replace('.', ',') + '%</div></td>';
+        });
+        cells += '<td class="text-right font-weight-bold text-primary">' + formatRupiah(qRow.total.targetNominal) + '</td>' +
+          '<td class="text-right font-weight-bold text-teal">' + formatRupiah(qRow.total.realKum) + '<div class="text-muted font-weight-normal" style="font-size:0.7rem;">IKPA ' + qRow.total.nilaiIkpa.toFixed(1).replace('.', ',') + '</div></td>';
+        return '<tr class="' + (isCurrent ? 'table-info' : '') + '">' + cells + '</tr>';
+      }).join('');
+    }
+
+    // Grouped Bar Chart: Pagu vs Target vs Realisasi per Akun
+    if (typeof Chart !== 'undefined' && document.getElementById('chartTargetVsRealisasi')) {
+      const ctxTarget = document.getElementById('chartTargetVsRealisasi').getContext('2d');
+      if (targetChartInstance) targetChartInstance.destroy();
+      targetChartInstance = new Chart(ctxTarget, {
+        type: 'bar',
+        data: {
+          labels: ['51 Pegawai', '52 Barang', '53 Modal'],
+          datasets: [
+            {
+              label: 'Pagu DIPA',
+              data: akuns.map(a => q.byAkun[a.code].pagu),
+              backgroundColor: 'rgba(148, 163, 184, 0.45)',
+              borderColor: '#64748b',
+              borderWidth: 1
+            },
+            {
+              label: 'Target Realisasi',
+              data: akuns.map(a => q.byAkun[a.code].targetNominal),
+              backgroundColor: 'rgba(2, 132, 199, 0.78)',
+              borderColor: '#0284c7',
+              borderWidth: 1
+            },
+            {
+              label: 'Realisasi Kumulatif',
+              data: akuns.map(a => q.byAkun[a.code].realKum),
+              backgroundColor: 'rgba(15, 118, 110, 0.88)',
+              borderColor: '#0f766e',
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            yAxes: [{
+              ticks: {
+                beginAtZero: true,
+                callback: function (v) { return formatAxisShort(v); }
+              }
+            }],
+            xAxes: [{
+              gridLines: { display: false }
+            }]
+          },
+          tooltips: {
+            callbacks: {
+              label: function (tooltipItem, data) {
+                const dsLabel = data.datasets[tooltipItem.datasetIndex].label || '';
+                return dsLabel + ': ' + formatRupiah(tooltipItem.yLabel);
+              }
+            }
+          }
+        }
+      });
+    }
+  }
+
+  function populateTargetTriwulanModal() {
+    const tbody = document.getElementById('modalTargetTriwulanBody');
+    if (!tbody) return;
+    const twNames = { 1: 'Triwulan I', 2: 'Triwulan II', 3: 'Triwulan III', 4: 'Triwulan IV' };
+    tbody.innerHTML = [1, 2, 3, 4].map(function (tw) {
+      let cols = '<td class="font-weight-bold align-middle">' + twNames[tw] + '</td>';
+      ['51', '52', '53'].forEach(function (ak) {
+        const cfg = (TARGET_CONFIG[tw] && TARGET_CONFIG[tw][ak]) ? TARGET_CONFIG[tw][ak] : { pagu: 0, target_persen: (DEFAULT_TARGET_PCT[ak] && DEFAULT_TARGET_PCT[ak][tw]) || 0 };
+        const paguFmt = String(Math.round(Number(cfg.pagu) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        cols += '<td><input type="text" class="form-control form-control-sm text-right rma-target-pagu-input" name="pagu[' + tw + '][' + ak + ']" value="' + paguFmt + '" required></td>' +
+          '<td><input type="number" step="0.01" min="0" max="100" class="form-control form-control-sm text-center rma-target-pct-input" data-tw="' + tw + '" data-akun="' + ak + '" name="target_persen[' + tw + '][' + ak + ']" value="' + Number(cfg.target_persen || 0) + '" required></td>';
+      });
+      return '<tr>' + cols + '</tr>';
+    }).join('');
+  }
+
   // Open Input Manual Modal
   document.getElementById('btnInputManual').addEventListener('click', function () {
     document.getElementById('formIdMonitoring').value = '';
@@ -1732,8 +2154,20 @@ document.addEventListener('DOMContentLoaded', function () {
         } else if (idx >= 0) {
           ALL_ROWS.splice(idx, 1);
         }
+
+        const yrIdx = ALL_YEAR_ROWS.findIndex(r => r.id === json.row.id);
+        if (String(json.row.tanggal || '').indexOf(String(TARGET_YEAR) + '-') === 0) {
+          if (yrIdx >= 0) {
+            ALL_YEAR_ROWS[yrIdx] = json.row;
+          } else {
+            ALL_YEAR_ROWS.unshift(json.row);
+          }
+        } else if (yrIdx >= 0) {
+          ALL_YEAR_ROWS.splice(yrIdx, 1);
+        }
       }
       renderDashboardAndTable({ preserveTableState: Boolean(id), preserveLengthOnly: !id });
+      renderTargetComparison();
       Toast.fire({ icon: 'success', title: json.message });
     } catch (err) {
       Swal.fire('Error', 'Terjadi kesalahan koneksi saat menyimpan.', 'error');
@@ -1787,7 +2221,9 @@ document.addEventListener('DOMContentLoaded', function () {
       if (res.ok && json.success) {
         const delId = parseInt(json.deleted_id || id, 10);
         ALL_ROWS = ALL_ROWS.filter(r => r.id !== delId);
+        ALL_YEAR_ROWS = ALL_YEAR_ROWS.filter(r => r.id !== delId);
         renderDashboardAndTable({ preserveTableState: true });
+        renderTargetComparison();
         Toast.fire({ icon: 'success', title: json.message });
       } else {
         Swal.fire('Gagal', json.message || 'Gagal menghapus data.', 'error');
@@ -1833,8 +2269,10 @@ document.addEventListener('DOMContentLoaded', function () {
     if (res.ok && json.success) {
       const delSet = new Set((json.deleted_ids || ids).map(v => parseInt(v, 10)));
       ALL_ROWS = ALL_ROWS.filter(r => !delSet.has(r.id));
+      ALL_YEAR_ROWS = ALL_YEAR_ROWS.filter(r => !delSet.has(r.id));
       document.getElementById('checkAllRows').checked = false;
       renderDashboardAndTable({ preserveTableState: true });
+      renderTargetComparison();
       Toast.fire({ icon: 'success', title: json.message });
     } else {
       Swal.fire('Gagal', json.message || 'Gagal menghapus data terpilih.', 'error');
@@ -1886,8 +2324,78 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
+  // Target Realisasi Triwulanan events
+  document.querySelectorAll('.rma-tw-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      activeTargetTw = parseInt(this.getAttribute('data-tw'), 10) || 4;
+      renderTargetComparison();
+    });
+  });
+
+  const btnEditTarget = document.getElementById('btnEditTargetTriwulan');
+  if (btnEditTarget) {
+    btnEditTarget.addEventListener('click', function () {
+      populateTargetTriwulanModal();
+      $('#modalTargetTriwulan').modal('show');
+    });
+  }
+
+  const modalTargetBody = document.getElementById('modalTargetTriwulanBody');
+  if (modalTargetBody) {
+    modalTargetBody.addEventListener('input', function (e) {
+      if (e.target.classList.contains('rma-target-pagu-input')) {
+        const digits = e.target.value.replace(/[^\d]/g, '');
+        e.target.value = digits === '' ? '' : digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      }
+    });
+  }
+
+  const btnResetDefaultPct = document.getElementById('btnResetDefaultPct');
+  if (btnResetDefaultPct) {
+    btnResetDefaultPct.addEventListener('click', function () {
+      document.querySelectorAll('.rma-target-pct-input').forEach(function (inp) {
+        const tw = inp.getAttribute('data-tw');
+        const ak = inp.getAttribute('data-akun');
+        if (DEFAULT_TARGET_PCT[ak] && DEFAULT_TARGET_PCT[ak][tw] !== undefined) {
+          inp.value = DEFAULT_TARGET_PCT[ak][tw];
+        }
+      });
+    });
+  }
+
+  const formTargetTw = document.getElementById('formTargetTriwulan');
+  if (formTargetTw) {
+    formTargetTw.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const fd = new FormData(this);
+      const btn = document.getElementById('btnSaveTargetTriwulan');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/relaxtime/monitoring-anggaran/save-target-triwulan', {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          body: fd
+        });
+        const json = await res.json();
+        if (res.ok && json.success) {
+          TARGET_CONFIG = json.config || TARGET_CONFIG;
+          $('#modalTargetTriwulan').modal('hide');
+          renderTargetComparison();
+          Toast.fire({ icon: 'success', title: json.message });
+        } else {
+          Swal.fire('Gagal', json.message || 'Gagal menyimpan pagu & target triwulan.', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Terjadi kesalahan koneksi saat menyimpan target.', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
   // Initial render
   renderDashboardAndTable();
+  renderTargetComparison();
 });
 </script>
 <?= $this->endSection() ?>
