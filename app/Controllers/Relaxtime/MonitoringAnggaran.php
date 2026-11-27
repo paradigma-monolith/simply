@@ -287,6 +287,61 @@ class MonitoringAnggaran extends BaseController
         return redirect()->to('/relaxtime/monitoring-anggaran')->with('success', $msg);
     }
 
+    public function saveTindakLanjut($id)
+    {
+        $userId = session()->get('id_user') ?? null;
+        $this->releaseSessionLock();
+
+        $existing = $this->monitoringModel->find((int) $id);
+        if (!$existing) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Data monitoring anggaran tidak ditemukan.',
+            ])->setStatusCode(404);
+        }
+
+        $status = trim((string) $this->request->getPost('tindak_lanjut_status'));
+        $allowedStatuses = array_keys(RelaxtimeMonitoringAnggaranHelper::TINDAK_LANJUT_LABELS);
+        if (!in_array($status, $allowedStatuses, true)) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Status tindak lanjut revisi tidak valid.',
+            ])->setStatusCode(400);
+        }
+
+        $targetRaw = trim((string) ($this->request->getPost('tindak_lanjut_target_rencana') ?? ''));
+        $targetRencana = $targetRaw !== '' ? max(0, RelaxtimeMonitoringAnggaranHelper::parseAmount($targetRaw)) : null;
+        $catatan = trim((string) ($this->request->getPost('tindak_lanjut_catatan') ?? ''));
+        $terapkanKeRencana = ((string) $this->request->getPost('terapkan_ke_rencana') === '1');
+
+        $payload = [
+            'tindak_lanjut_status'         => $status,
+            'tindak_lanjut_catatan'        => $catatan !== '' ? $catatan : null,
+            'tindak_lanjut_target_rencana' => $targetRencana,
+            'tindak_lanjut_updated_at'     => date('Y-m-d H:i:s'),
+            'tindak_lanjut_updated_by'     => $userId,
+            'updated_by'                   => $userId,
+        ];
+
+        if ($terapkanKeRencana && $targetRencana !== null) {
+            $payload['rencana'] = $targetRencana;
+        }
+
+        if (!$this->monitoringModel->update((int) $id, $payload)) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Gagal menyimpan tindak lanjut revisi.',
+            ])->setStatusCode(500);
+        }
+
+        $updatedRow = $this->monitoringModel->find((int) $id);
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Tindak lanjut revisi berhasil disimpan.',
+            'row' => $updatedRow ? $this->formatRowForClient($updatedRow) : null,
+        ]);
+    }
+
     public function delete($id)
     {
         $existing = $this->monitoringModel->find((int) $id);
@@ -553,7 +608,7 @@ class MonitoringAnggaran extends BaseController
         $sheet->setTitle('Monitoring Anggaran');
 
         $sheet->setCellValue('A1', 'LAPORAN MONITORING ANGGARAN - RELAXTIME (ATURAN DEVIASI HAL. III DIPA PER-5/PB/2024)');
-        $sheet->mergeCells('A1:M1');
+        $sheet->mergeCells('A1:P1');
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14)->getColor()->setRGB('0F172A');
 
         $periodeLabel = $allMonths
@@ -570,19 +625,20 @@ class MonitoringAnggaran extends BaseController
             date('d/m/Y H:i')
         );
         $sheet->setCellValue('A2', $filterInfo);
-        $sheet->mergeCells('A2:M2');
+        $sheet->mergeCells('A2:P2');
         $sheet->getStyle('A2')->getFont()->setSize(10)->getColor()->setRGB('475569');
 
         $headers = [
             'No', 'Bulan', 'RO', 'Akun', 'Kegiatan', 'PIC',
             'Rencana Pencairan', 'Realisasi', 'Sisa',
             'Deviasi Hal. III (%)', 'Status Hal. III DIPA', 'Nilai Kinerja', '% Realisasi',
+            'Tindak Lanjut Revisi', 'Usulan RPD Revisi', 'Catatan Revisi',
         ];
         foreach ($headers as $idx => $h) {
             $col = chr(65 + $idx);
             $sheet->setCellValue($col . '4', $h);
         }
-        $sheet->getStyle('A4:M4')->applyFromArray([
+        $sheet->getStyle('A4:P4')->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '0F766E']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
@@ -597,6 +653,10 @@ class MonitoringAnggaran extends BaseController
             $sisa = $rencana - $realisasi;
             $persen = $rencana > 0 ? ($realisasi / $rencana) : 0;
             $dipa = RelaxtimeMonitoringAnggaranHelper::calculateDeviasiDipa($rencana, $realisasi);
+            $tlStatus = (string) ($item['tindak_lanjut_status'] ?? '');
+            $tlLabel = $tlStatus !== '' ? RelaxtimeMonitoringAnggaranHelper::formatTindakLanjutLabel($tlStatus) : '-';
+            $tlTarget = $item['tindak_lanjut_target_rencana'] !== null ? (int) $item['tindak_lanjut_target_rencana'] : null;
+            $tlCatatan = trim((string) ($item['tindak_lanjut_catatan'] ?? ''));
 
             $sheet->setCellValue('A' . $rowNum, $no++);
             $sheet->setCellValueExplicit('B' . $rowNum, RelaxtimeMonitoringAnggaranHelper::formatMonthLabel($item['tanggal'] ?? ''), DataType::TYPE_STRING);
@@ -611,6 +671,14 @@ class MonitoringAnggaran extends BaseController
             $sheet->setCellValue('K' . $rowNum, $dipa['status_label']);
             $sheet->setCellValue('L' . $rowNum, $dipa['nilai_kinerja']);
             $sheet->setCellValue('M' . $rowNum, $persen);
+            $sheet->setCellValue('N' . $rowNum, $tlLabel);
+            if ($tlTarget !== null) {
+                $sheet->setCellValue('O' . $rowNum, $tlTarget);
+                $sheet->getStyle("O{$rowNum}")->getNumberFormat()->setFormatCode('#,##0');
+            } else {
+                $sheet->setCellValue('O' . $rowNum, '-');
+            }
+            $sheet->setCellValue('P' . $rowNum, $tlCatatan !== '' ? $tlCatatan : '-');
 
             $sheet->getStyle("G{$rowNum}:I{$rowNum}")->getNumberFormat()->setFormatCode('#,##0');
             $sheet->getStyle("J{$rowNum}")->getNumberFormat()->setFormatCode('0.0%');
@@ -619,7 +687,9 @@ class MonitoringAnggaran extends BaseController
             $sheet->getStyle("A{$rowNum}:D{$rowNum}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle("F{$rowNum}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle("K{$rowNum}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("N{$rowNum}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle("E{$rowNum}")->getAlignment()->setWrapText(true);
+            $sheet->getStyle("P{$rowNum}")->getAlignment()->setWrapText(true);
 
             if ($sisa < 0) {
                 $sheet->getStyle("I{$rowNum}")->getFont()->getColor()->setRGB('DC2626');
@@ -631,7 +701,7 @@ class MonitoringAnggaran extends BaseController
 
         if ($rowNum === 5) {
             $sheet->setCellValue('A5', 'Tidak ada data untuk filter terpilih.');
-            $sheet->mergeCells('A5:M5');
+            $sheet->mergeCells('A5:P5');
             $sheet->getStyle('A5')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $rowNum = 6;
         } else {
@@ -645,7 +715,8 @@ class MonitoringAnggaran extends BaseController
             $sheet->setCellValue("K{$rowNum}", $stats['summary']['deviasi_dipa_label'] ?? 'Optimal (≤5%)');
             $sheet->setCellValue("L{$rowNum}", $stats['summary']['nilai_ikpa_deviasi'] ?? 100);
             $sheet->setCellValue("M{$rowNum}", "=IF(G{$rowNum}>0,H{$rowNum}/G{$rowNum},0)");
-            $sheet->getStyle("A{$rowNum}:M{$rowNum}")->applyFromArray([
+            $sheet->mergeCells("N{$rowNum}:P{$rowNum}");
+            $sheet->getStyle("A{$rowNum}:P{$rowNum}")->applyFromArray([
                 'font' => ['bold' => true],
                 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F1F5F9']],
             ]);
@@ -655,8 +726,8 @@ class MonitoringAnggaran extends BaseController
             $sheet->getStyle("M{$rowNum}")->getNumberFormat()->setFormatCode('0.0%');
         }
 
-        $sheet->getStyle("A4:M{$rowNum}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-        foreach (['A' => 6, 'B' => 16, 'C' => 18, 'D' => 8, 'E' => 48, 'F' => 16, 'G' => 18, 'H' => 18, 'I' => 18, 'J' => 18, 'K' => 20, 'L' => 14, 'M' => 13] as $col => $w) {
+        $sheet->getStyle("A4:P{$rowNum}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        foreach (['A' => 6, 'B' => 16, 'C' => 18, 'D' => 8, 'E' => 48, 'F' => 16, 'G' => 18, 'H' => 18, 'I' => 18, 'J' => 18, 'K' => 20, 'L' => 14, 'M' => 13, 'N' => 18, 'O' => 18, 'P' => 34] as $col => $w) {
             $sheet->getColumnDimension($col)->setWidth($w);
         }
 
@@ -763,6 +834,10 @@ class MonitoringAnggaran extends BaseController
             'pic' => (string) ($row['pic'] ?? ''),
             'realisasi' => (int) ($row['realisasi'] ?? 0),
             'sumber_input' => (string) ($row['sumber_input'] ?? 'manual'),
+            'tindak_lanjut_status' => (string) ($row['tindak_lanjut_status'] ?? ''),
+            'tindak_lanjut_catatan' => (string) ($row['tindak_lanjut_catatan'] ?? ''),
+            'tindak_lanjut_target_rencana' => isset($row['tindak_lanjut_target_rencana']) && $row['tindak_lanjut_target_rencana'] !== null ? (int) $row['tindak_lanjut_target_rencana'] : null,
+            'tindak_lanjut_updated_at' => (string) ($row['tindak_lanjut_updated_at'] ?? ''),
             'created_at' => (string) ($row['created_at'] ?? ''),
             'updated_at' => (string) ($row['updated_at'] ?? ''),
         ];

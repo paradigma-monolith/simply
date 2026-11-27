@@ -15,6 +15,14 @@ class RelaxtimeMonitoringAnggaranHelper
         '53' => 'Belanja Modal',
     ];
 
+    public const TINDAK_LANJUT_LABELS = [
+        '' => 'Belum Ditentukan',
+        'perlu_revisi' => 'Perlu Revisi',
+        'proses_revisi' => 'Proses Revisi',
+        'selesai_revisi' => 'Selesai Revisi',
+        'tidak_perlu' => 'Tidak Perlu',
+    ];
+
     /**
      * Target penyerapan anggaran kumulatif triwulanan sesuai PER-5/PB/2024 (% dari pagu jenis belanja).
      */
@@ -68,6 +76,15 @@ class RelaxtimeMonitoringAnggaranHelper
         }
 
         return in_array($fallback, ['51', '52', '53'], true) ? $fallback : '';
+    }
+
+    /**
+     * Label status tindak lanjut revisi anggaran.
+     */
+    public static function formatTindakLanjutLabel(?string $status): string
+    {
+        $key = trim((string) $status);
+        return self::TINDAK_LANJUT_LABELS[$key] ?? self::TINDAK_LANJUT_LABELS[''];
     }
 
     /**

@@ -24,6 +24,11 @@ class RelaxtimeMonitoringAnggaranModel extends Model
         'realisasi',
         'sumber_input',
         'import_batch',
+        'tindak_lanjut_status',
+        'tindak_lanjut_catatan',
+        'tindak_lanjut_target_rencana',
+        'tindak_lanjut_updated_at',
+        'tindak_lanjut_updated_by',
         'created_by',
         'updated_by',
     ];
@@ -51,6 +56,11 @@ class RelaxtimeMonitoringAnggaranModel extends Model
                 `realisasi` BIGINT(20) NOT NULL DEFAULT 0,
                 `sumber_input` ENUM('manual', 'import') NOT NULL DEFAULT 'manual',
                 `import_batch` VARCHAR(64) NULL DEFAULT NULL,
+                `tindak_lanjut_status` VARCHAR(30) NOT NULL DEFAULT '',
+                `tindak_lanjut_catatan` TEXT NULL DEFAULT NULL,
+                `tindak_lanjut_target_rencana` BIGINT(20) NULL DEFAULT NULL,
+                `tindak_lanjut_updated_at` DATETIME NULL DEFAULT NULL,
+                `tindak_lanjut_updated_by` INT(11) UNSIGNED NULL DEFAULT NULL,
                 `created_by` INT(11) UNSIGNED NULL DEFAULT NULL,
                 `updated_by` INT(11) UNSIGNED NULL DEFAULT NULL,
                 `created_at` DATETIME NULL DEFAULT NULL,
@@ -64,6 +74,24 @@ class RelaxtimeMonitoringAnggaranModel extends Model
         ";
 
         $this->db->query($sql);
+
+        $existingCols = [];
+        foreach ($this->db->query('SHOW COLUMNS FROM `' . $this->table . '`')->getResultArray() as $col) {
+            $existingCols[strtolower((string) ($col['Field'] ?? ''))] = true;
+        }
+        $alterCols = [
+            'tindak_lanjut_status'         => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_status` VARCHAR(30) NOT NULL DEFAULT '' AFTER `import_batch`",
+            'tindak_lanjut_catatan'        => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_catatan` TEXT NULL DEFAULT NULL AFTER `tindak_lanjut_status`",
+            'tindak_lanjut_target_rencana' => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_target_rencana` BIGINT(20) NULL DEFAULT NULL AFTER `tindak_lanjut_catatan`",
+            'tindak_lanjut_updated_at'     => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_updated_at` DATETIME NULL DEFAULT NULL AFTER `tindak_lanjut_target_rencana`",
+            'tindak_lanjut_updated_by'     => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_updated_by` INT(11) UNSIGNED NULL DEFAULT NULL AFTER `tindak_lanjut_updated_at`",
+        ];
+        foreach ($alterCols as $colName => $alterSql) {
+            if (!isset($existingCols[$colName])) {
+                $this->db->query($alterSql);
+            }
+        }
+
         self::$tableEnsured = true;
     }
 

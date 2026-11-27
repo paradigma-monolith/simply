@@ -336,4 +336,13 @@ final class RelaxtimeMonitoringAnggaranHelperTest extends TestCase
         $this->assertSame(['51', '53'], RelaxtimeMonitoringAnggaranHelper::normalizeAkunList('53, 51, 53'));
         $this->assertSame(['51', '52'], RelaxtimeMonitoringAnggaranHelper::normalizeAkunList(['52', 'Akun 51', 'invalid']));
     }
+
+    public function testFormatTindakLanjutLabelReturnsReadableStatus(): void
+    {
+        $this->assertSame('Belum Ditentukan', RelaxtimeMonitoringAnggaranHelper::formatTindakLanjutLabel(''));
+        $this->assertSame('Perlu Revisi', RelaxtimeMonitoringAnggaranHelper::formatTindakLanjutLabel('perlu_revisi'));
+        $this->assertSame('Proses Revisi', RelaxtimeMonitoringAnggaranHelper::formatTindakLanjutLabel('proses_revisi'));
+        $this->assertSame('Selesai Revisi', RelaxtimeMonitoringAnggaranHelper::formatTindakLanjutLabel('selesai_revisi'));
+        $this->assertSame('Tidak Perlu', RelaxtimeMonitoringAnggaranHelper::formatTindakLanjutLabel('tidak_perlu'));
+    }
 }

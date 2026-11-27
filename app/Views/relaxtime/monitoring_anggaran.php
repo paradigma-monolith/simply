@@ -33,6 +33,10 @@ foreach ($allDateRows as $r) {
         'pic' => (string) ($r['pic'] ?? ''),
         'realisasi' => (int) ($r['realisasi'] ?? 0),
         'sumber_input' => (string) ($r['sumber_input'] ?? 'manual'),
+        'tindak_lanjut_status' => (string) ($r['tindak_lanjut_status'] ?? ''),
+        'tindak_lanjut_catatan' => (string) ($r['tindak_lanjut_catatan'] ?? ''),
+        'tindak_lanjut_target_rencana' => isset($r['tindak_lanjut_target_rencana']) && $r['tindak_lanjut_target_rencana'] !== null ? (int) $r['tindak_lanjut_target_rencana'] : null,
+        'tindak_lanjut_updated_at' => (string) ($r['tindak_lanjut_updated_at'] ?? ''),
         'created_at' => (string) ($r['created_at'] ?? ''),
         'updated_at' => (string) ($r['updated_at'] ?? ''),
     ];
@@ -648,6 +652,15 @@ $targetConfigVal = $targetConfig ?? \App\Libraries\RelaxtimeMonitoringAnggaranHe
           <small class="text-muted">Aturan Deviasi Hal. III DIPA (PER-5/PB/2024): <code>|Realisasi - Rencana| / Rencana</code> (maks. 100%), ambang optimal <strong>&le; 5%</strong> = Nilai <strong>100</strong></small>
         </div>
         <div class="d-flex flex-wrap align-items-center" style="gap: 8px;">
+          <select id="filterTindakLanjut" class="form-control form-control-sm rma-client-filter" style="width: auto; min-width: 205px;" title="Filter status tindak lanjut revisi">
+            <option value="">Semua Tindak Lanjut</option>
+            <option value="needs_action">Deviasi >5% (Perlu Revisi / Belum)</option>
+            <option value="perlu_revisi">Status: Perlu Revisi</option>
+            <option value="proses_revisi">Status: Proses Revisi</option>
+            <option value="selesai_revisi">Status: Selesai Revisi</option>
+            <option value="tidak_perlu">Status: Tidak Perlu</option>
+            <option value="belum">Status: Belum Ditentukan</option>
+          </select>
           <span class="badge badge-light border text-muted px-2 py-1 font-weight-normal" id="tableLastUpdatedInfo">
             <i class="far fa-clock text-teal mr-1"></i> Terakhir diperbarui: -
           </span>
@@ -672,6 +685,7 @@ $targetConfigVal = $targetConfig ?? \App\Libraries\RelaxtimeMonitoringAnggaranHe
                 <th class="text-right" style="width: 130px;">Realisasi (K)</th>
                 <th class="text-right" style="width: 125px;">Sisa</th>
                 <th class="text-right" style="width: 165px;" title="Rumus Hal. III DIPA PER-5/PB/2024: |Realisasi - RPD| / RPD (maks 100%). Ambang optimal <= 5% (Nilai 100).">Deviasi Hal. III DIPA</th>
+                <th style="width: 155px;">Tindak Lanjut Revisi</th>
                 <th class="text-center" style="width: 68px;">%</th>
                 <th style="width: 120px;">Waktu Update</th>
                 <th class="text-center" style="width: 82px;">Aksi</th>
@@ -685,6 +699,7 @@ $targetConfigVal = $targetConfig ?? \App\Libraries\RelaxtimeMonitoringAnggaranHe
                 <th class="text-right text-teal" id="footTotalRealisasi">Rp 0</th>
                 <th class="text-right" id="footTotalSisa">Rp 0</th>
                 <th class="text-right" id="footTotalDeviasi">0,00%</th>
+                <th></th>
                 <th class="text-center" id="footTotalPersen">0%</th>
                 <th></th>
                 <th></th>
@@ -696,6 +711,72 @@ $targetConfigVal = $targetConfig ?? \App\Libraries\RelaxtimeMonitoringAnggaranHe
     </div>
   </div>
 </section>
+
+<!-- Modal Tindak Lanjut Revisi -->
+<div class="modal fade" id="modalTindakLanjutRevisi" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-teal text-white">
+        <h5 class="modal-title font-weight-bold">
+          <i class="fas fa-tools mr-1"></i> Tindak Lanjut Revisi Anggaran
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <form id="formTindakLanjutRevisi">
+        <input type="hidden" id="tlIdMonitoring" value="">
+        <input type="hidden" id="tlCurrentRealisasi" value="0">
+        <div class="modal-body">
+          <div class="p-2 mb-3 rounded border bg-light small">
+            <div class="font-weight-bold text-dark mb-1" id="tlKegiatanTitle">-</div>
+            <div class="text-muted mb-1" id="tlMetaSubtitle">-</div>
+            <div class="d-flex flex-wrap justify-content-between pt-1 border-top" style="gap: 6px;" id="tlDeviasiSummary"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="tlStatus" class="font-weight-bold">Status Tindak Lanjut Revisi</label>
+            <select class="form-control form-control-sm" id="tlStatus" name="tindak_lanjut_status">
+              <option value="perlu_revisi">Perlu Revisi RPD / Anggaran</option>
+              <option value="proses_revisi">Sedang Proses Revisi</option>
+              <option value="selesai_revisi">Revisi Selesai</option>
+              <option value="tidak_perlu">Tidak Perlu Revisi</option>
+              <option value="">Belum Ditentukan</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label for="tlTargetRencana" class="font-weight-bold mb-0">Usulan Nilai Rencana (RPD) Revisi</label>
+              <button type="button" class="btn btn-xs btn-outline-teal text-teal" id="btnTlMatchRealisasi" style="border-color:#0f766e;">
+                <i class="fas fa-equals mr-1"></i> Samakan dgn Realisasi
+              </button>
+            </div>
+            <div class="input-group input-group-sm">
+              <div class="input-group-prepend"><span class="input-group-text">Rp</span></div>
+              <input type="text" class="form-control rma-rupiah-simple" id="tlTargetRencana" name="tindak_lanjut_target_rencana" placeholder="Opsional — kosongkan jika belum ada">
+            </div>
+            <div class="custom-control custom-checkbox mt-2">
+              <input type="checkbox" class="custom-control-input" id="tlApplyRencana" name="terapkan_ke_rencana" value="1">
+              <label class="custom-control-label small font-weight-bold text-teal" for="tlApplyRencana">
+                Sekaligus perbarui kolom Rencana (D) sesuai nilai usulan di atas
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group mb-0">
+            <label for="tlCatatan" class="font-weight-bold">Catatan / Rencana Revisi</label>
+            <textarea class="form-control form-control-sm" id="tlCatatan" name="tindak_lanjut_catatan" rows="3" placeholder="Contoh: Ajukan revisi Hal. III DIPA / geser RPD ke bulan berikutnya / sesuaikan realisasi..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Batal</button>
+          <button type="submit" class="btn bg-teal text-white btn-sm font-weight-bold" id="btnSubmitTindakLanjut">
+            <i class="fas fa-save mr-1"></i> Simpan Tindak Lanjut
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
 <!-- Modal Input Manual / Edit -->
 <div class="modal fade" id="modalManualAnggaran" tabindex="-1" role="dialog" aria-hidden="true">
@@ -1383,11 +1464,26 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     const akunVal = document.getElementById('filterAkun').value;
     const picVal = document.getElementById('filterPic').value;
+    const tlFilterEl = document.getElementById('filterTindakLanjut');
+    const tlVal = tlFilterEl ? tlFilterEl.value : '';
 
     const filtered = ALL_ROWS.filter(function (r) {
       if (akunVal && r.akun !== akunVal) return false;
       const rowPic = r.pic && r.pic.trim() !== '' ? r.pic.trim() : 'Belum Ditentukan';
       if (picVal && rowPic.toLowerCase() !== picVal.toLowerCase()) return false;
+      if (tlVal) {
+        const st = String(r.tindak_lanjut_status || '').trim();
+        if (tlVal === 'needs_action') {
+          const dipaCheck = calcDeviasiDipa(r.rencana, r.realisasi);
+          const isDecCheck = (r.tanggal || '').slice(5, 7) === '12';
+          if (dipaCheck.memenuhiAmbang || isDecCheck) return false;
+          if (st === 'selesai_revisi' || st === 'tidak_perlu') return false;
+        } else if (tlVal === 'belum') {
+          if (st !== '') return false;
+        } else if (st !== tlVal) {
+          return false;
+        }
+      }
       return true;
     });
 
@@ -1517,6 +1613,26 @@ document.addEventListener('DOMContentLoaded', function () {
       const badgeAkun = r.akun === '51' ? 'rma-akun-51' : (r.akun === '53' ? 'rma-akun-53' : 'rma-akun-52');
       const sisaClass = sisa < 0 ? 'rma-sisa-neg' : 'rma-sisa-pos';
       const devColor = dipaColorClass(dipa.status);
+      const tlStatus = String(r.tindak_lanjut_status || '').trim();
+      const tlCatatan = String(r.tindak_lanjut_catatan || '').trim();
+      const tlTarget = (r.tindak_lanjut_target_rencana !== null && r.tindak_lanjut_target_rencana !== undefined && r.tindak_lanjut_target_rencana !== '') ? Number(r.tindak_lanjut_target_rencana) : null;
+      const needsFollowUp = !dipa.memenuhiAmbang && !isDec;
+      let tlBadgeHtml = '<span class="text-muted small">-</span>';
+      if (tlStatus === 'perlu_revisi') {
+        tlBadgeHtml = '<span class="badge badge-danger">Perlu Revisi</span>';
+      } else if (tlStatus === 'proses_revisi') {
+        tlBadgeHtml = '<span class="badge badge-info">Proses Revisi</span>';
+      } else if (tlStatus === 'selesai_revisi') {
+        tlBadgeHtml = '<span class="badge badge-success">Selesai Revisi</span>';
+      } else if (tlStatus === 'tidak_perlu') {
+        tlBadgeHtml = '<span class="badge badge-secondary">Tidak Perlu</span>';
+      } else if (needsFollowUp) {
+        tlBadgeHtml = '<span class="badge badge-warning text-dark">Perlu Tindak Lanjut</span>';
+      }
+      const tlSubLines = [];
+      if (tlTarget !== null) tlSubLines.push('Usulan: ' + formatRupiah(tlTarget));
+      if (tlCatatan) tlSubLines.push(tlCatatan.length > 36 ? (tlCatatan.slice(0, 36) + '...') : tlCatatan);
+      const tlOrder = tlStatus || (needsFollowUp ? '0_needs' : 'z_none');
       const updRaw = r.updated_at || r.created_at || '';
       const updFmt = formatDateTimeIndo(updRaw);
       const createdFmt = formatDateTimeIndo(r.created_at || '');
@@ -1539,6 +1655,15 @@ document.addEventListener('DOMContentLoaded', function () {
           '<span class="rma-dipa-badge ' + dipaBadgeClass(dipa.status) + '">' + escapeHtml(dipa.statusLabel) + '</span></div>' +
           '<div class="text-muted" style="font-size: 0.72rem; line-height: 1.2;">' + formatSignedRupiah(dipa.selisih) + ' &bull; Nilai ' + dipa.nilaiKinerja.toFixed(0) + (isDec ? ' &bull; <em>Des (non-IKPA)</em>' : '') + '</div>' +
         '</td>' +
+        '<td data-order="' + escapeHtml(tlOrder) + '">' +
+          '<div class="d-flex justify-content-between align-items-center" style="gap:4px;">' +
+            '<div>' + tlBadgeHtml + '</div>' +
+            '<button type="button" class="btn btn-xs ' + (needsFollowUp && !tlStatus ? 'btn-warning' : 'btn-outline-teal') + ' btn-tindak-lanjut" data-id="' + r.id + '" title="' + escapeHtml(tlCatatan || 'Catat tindak lanjut revisi') + '" style="' + (needsFollowUp && !tlStatus ? '' : 'border-color:#0f766e;color:#0f766e;') + '">' +
+              '<i class="fas fa-tools"></i>' +
+            '</button>' +
+          '</div>' +
+          (tlSubLines.length ? '<div class="text-muted mt-1" style="font-size: 0.71rem; line-height: 1.2;" title="' + escapeHtml(tlCatatan) + '">' + escapeHtml(tlSubLines.join(' · ')) + '</div>' : '') +
+        '</td>' +
         '<td class="text-center font-weight-bold" data-order="' + pct.toFixed(2) + '">' + pct.toFixed(1) + '%</td>' +
         '<td data-order="' + escapeHtml(updFmt.orderKey) + '" title="' + escapeHtml(updTooltip) + '">' +
           '<div style="font-size: 0.78rem; white-space: nowrap;">' + escapeHtml(updFmt.dateStr) + '</div>' +
@@ -1557,8 +1682,8 @@ document.addEventListener('DOMContentLoaded', function () {
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Semua']],
         order: [],
         columnDefs: [
-          { orderable: false, targets: [0, 13] },
-          { visible: false, searchable: false, targets: [12] }
+          { orderable: false, targets: [0, 14] },
+          { visible: false, searchable: false, targets: [13] }
         ],
         footerCallback: function () {
           const api = this.api();
@@ -2290,10 +2415,92 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
+    const tlBtn = e.target.closest('.btn-tindak-lanjut');
+    if (tlBtn) {
+      const id = parseInt(tlBtn.getAttribute('data-id'), 10);
+      const item = ALL_ROWS.find(r => r.id === id);
+      if (!item) return;
+
+      const dipa = calcDeviasiDipa(item.rencana, item.realisasi);
+      document.getElementById('tlIdMonitoring').value = String(item.id);
+      document.getElementById('tlCurrentRealisasi').value = String(item.realisasi || 0);
+      document.getElementById('tlKegiatanTitle').textContent = item.kegiatan || '-';
+      document.getElementById('tlMetaSubtitle').textContent = formatBulanIndo(item.tanggal) + ' · RO ' + (item.ro || '-') + ' · Akun ' + item.akun + ' · PIC ' + (item.pic || '-');
+      document.getElementById('tlDeviasiSummary').innerHTML =
+        '<span>Rencana: <strong>' + formatRupiah(item.rencana) + '</strong></span>' +
+        '<span>Realisasi: <strong class="text-teal">' + formatRupiah(item.realisasi) + '</strong></span>' +
+        '<span>Deviasi: <strong class="' + dipaColorClass(dipa.status) + '">' + dipa.deviasiPersen.toFixed(1).replace('.', ',') + '% (' + escapeHtml(dipa.statusLabel) + ')</strong></span>';
+
+      document.getElementById('tlStatus').value = item.tindak_lanjut_status || (!dipa.memenuhiAmbang ? 'perlu_revisi' : 'tidak_perlu');
+      const tgt = item.tindak_lanjut_target_rencana;
+      document.getElementById('tlTargetRencana').value = (tgt !== null && tgt !== undefined)
+        ? String(Math.round(Number(tgt))).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+        : '';
+      document.getElementById('tlApplyRencana').checked = false;
+      document.getElementById('tlCatatan').value = item.tindak_lanjut_catatan || '';
+      $('#modalTindakLanjutRevisi').modal('show');
+      return;
+    }
+
     if (e.target.classList.contains('row-check')) {
       updateBulkDeleteBar();
     }
   });
+
+  const tlTargetInp = document.getElementById('tlTargetRencana');
+  if (tlTargetInp) {
+    tlTargetInp.addEventListener('input', function () {
+      const digits = this.value.replace(/[^\d]/g, '');
+      this.value = digits === '' ? '' : digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    });
+  }
+
+  const btnTlMatch = document.getElementById('btnTlMatchRealisasi');
+  if (btnTlMatch) {
+    btnTlMatch.addEventListener('click', function () {
+      const real = Math.round(Number(document.getElementById('tlCurrentRealisasi').value) || 0);
+      document.getElementById('tlTargetRencana').value = String(real).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    });
+  }
+
+  const formTl = document.getElementById('formTindakLanjutRevisi');
+  if (formTl) {
+    formTl.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const id = document.getElementById('tlIdMonitoring').value;
+      if (!id) return;
+      const fd = new FormData(this);
+      const rawTarget = document.getElementById('tlTargetRencana').value.trim();
+      fd.set('tindak_lanjut_target_rencana', rawTarget !== '' ? String(parseNumericInput(rawTarget)) : '');
+      fd.set('terapkan_ke_rencana', document.getElementById('tlApplyRencana').checked ? '1' : '0');
+
+      const btn = document.getElementById('btnSubmitTindakLanjut');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/relaxtime/monitoring-anggaran/tindak-lanjut/' + id, {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          body: fd
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          Swal.fire('Gagal', json.message || 'Gagal menyimpan tindak lanjut revisi.', 'error');
+          return;
+        }
+        if (json.row) {
+          const idx = ALL_ROWS.findIndex(r => r.id === json.row.id);
+          if (idx >= 0) ALL_ROWS[idx] = json.row;
+        }
+        $('#modalTindakLanjutRevisi').modal('hide');
+        renderDashboardAndTable({ preserveTableState: true });
+        Toast.fire({ icon: 'success', title: json.message });
+      } catch (err) {
+        Swal.fire('Error', 'Terjadi kesalahan koneksi saat menyimpan tindak lanjut.', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
 
   document.getElementById('checkAllRows').addEventListener('change', function () {
     const checked = this.checked;

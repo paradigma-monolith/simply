@@ -472,6 +472,7 @@ $routes->delete('/tata_naskah_dinas/template_naskah/hapus_naskah/(:num)', 'Arkab
 $routes->get('/relaxtime/monitoring-anggaran', 'Relaxtime\MonitoringAnggaran::index');
 $routes->post('/relaxtime/monitoring-anggaran/store', 'Relaxtime\MonitoringAnggaran::store');
 $routes->post('/relaxtime/monitoring-anggaran/update/(:num)', 'Relaxtime\MonitoringAnggaran::update/$1');
+$routes->post('/relaxtime/monitoring-anggaran/tindak-lanjut/(:num)', 'Relaxtime\MonitoringAnggaran::saveTindakLanjut/$1');
 $routes->post('/relaxtime/monitoring-anggaran/delete/(:num)', 'Relaxtime\MonitoringAnggaran::delete/$1');
 $routes->post('/relaxtime/monitoring-anggaran/bulk-delete', 'Relaxtime\MonitoringAnggaran::bulkDelete');
 $routes->post('/relaxtime/monitoring-anggaran/import', 'Relaxtime\MonitoringAnggaran::importExcel');
