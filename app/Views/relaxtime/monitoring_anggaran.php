@@ -1500,7 +1500,10 @@ document.addEventListener('DOMContentLoaded', function () {
         pageLength: (opts.preserveTableState || opts.preserveLengthOnly) ? prevLen : 25,
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Semua']],
         order: [],
-        columnDefs: [{ orderable: false, targets: [0, 13] }],
+        columnDefs: [
+          { orderable: false, targets: [0, 13] },
+          { visible: false, searchable: false, targets: [12] }
+        ],
         footerCallback: function () {
           const api = this.api();
           const hasSearch = String(api.search() || '').trim() !== '';
