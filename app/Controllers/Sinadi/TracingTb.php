@@ -19,7 +19,7 @@ class TracingTb extends BaseController
     protected SinadiTracingTbVerifikatorModel $verifikatorModel;
     protected SinadiTracingTbLokusModel $lokusModel;
 
-    private const ALLOWED_EXTENSIONS = ['pdf'];
+    private const ALLOWED_EXTENSIONS = SinadiTracingTbSchema::ALLOWED_DOKUMEN_EXTENSIONS;
     private const MAX_FILE_BYTES = 15728640; // 15 MB
 
     public function initController(RequestInterface $request, ResponseInterface $response, LoggerInterface $logger)
@@ -682,19 +682,16 @@ class TracingTb extends BaseController
 
         $ext = strtolower((string) $file->getClientExtension());
         if (!in_array($ext, self::ALLOWED_EXTENSIONS, true)) {
-            return ['ok' => false, 'message' => 'Format file tidak didukung. Hanya file PDF (.pdf) yang diperbolehkan.'];
+            return [
+                'ok'      => false,
+                'message' => 'Format file tidak didukung. Format yang diperbolehkan: PDF (.pdf), Word (.doc, .docx), Excel (.xls, .xlsx), dan Gambar (.png, .jpg, .jpeg).',
+            ];
         }
 
         $tmpPath = (string) $file->getTempName();
-        if ($tmpPath !== '' && is_readable($tmpPath)) {
-            $fp = @fopen($tmpPath, 'rb');
-            $sig = $fp !== false ? fread($fp, 5) : '';
-            if ($fp !== false) {
-                fclose($fp);
-            }
-            if ($sig !== '%PDF-') {
-                return ['ok' => false, 'message' => 'File tidak valid sebagai dokumen PDF. Pastikan file benar-benar berformat PDF.'];
-            }
+        $sigError = SinadiTracingTbSchema::validateDokumenFile($tmpPath, $ext);
+        if ($sigError !== null) {
+            return ['ok' => false, 'message' => $sigError];
         }
 
         $catalog = SinadiTracingTbSchema::getDokumenMap();
@@ -705,7 +702,7 @@ class TracingTb extends BaseController
         $newName = 'tb_' . $idTracingTb . '_' . $kodeDokumen . '_' . date('YmdHis') . '_' . $rand . '.' . $ext;
         $origName = mb_substr((string) $file->getClientName(), 0, 240);
         $fileSize = (int) $file->getSize();
-        $mimeType = (string) ($file->getClientMimeType() ?: 'application/octet-stream');
+        $mimeType = SinadiTracingTbSchema::resolveDokumenMimeType($ext, (string) $file->getClientMimeType());
 
         $file->move($storageDir, $newName);
 
@@ -819,7 +816,8 @@ class TracingTb extends BaseController
         $filesize = (int) filesize($fullpath);
         $mtime = filemtime($fullpath) ?: time();
         $fileObj = new \CodeIgniter\Files\File($fullpath, true);
-        $mime = $fileObj->getMimeType() ?: ($doc['mime_type'] ?: 'application/octet-stream');
+        $ext = strtolower((string) pathinfo($filename, PATHINFO_EXTENSION));
+        $mime = SinadiTracingTbSchema::resolveDokumenMimeType($ext, $fileObj->getMimeType() ?: ($doc['mime_type'] ?? ''));
         $downloadMode = ((string) $this->request->getGet('download') === '1');
         $inlineTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'];
         $disposition = (!$downloadMode && in_array($mime, $inlineTypes, true)) ? 'inline' : 'attachment';

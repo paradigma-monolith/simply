@@ -10,6 +10,19 @@ class SinadiTracingTbSchema
     public const DEFAULT_NAMA_KEGIATAN = 'Masyarakat Mendapatkan Layanan Skrining TBC - Penemuan Kasus TBC Terintegrasi CKG';
     public const DEFAULT_INSTANSI = 'Balai Kekarantinaan Kesehatan Kelas I Bandung';
 
+    public const ALLOWED_DOKUMEN_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'png', 'jpg', 'jpeg'];
+
+    public const DOKUMEN_MIME_MAP = [
+        'pdf'  => 'application/pdf',
+        'doc'  => 'application/msword',
+        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'xls'  => 'application/vnd.ms-excel',
+        'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'png'  => 'image/png',
+        'jpg'  => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+    ];
+
     /**
      * Daftar bawaan 50 Lokus Pelaksanaan Tracing TB Terintegrasi CKG BKK Kelas I Bandung Tahun 2026.
      */
@@ -491,5 +504,102 @@ class SinadiTracingTbSchema
         if (!empty($batch)) {
             $db->table('sinadi_tracing_tb_lokus')->insertBatch($batch);
         }
+    }
+
+    /**
+     * Validasi ekstensi & signature magic bytes file unggahan dokumen Tracing TB.
+     * Mengembalikan null jika valid, atau pesan error jika tidak valid.
+     */
+    public static function validateDokumenFile(string $filePath, string $ext): ?string
+    {
+        $ext = strtolower(trim($ext));
+        if (!in_array($ext, self::ALLOWED_DOKUMEN_EXTENSIONS, true)) {
+            return 'Format file tidak didukung. Format yang diperbolehkan: PDF (.pdf), Word (.doc, .docx), Excel (.xls, .xlsx), dan Gambar (.png, .jpg, .jpeg).';
+        }
+
+        if ($filePath === '' || !is_file($filePath) || !is_readable($filePath)) {
+            return 'File unggahan tidak ditemukan atau tidak dapat dibaca.';
+        }
+
+        $fp = @fopen($filePath, 'rb');
+        $head = $fp !== false ? (string) fread($fp, 64) : '';
+        if ($fp !== false) {
+            fclose($fp);
+        }
+
+        if ($head === '') {
+            return 'File unggahan kosong atau tidak dapat dibaca.';
+        }
+
+        if ($ext === 'pdf') {
+            return strpos($head, '%PDF-') === 0
+                ? null
+                : 'File tidak valid sebagai dokumen PDF. Pastikan file benar-benar berformat PDF.';
+        }
+
+        if ($ext === 'png') {
+            return strncmp($head, "\x89PNG\r\n\x1a\n", 8) === 0
+                ? null
+                : 'File tidak valid sebagai gambar PNG.';
+        }
+
+        if ($ext === 'jpg' || $ext === 'jpeg') {
+            return strncmp($head, "\xFF\xD8\xFF", 3) === 0
+                ? null
+                : 'File tidak valid sebagai gambar JPEG.';
+        }
+
+        $isZipOoxml = (strncmp($head, "PK\x03\x04", 4) === 0 || strncmp($head, "PK\x05\x06", 4) === 0);
+        if ($ext === 'docx' || $ext === 'xlsx') {
+            return $isZipOoxml
+                ? null
+                : 'File tidak valid sebagai dokumen ' . strtoupper($ext) . '.';
+        }
+
+        // Legacy .doc / .xls: OLE2 Compound File, OOXML ZIP, RTF (.doc), atau XML/HTML Spreadsheet (.xls)
+        $isOle2 = strncmp($head, "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1", 8) === 0;
+        $trimmedHead = ltrim($head);
+        $isRtf = stripos($trimmedHead, '{\\rtf') === 0;
+        $isXmlOrHtml = (
+            stripos($trimmedHead, '<?xml') === 0
+            || stripos($trimmedHead, '<html') === 0
+            || stripos($trimmedHead, '<table') === 0
+            || stripos($trimmedHead, '<workbook') === 0
+            || stripos($trimmedHead, 'mime-version:') === 0
+        );
+
+        if ($ext === 'doc') {
+            return ($isOle2 || $isZipOoxml || $isRtf)
+                ? null
+                : 'File tidak valid sebagai dokumen Word (.doc).';
+        }
+
+        if ($ext === 'xls') {
+            return ($isOle2 || $isZipOoxml || $isXmlOrHtml)
+                ? null
+                : 'File tidak valid sebagai dokumen Excel (.xls).';
+        }
+
+        return null;
+    }
+
+    /**
+     * Tentukan MIME type akurat berdasarkan ekstensi jika finfo menghasilkan tipe generik.
+     */
+    public static function resolveDokumenMimeType(string $ext, ?string $detectedMime = null): string
+    {
+        $ext = strtolower(trim($ext));
+        $mime = strtolower(trim((string) $detectedMime));
+        $generic = ['', 'application/octet-stream', 'application/zip', 'application/x-zip-compressed'];
+
+        if (isset(self::DOKUMEN_MIME_MAP[$ext]) && (in_array($mime, $generic, true) || in_array($ext, ['doc', 'docx', 'xls', 'xlsx'], true))) {
+            return self::DOKUMEN_MIME_MAP[$ext];
+        }
+
+        if ($mime !== '') {
+            return $mime;
+        }
+
+        return self::DOKUMEN_MIME_MAP[$ext] ?? 'application/octet-stream';
     }
 }
