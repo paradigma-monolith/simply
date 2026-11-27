@@ -256,6 +256,9 @@ $initEnd = $end ?? date('Y-m-d', strtotime('+1 months'));
         <a href="<?= $formRoute; ?>" class="sn-btn-add">
           <i class="fas fa-plus-circle"></i> Tambah Data
         </a>
+        <button type="button" id="btnExportSinadiExcel" class="sn-btn-add" style="background: rgba(255,255,255,0.16); color: #ffffff !important; border: 1px solid rgba(255,255,255,0.35);">
+          <i class="fas fa-file-excel"></i> Export Excel
+        </button>
       </div>
     </div>
 
@@ -560,6 +563,37 @@ $initEnd = $end ?? date('Y-m-d', strtotime('+1 months'));
         $input.data('daterangepicker').setEndDate(eStr);
       }
       sinadi_dalam_kota_view(sStr, eStr);
+    });
+
+    $('#btnExportSinadiExcel').on('click', function() {
+      var activeMenu = $('#activeMenuInput').val() || 'dinasDalamKota';
+      var jenis = (activeMenu === 'dinasLuarKota') ? 'luar_kota' : 'dalam_kota';
+      var startVal = '<?= esc($initStart, 'js'); ?>';
+      var endVal = '<?= esc($initEnd, 'js'); ?>';
+
+      var picker = $input.data('daterangepicker');
+      if (picker && picker.startDate && picker.endDate) {
+        startVal = picker.startDate.format('YYYY-MM-DD');
+        endVal = picker.endDate.format('YYYY-MM-DD');
+      } else if ($input.val() && $input.val().indexOf(' - ') !== -1) {
+        var parts = $input.val().split(' - ');
+        if (parts[0] && parts[1]) {
+          startVal = parts[0].trim();
+          endVal = parts[1].trim();
+        }
+      }
+
+      var statusVal = String($('#snStatusFilterBar .sn-status-pill.active').attr('data-status') || '').trim();
+      var searchVal = String($('#snTableSearch').val() || '').trim();
+
+      var params = new URLSearchParams();
+      params.set('jenis', jenis);
+      params.set('start', startVal);
+      params.set('end', endVal);
+      if (statusVal) params.set('status', statusVal);
+      if (searchVal) params.set('q', searchVal);
+
+      window.location.href = '/sinadi/export-perjalanan?' + params.toString();
     });
   });
 </script>

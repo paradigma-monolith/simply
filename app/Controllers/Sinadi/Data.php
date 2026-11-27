@@ -6,7 +6,11 @@ use App\Controllers\BaseController;
 use App\Libraries\SinadiVerifikatorHelper;
 use Dompdf\Dompdf;
 use Dompdf\Options;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class Data extends BaseController
@@ -1275,5 +1279,238 @@ class Data extends BaseController
 
     $writer->save('php://output');
     exit;
+  }
+
+  /**
+   * Export Excel daftar perjalanan dinas (Dalam Kota / Luar Kota) sesuai periode & filter tabel aktif.
+   */
+  public function exportPerjalananExcel()
+  {
+    $username = (string) session()->get('username');
+    $this->releaseSessionLock();
+
+    $jenisParam = strtolower(trim((string) $this->request->getGet('jenis')));
+    $isLuarKota = in_array($jenisParam, ['luar_kota', 'luar kota', 'dinasluarkota'], true);
+    $jenis = $isLuarKota ? 'luar kota' : 'dalam kota';
+    $activeMenu = $isLuarKota ? 'dinasLuarKota' : 'dinasDalamKota';
+    $judulJenis = $isLuarKota ? 'Dinas Luar Kota' : 'Dinas Dalam Kota';
+
+    $start = trim((string) $this->request->getGet('start'));
+    $end = trim((string) $this->request->getGet('end'));
+    $statusFilter = trim((string) $this->request->getGet('status'));
+    $searchFilter = strtolower(trim((string) $this->request->getGet('q')));
+
+    $listData = SinadiVerifikatorHelper::fetchPerjalananList($jenis, $activeMenu, $start, $end, $username);
+    $rows = $listData['perjalanan'] ?? [];
+
+    if ($statusFilter !== '' || $searchFilter !== '') {
+      $rows = array_values(array_filter($rows, static function (array $r) use ($statusFilter, $searchFilter): bool {
+        if ($statusFilter !== '' && strcasecmp((string) ($r['status_surat'] ?? ''), $statusFilter) !== 0) {
+          return false;
+        }
+        if ($searchFilter !== '') {
+          $hay = strtolower(implode(' ', [
+            (string) ($r['status_surat'] ?? ''),
+            (string) ($r['tgl_pelaksanaan'] ?? ''),
+            (string) ($r['tgl_pelaksanaan_akhir'] ?? ''),
+            (string) ($r['mata_anggaran'] ?? ''),
+            (string) ($r['sumber_anggaran'] ?? ''),
+            (string) ($r['nama_kegiatan'] ?? ''),
+            (string) ($r['tempat_perjalanan'] ?? ''),
+            (string) ($r['nama'] ?? ''),
+          ]));
+          if (strpos($hay, $searchFilter) === false) {
+            return false;
+          }
+        }
+        return true;
+      }));
+    }
+
+    // Batch-load rincian peserta agar bebas N+1 query
+    $pesertaByPerjalanan = [];
+    $allPesertaRows = [];
+    if (!empty($rows)) {
+      $ids = array_values(array_unique(array_map(static fn($r) => (int) $r['id_perjalanan'], $rows)));
+      $rowMetaById = [];
+      foreach ($rows as $r) {
+        $rowMetaById[(int) $r['id_perjalanan']] = $r;
+      }
+
+      $pesertaRows = $this->sinadiPerjalananDinasPesertaModel
+        ->select('id_perjalanan, nama_pegawai, nip_pegawai, jabatan_pegawai, golongan, no_surat_tugas, tgl_surat_tugas, no_sppd, kota, tgl_pergi, jumlah_transfer')
+        ->whereIn('id_perjalanan', $ids)
+        ->orderBy('id_perjalanan', 'DESC')
+        ->orderBy('nama_pegawai', 'ASC')
+        ->findAll();
+
+      foreach ($pesertaRows as $p) {
+        $pid = (int) ($p['id_perjalanan'] ?? 0);
+        $namaPeg = trim((string) ($p['nama_pegawai'] ?? ''));
+        if ($namaPeg !== '') {
+          $pesertaByPerjalanan[$pid][] = $namaPeg;
+        }
+        $meta = $rowMetaById[$pid] ?? [];
+        $p['_nama_kegiatan'] = (string) ($meta['nama_kegiatan'] ?? '');
+        $p['_status_surat'] = (string) ($meta['status_surat'] ?? '');
+        $p['_tempat_perjalanan'] = (string) ($meta['tempat_perjalanan'] ?? '');
+        $allPesertaRows[] = $p;
+      }
+    }
+
+    $spreadsheet = new Spreadsheet();
+
+    // Sheet 1: Ringkasan Daftar Perjalanan Dinas
+    $sheet = $spreadsheet->getActiveSheet();
+    $sheet->setTitle('Data Perjalanan');
+    $sheet->setCellValue('A1', 'DATA PERJALANAN ' . strtoupper($judulJenis) . ' - SINADI');
+    $sheet->mergeCells('A1:L1');
+    $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(13)->getColor()->setRGB('0F172A');
+
+    $filterSummary = sprintf(
+      'Periode: %s s/d %s | Status: %s | Pencarian: %s | Diekspor: %s',
+      $listData['start'],
+      $listData['end'],
+      $statusFilter !== '' ? $statusFilter : 'Semua',
+      $searchFilter !== '' ? $searchFilter : '-',
+      date('d/m/Y H:i')
+    );
+    $sheet->setCellValue('A2', $filterSummary);
+    $sheet->mergeCells('A2:L2');
+    $sheet->getStyle('A2')->getFont()->setSize(10)->getColor()->setRGB('475569');
+
+    $headers = [
+      'No', 'Status Surat', 'Tgl Berangkat', 'Tgl Pulang', 'MAK', 'Sumber',
+      'Nama Kegiatan', 'Tempat Tujuan', 'Jml Peserta', 'Daftar Peserta', 'Total Nominal', 'Pembuat',
+    ];
+    foreach ($headers as $idx => $h) {
+      $sheet->setCellValue(chr(65 + $idx) . '4', $h);
+    }
+    $sheet->getStyle('A4:L4')->applyFromArray([
+      'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+      'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '0F766E']],
+      'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+    ]);
+    $sheet->getRowDimension(4)->setRowHeight(24);
+
+    $rNum = 5;
+    $no = 1;
+    foreach ($rows as $item) {
+      $pid = (int) ($item['id_perjalanan'] ?? 0);
+      $daftarPeserta = implode(', ', $pesertaByPerjalanan[$pid] ?? []);
+      $sumber = !empty($item['sumber_anggaran']) ? strtoupper((string) $item['sumber_anggaran']) : 'APBN';
+
+      $sheet->setCellValue('A' . $rNum, $no++);
+      $sheet->setCellValue('B' . $rNum, (string) ($item['status_surat'] ?? 'Draft'));
+      $sheet->setCellValueExplicit('C' . $rNum, (string) ($item['tgl_pelaksanaan'] ?? ''), DataType::TYPE_STRING);
+      $sheet->setCellValueExplicit('D' . $rNum, (string) ($item['tgl_pelaksanaan_akhir'] ?? ''), DataType::TYPE_STRING);
+      $sheet->setCellValueExplicit('E' . $rNum, (string) ($item['mata_anggaran'] ?? ''), DataType::TYPE_STRING);
+      $sheet->setCellValue('F' . $rNum, $sumber);
+      $sheet->setCellValue('G' . $rNum, (string) ($item['nama_kegiatan'] ?? ''));
+      $sheet->setCellValue('H' . $rNum, (string) ($item['tempat_perjalanan'] ?? ''));
+      $sheet->setCellValue('I' . $rNum, (int) ($item['jumlah_peserta'] ?? 0));
+      $sheet->setCellValue('J' . $rNum, $daftarPeserta !== '' ? $daftarPeserta : '-');
+      $sheet->setCellValue('K' . $rNum, (float) ($item['total_perjalanan'] ?? 0));
+      $sheet->setCellValue('L' . $rNum, name_capitalize((string) ($item['nama'] ?? '')));
+
+      $sheet->getStyle("K{$rNum}")->getNumberFormat()->setFormatCode('#,##0');
+      $sheet->getStyle("A{$rNum}:F{$rNum}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+      $sheet->getStyle("I{$rNum}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+      $sheet->getStyle("G{$rNum}:J{$rNum}")->getAlignment()->setWrapText(true);
+      $rNum++;
+    }
+
+    if ($rNum === 5) {
+      $sheet->setCellValue('A5', 'Tidak ada data perjalanan dinas untuk filter terpilih.');
+      $sheet->mergeCells('A5:L5');
+      $sheet->getStyle('A5')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+      $sheet->getStyle('A4:L5')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+    } else {
+      $lastRow = $rNum - 1;
+      $sheet->setCellValue("A{$rNum}", 'TOTAL');
+      $sheet->mergeCells("A{$rNum}:H{$rNum}");
+      $sheet->setCellValue("I{$rNum}", "=SUM(I5:I{$lastRow})");
+      $sheet->setCellValue("K{$rNum}", "=SUM(K5:K{$lastRow})");
+      $sheet->getStyle("A{$rNum}:L{$rNum}")->applyFromArray([
+        'font' => ['bold' => true],
+        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F1F5F9']],
+      ]);
+      $sheet->getStyle("I{$rNum}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+      $sheet->getStyle("K{$rNum}")->getNumberFormat()->setFormatCode('#,##0');
+      $sheet->getStyle("A4:L{$rNum}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+    }
+
+    foreach (['A' => 6, 'B' => 17, 'C' => 14, 'D' => 14, 'E' => 16, 'F' => 10, 'G' => 42, 'H' => 26, 'I' => 12, 'J' => 36, 'K' => 18, 'L' => 22] as $col => $w) {
+      $sheet->getColumnDimension($col)->setWidth($w);
+    }
+
+    // Sheet 2: Rincian Peserta
+    $pSheet = $spreadsheet->createSheet();
+    $pSheet->setTitle('Rincian Peserta');
+    $pSheet->setCellValue('A1', 'RINCIAN PESERTA PERJALANAN ' . strtoupper($judulJenis) . ' - SINADI');
+    $pSheet->mergeCells('A1:K1');
+    $pSheet->getStyle('A1')->getFont()->setBold(true)->setSize(13)->getColor()->setRGB('0F172A');
+    $pSheet->setCellValue('A2', $filterSummary);
+    $pSheet->mergeCells('A2:K2');
+    $pSheet->getStyle('A2')->getFont()->setSize(10)->getColor()->setRGB('475569');
+
+    $pHeaders = ['No', 'Status Surat', 'Tgl Pergi', 'Nama Pegawai', 'NIP', 'Jabatan', 'Gol', 'No. ST', 'No. SPPD', 'Tempat Tujuan', 'Jumlah Transfer'];
+    foreach ($pHeaders as $idx => $h) {
+      $pSheet->setCellValue(chr(65 + $idx) . '4', $h);
+    }
+    $pSheet->getStyle('A4:K4')->applyFromArray([
+      'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+      'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '0F766E']],
+      'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+    ]);
+
+    $pr = 5;
+    $pNo = 1;
+    foreach ($allPesertaRows as $p) {
+      $pSheet->setCellValue('A' . $pr, $pNo++);
+      $pSheet->setCellValue('B' . $pr, (string) ($p['_status_surat'] ?? ''));
+      $pSheet->setCellValueExplicit('C' . $pr, (string) ($p['tgl_pergi'] ?? ''), DataType::TYPE_STRING);
+      $pSheet->setCellValue('D' . $pr, (string) ($p['nama_pegawai'] ?? ''));
+      $pSheet->setCellValueExplicit('E' . $pr, (string) ($p['nip_pegawai'] ?? ''), DataType::TYPE_STRING);
+      $pSheet->setCellValue('F' . $pr, (string) ($p['jabatan_pegawai'] ?? ''));
+      $pSheet->setCellValue('G' . $pr, (string) ($p['golongan'] ?? ''));
+      $pSheet->setCellValueExplicit('H' . $pr, (string) ($p['no_surat_tugas'] ?? ''), DataType::TYPE_STRING);
+      $pSheet->setCellValueExplicit('I' . $pr, (string) ($p['no_sppd'] ?? ''), DataType::TYPE_STRING);
+      $pSheet->setCellValue('J' . $pr, (string) (!empty($p['kota']) ? $p['kota'] : ($p['_tempat_perjalanan'] ?? '')));
+      $pSheet->setCellValue('K' . $pr, (float) ($p['jumlah_transfer'] ?? 0));
+      $pSheet->getStyle("K{$pr}")->getNumberFormat()->setFormatCode('#,##0');
+      $pr++;
+    }
+    if ($pr > 5) {
+      $pLast = $pr - 1;
+      $pSheet->setCellValue("A{$pr}", 'TOTAL');
+      $pSheet->mergeCells("A{$pr}:J{$pr}");
+      $pSheet->setCellValue("K{$pr}", "=SUM(K5:K{$pLast})");
+      $pSheet->getStyle("A{$pr}:K{$pr}")->getFont()->setBold(true);
+      $pSheet->getStyle("K{$pr}")->getNumberFormat()->setFormatCode('#,##0');
+      $pSheet->getStyle("A4:K{$pr}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+    } else {
+      $pSheet->setCellValue('A5', 'Tidak ada data peserta.');
+      $pSheet->mergeCells('A5:K5');
+      $pSheet->getStyle('A4:K5')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+    }
+    foreach (['A' => 6, 'B' => 16, 'C' => 13, 'D' => 28, 'E' => 20, 'F' => 24, 'G' => 8, 'H' => 24, 'I' => 22, 'J' => 24, 'K' => 18] as $col => $w) {
+      $pSheet->getColumnDimension($col)->setWidth($w);
+    }
+
+    $spreadsheet->setActiveSheetIndex(0);
+    $writer = new Xlsx($spreadsheet);
+    ob_start();
+    $writer->save('php://output');
+    $binary = (string) ob_get_clean();
+
+    $slug = $isLuarKota ? 'Luar_Kota' : 'Dalam_Kota';
+    $filename = 'Sinadi_' . $slug . '_' . date('Ymd_His') . '.xlsx';
+
+    return $this->response
+      ->setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
+      ->setHeader('Cache-Control', 'max-age=0')
+      ->setBody($binary);
   }
 }

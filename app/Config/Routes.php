@@ -366,6 +366,7 @@ $routes->get('/sinadi/monitoringDinasLuar', 'Sinadi\Data::perjalananSaya');
 $routes->get('/sinadi/monitoringRiwayat', 'Sinadi\Data::monitoringRiwayat');
 $routes->get('/sinadi/dinasLuarKota', 'Sinadi\Data::dinasLuarKota');
 $routes->get('/sinadi/dinasDalamKota', 'Sinadi\Data::dinasDalamKota');
+$routes->get('/sinadi/export-perjalanan', 'Sinadi\Data::exportPerjalananExcel');
 $routes->delete('/sinadi/dlt_sinadi/(:num)', 'Sinadi\Crud::hapusSinadi/$1');
 $routes->get('/sinadi/formulirPerjalananDinas', 'Sinadi\Data::formulirPerjalananDinas');
 $routes->get('/sinadi/formulirPerjalananDinas/(:num)', 'Sinadi\Data::formulirPerjalananDinas/$1');
