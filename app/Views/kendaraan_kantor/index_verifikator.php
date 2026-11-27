@@ -243,6 +243,45 @@
                 font-size: 0.85rem;
             }
         }
+
+        .kk-swal-note-wrap {
+            text-align: left;
+            margin-top: 12px;
+        }
+
+        .kk-swal-note-label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 6px;
+        }
+
+        .kk-condition-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .kk-condition-chip {
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            color: #334155;
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .kk-condition-chip:hover,
+        .kk-condition-chip.active {
+            background: #0d9488;
+            border-color: #0d9488;
+            color: #ffffff;
+        }
     </style>
 </head>
 
@@ -701,18 +740,65 @@
                 //         }
                 //     });
                 // } else {
-                    var kendaraan = elementIni.data('kendaraan');
-                    var plat = elementIni.data('plat');
+                    var kendaraan = elementIni.data('kendaraan') || '';
+                    var plat = elementIni.data('plat') || '';
+                    var escHtml = function(str) {
+                        return String(str || '')
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/"/g, '&quot;')
+                            .replace(/'/g, '&#39;');
+                    };
+                    var quickNotes = [
+                        'Kondisi baik & layak jalan',
+                        'BBM terisi penuh',
+                        'BBM perlu diisi',
+                        'Cek tekanan ban / servis',
+                        'Kunci & STNK di pos'
+                    ];
+                    var chipsHtml = quickNotes.map(function(note) {
+                        return '<button type="button" class="kk-condition-chip" data-note="' + escHtml(note) + '">' + escHtml(note) + '</button>';
+                    }).join('');
 
                     Swal.fire({
-                        title: "Memilih...",
-                        html: "Kendaraan <b>" + kendaraan + "</b> <br />plat nomor <u>" + plat + "</u>?",
+                        title: "Konfirmasi Pemilihan Kendaraan",
+                        html:
+                            '<div class="mb-2">Kendaraan <b>' + escHtml(kendaraan) + '</b><br />plat nomor <u>' + escHtml(plat) + '</u></div>' +
+                            '<div class="kk-swal-note-wrap">' +
+                                '<label for="kkCatatanKondisi" class="kk-swal-note-label"><i class="fas fa-clipboard-check me-1 text-success"></i>Catatan / Keterangan Kondisi Mobil <span class="text-muted fw-normal">(opsional)</span></label>' +
+                                '<div class="kk-condition-chips">' + chipsHtml + '</div>' +
+                                '<textarea id="kkCatatanKondisi" class="form-control form-control-sm" rows="3" maxlength="500" placeholder="Contoh: BBM penuh, AC dingin, kondisi bodi baik, atau catatan khusus lainnya..."></textarea>' +
+                            '</div>',
                         showCancelButton: true,
-                        confirmButtonText: "Yups!",
-                        cancelButtonText: "Mau pilih yang lain aja..."
+                        confirmButtonText: "Simpan & Pilih!",
+                        cancelButtonText: "Pilih Kendaraan Lain",
+                        didOpen: function(popup) {
+                            var $textarea = $(popup).find('#kkCatatanKondisi');
+                            $(popup).find('.kk-condition-chip').on('click', function() {
+                                var chip = $(this);
+                                var note = chip.data('note');
+                                var parts = ($textarea.val() || '')
+                                    .split(',')
+                                    .map(function(item) { return item.trim(); })
+                                    .filter(Boolean);
+                                var idx = parts.indexOf(note);
+                                if (idx === -1) {
+                                    parts.push(note);
+                                    chip.addClass('active');
+                                } else {
+                                    parts.splice(idx, 1);
+                                    chip.removeClass('active');
+                                }
+                                $textarea.val(parts.join(', '));
+                            });
+                        },
+                        preConfirm: function() {
+                            return ($('#kkCatatanKondisi').val() || '').trim();
+                        }
                     }).then((result) => {
-                        /* Read more about isConfirmed, isDenied below */
                         if (result.isConfirmed) {
+                            var catatanKondisi = result.value || '';
                             var tanggal = $("#dateRangePicker").val();
                             var penumpang = $('input[name="penumpang[]"]').val();
                             var tujuan = $('input[name="tujuan"]').val();
@@ -724,7 +810,8 @@
                                 penumpang: penumpang,
                                 tujuan: tujuan,
                                 id_kendaraan_kantor_riwayat: id_kendaraan_kantor_riwayat,
-                                id_kendaraan_kantor_daftar: id
+                                id_kendaraan_kantor_daftar: id,
+                                keterangan_verifikator: catatanKondisi
                             };
 
                             $.ajax({
@@ -743,17 +830,34 @@
                                 },
                                 success: function(response) {
                                     if (response.status == "success") {
+                                        var notePreview = catatanKondisi
+                                            ? '<div class="mt-2 small text-muted">Catatan kondisi: <b>' + escHtml(catatanKondisi) + '</b></div>'
+                                            : '';
                                         Swal.fire({
                                             icon: "success",
-                                            title: "Selamat, Anda telah berhasil meminjam kendaraan " + kendaraan + " (" + plat + ")",
+                                            title: "Kendaraan Berhasil Dipilih",
+                                            html: "Kendaraan <b>" + escHtml(kendaraan) + "</b> (" + escHtml(plat) + ") telah ditetapkan." + notePreview,
                                             showConfirmButton: false,
-                                            timer: 1500
+                                            timer: 1600
+                                        }).then(function() {
+                                            $(".btn-page-2").click();
                                         });
-                                        $("button").each(function() {
-                                            if ($(this).data("id") == id_kendaraan_kantor_riwayat) {
-                                                $(this).prop("disabled", true);
-                                            }
-                                        });
+                                        $('.findContainer-1').has('button[data-id="' + id_kendaraan_kantor_riwayat + '"]').remove();
+                                        if ($('.findContainer-1').length === 0) {
+                                            $('.pemilihanTanggal .container').html(
+                                                '<div class="text-center py-4">' +
+                                                    '<div class="p-3 bg-white rounded-4 shadow-sm d-inline-block">' +
+                                                        '<i class="fas fa-check-double fa-2x text-success mb-2 d-block"></i>' +
+                                                        '<h6 class="fw-bold text-dark mb-1">Semua Pengajuan Telah Diverifikasi</h6>' +
+                                                        '<p class="text-muted small mb-0" style="font-size: 0.78rem;">Belum ada pengajuan baru yang menunggu pemilihan kendaraan.</p>' +
+                                                    '</div>' +
+                                                '</div>'
+                                            );
+                                        }
+                                        $('input[name="id"]').val('');
+                                        $('input[name="tujuan"]').val('');
+                                        $('input[name="keterangan"]').val('');
+                                        $("#dateRangePicker").val('');
 
                                         kendaraanPilihan = kendaraan;
                                         platPilihan = plat;

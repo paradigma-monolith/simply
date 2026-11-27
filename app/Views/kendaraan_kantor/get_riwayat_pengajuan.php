@@ -154,6 +154,11 @@ $pegawaiMap = is_array($pegawaiMap ?? null) ? $pegawaiMap : [];
                       <h6 class="fw-bold mb-0 text-dark text-truncate" style="font-size: 0.88rem;"><?= esc($data['nama_kendaraan']); ?></h6>
                       <span class="kk-portal-plate"><?= esc($data['plat_nomor'] ?? '-'); ?></span>
                     </div>
+                    <?php if (!empty($data['keterangan_verifikator'])): ?>
+                      <div class="alert alert-info py-1 px-2 mb-2 mt-1" style="font-size: 0.74rem; border-radius: 8px;">
+                        <i class="fas fa-clipboard-check me-1"></i><strong>Kondisi Mobil:</strong> <?= esc($data['keterangan_verifikator']); ?>
+                      </div>
+                    <?php endif; ?>
                   <?php elseif ($isPublicTransport): ?>
                     <div class="alert alert-danger py-1 px-2 mb-2" style="font-size: 0.74rem;">
                       <strong><i class="fas fa-bus me-1"></i> Disarankan Kendaraan Umum</strong>

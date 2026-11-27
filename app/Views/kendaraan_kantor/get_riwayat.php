@@ -149,6 +149,11 @@ $pegawaiMap = is_array($pegawaiMap ?? null) ? $pegawaiMap : [];
                   <div class="kk-portal-meta-line">
                     <strong>Kegiatan:</strong> <?= esc($data['keterangan'] ?? '-'); ?>
                   </div>
+                  <?php if (!empty($data['keterangan_verifikator'])): ?>
+                    <div class="kk-portal-meta-line text-info fw-semibold mt-1">
+                      <i class="fas fa-clipboard-check me-1"></i><strong>Kondisi Mobil:</strong> <?= esc($data['keterangan_verifikator']); ?>
+                    </div>
+                  <?php endif; ?>
                 </div>
               </div>
 

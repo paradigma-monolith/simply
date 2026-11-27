@@ -28,7 +28,14 @@
                     <?= shortdate_indo3($tanggal[0]); ?> - <?= shortdate_indo3($tanggal[count($tanggal) - 1]); ?>
                 <?php endif; ?>
               </td>
-              <td><strong style="position: relative; font-size: 18pt;"><?= $data['nama_kendaraan']; ?></strong> </td>
+              <td>
+                <strong style="position: relative; font-size: 18pt;"><?= esc($data['nama_kendaraan']); ?></strong>
+                <?php if (!empty($data['keterangan_verifikator'])): ?>
+                  <div class="small text-info mt-1" style="font-size: 11pt;">
+                    <i class="fas fa-clipboard-check mr-1"></i><?= esc($data['keterangan_verifikator']); ?>
+                  </div>
+                <?php endif; ?>
+              </td>
               <td style="font-size: 18pt;">(<i><?= $data['plat_nomor']; ?></i>)</td>
               <td><span style="font-size: 18pt;" class="p-0 m-0"><?= count(json_decode($data['penumpang'], true)); ?></span></td>
               <td><span style="font-size: 18pt;" class="p-0 m-0"><?= $data['tujuan']; ?></span></td>

@@ -320,6 +320,11 @@ foreach ($rows as $r) {
                           <div class="small text-muted">
                             <i class="far fa-calendar-alt mr-1"></i><?= esc($tglRangeText); ?>
                           </div>
+                          <?php if (!empty($data['keterangan_verifikator'])): ?>
+                            <div class="small text-info mt-1">
+                              <i class="fas fa-clipboard-check mr-1"></i><strong>Kondisi Mobil:</strong> <?= esc($data['keterangan_verifikator']); ?>
+                            </div>
+                          <?php endif; ?>
                         </div>
                       </div>
                     <?php else: ?>

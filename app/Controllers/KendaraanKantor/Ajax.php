@@ -255,9 +255,11 @@ class Ajax extends BaseController
                             "data" => $cekData
                         ];
                     } else {
+                        $keteranganVerifikator = trim((string) $this->request->getVar("keterangan_verifikator"));
                         $data = [
                             "id_kendaraan_kantor_riwayat" => $this->request->getVar("id_kendaraan_kantor_riwayat"),
                             "id_kendaraan_kantor_daftar" => $id,
+                            "keterangan_verifikator" => $keteranganVerifikator,
                             'updated_by' => $cek['id_user'],
                         ];
 
@@ -362,7 +364,7 @@ class Ajax extends BaseController
             $data['nip'] = $nip;
 
             $data['getData'] = $this->kendaraanKantorRiwayatModel
-                ->select('kendaraan_kantor_riwayat.id_kendaraan_kantor_riwayat, data_pegawai.nip, kendaraan_kantor_daftar.gambar, kendaraan_kantor_daftar.nama_kendaraan, kendaraan_kantor_daftar.plat_nomor, kendaraan_kantor_riwayat.penumpang, kendaraan_kantor_riwayat.tujuan, kendaraan_kantor_riwayat.keterangan, data_pegawai.nama, kendaraan_kantor_riwayat.tanggal, DATE(kendaraan_kantor_riwayat.created_at) as date')
+                ->select('kendaraan_kantor_riwayat.id_kendaraan_kantor_riwayat, kendaraan_kantor_riwayat.keterangan_verifikator, data_pegawai.nip, kendaraan_kantor_daftar.gambar, kendaraan_kantor_daftar.nama_kendaraan, kendaraan_kantor_daftar.plat_nomor, kendaraan_kantor_riwayat.penumpang, kendaraan_kantor_riwayat.tujuan, kendaraan_kantor_riwayat.keterangan, data_pegawai.nama, kendaraan_kantor_riwayat.tanggal, DATE(kendaraan_kantor_riwayat.created_at) as date')
                 ->where("JSON_UNQUOTE(JSON_EXTRACT(tanggal, CONCAT('$[', JSON_LENGTH(tanggal) - 1, ']'))) >= CURDATE()")
                 ->join('data_pegawai', 'data_pegawai.id_user=kendaraan_kantor_riwayat.created_by')
                 ->join('kendaraan_kantor_daftar', 'kendaraan_kantor_daftar.id_kendaraan_kantor_daftar=kendaraan_kantor_riwayat.id_kendaraan_kantor_daftar')
@@ -381,7 +383,7 @@ class Ajax extends BaseController
             $data['nip'] = $nip;
 
             $data['getData'] = $this->kendaraanKantorRiwayatModel
-                ->select('kendaraan_kantor_riwayat.id_kendaraan_kantor_riwayat, data_pegawai.nip, kendaraan_kantor_daftar.gambar, kendaraan_kantor_daftar.nama_kendaraan, kendaraan_kantor_daftar.plat_nomor, kendaraan_kantor_riwayat.penumpang, kendaraan_kantor_riwayat.tujuan, kendaraan_kantor_riwayat.keterangan, data_pegawai.nama, kendaraan_kantor_riwayat.tanggal, DATE(kendaraan_kantor_riwayat.created_at) as date')
+                ->select('kendaraan_kantor_riwayat.id_kendaraan_kantor_riwayat, kendaraan_kantor_riwayat.keterangan_verifikator, data_pegawai.nip, kendaraan_kantor_daftar.gambar, kendaraan_kantor_daftar.nama_kendaraan, kendaraan_kantor_daftar.plat_nomor, kendaraan_kantor_riwayat.penumpang, kendaraan_kantor_riwayat.tujuan, kendaraan_kantor_riwayat.keterangan, data_pegawai.nama, kendaraan_kantor_riwayat.tanggal, DATE(kendaraan_kantor_riwayat.created_at) as date')
                 ->where("JSON_UNQUOTE(JSON_EXTRACT(tanggal, CONCAT('$[', JSON_LENGTH(tanggal) - 1, ']'))) >= CURDATE()")
                 ->join('data_pegawai', 'data_pegawai.id_user=kendaraan_kantor_riwayat.created_by')
                 ->join('kendaraan_kantor_daftar', 'kendaraan_kantor_daftar.id_kendaraan_kantor_daftar=kendaraan_kantor_riwayat.id_kendaraan_kantor_daftar')
