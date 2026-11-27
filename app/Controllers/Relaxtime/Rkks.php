@@ -478,14 +478,21 @@ class Rkks extends BaseController
         }
 
         $this->releaseSessionLock();
+        $akunGroups = RelaxtimeRkksHelper::normalizeAkunGroups($this->request->getGet('akun'));
         $items = $this->rkksModel->getItemsByDokumen((int) $dok['id_dokumen']);
+        if (!empty($akunGroups) && count($akunGroups) < count(RelaxtimeRkksHelper::AKUN_GROUP_LABELS)) {
+            $items = RelaxtimeRkksHelper::filterItemsByAkunGroups($items, $akunGroups);
+        }
         $rekapRows = RelaxtimeRkksHelper::buildRekapSubkomponen($items);
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('RKK_SATKER');
 
-        $sheet->setCellValue('A1', 'RINCIAN KERTAS KERJA SATKER (RKKS) - ' . $dok['nama_dokumen']);
+        $akunTitleTag = !empty($akunGroups) && count($akunGroups) < count(RelaxtimeRkksHelper::AKUN_GROUP_LABELS)
+            ? (' [Filter Akun: ' . implode(', ', $akunGroups) . ']')
+            : '';
+        $sheet->setCellValue('A1', 'RINCIAN KERTAS KERJA SATKER (RKKS) - ' . $dok['nama_dokumen'] . $akunTitleTag);
         $sheet->mergeCells('A1:I1');
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(13);
 
@@ -560,7 +567,7 @@ class Rkks extends BaseController
         // Sheet 2: REKAP (seperti Sheet REKAP SAKTI)
         $rekapSheet = $spreadsheet->createSheet();
         $rekapSheet->setTitle('REKAP');
-        $rekapSheet->setCellValue('A1', 'REKAP RINCIAN OUTPUT & SUB KOMPONEN - ' . $dok['nama_dokumen']);
+        $rekapSheet->setCellValue('A1', 'REKAP RINCIAN OUTPUT & SUB KOMPONEN - ' . $dok['nama_dokumen'] . $akunTitleTag);
         $rekapSheet->getStyle('A1')->getFont()->setBold(true)->setSize(12);
 
         $rekapHeaders = ['No', 'RINCIAN OUTPUT', 'SUB KOMPONEN', 'KEGIATAN', 'AKUN', 'SUMBER DANA', 'PAGU ANGGARAN'];
@@ -604,9 +611,13 @@ class Rkks extends BaseController
         $writer->save('php://output');
         $binary = (string) ob_get_clean();
 
+        $akunFileTag = (!empty($akunGroups) && count($akunGroups) < count(RelaxtimeRkksHelper::AKUN_GROUP_LABELS))
+            ? ('_Akun_' . implode('_', $akunGroups))
+            : '';
+
         return $this->response
             ->setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            ->setHeader('Content-Disposition', 'attachment; filename="RKKS_' . $dok['tahun_anggaran'] . '_' . date('Ymd_His') . '.xlsx"')
+            ->setHeader('Content-Disposition', 'attachment; filename="RKKS_' . $dok['tahun_anggaran'] . $akunFileTag . '_' . date('Ymd_His') . '.xlsx"')
             ->setHeader('Cache-Control', 'max-age=0')
             ->setBody($binary);
     }

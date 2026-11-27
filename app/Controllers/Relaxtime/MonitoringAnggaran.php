@@ -525,6 +525,8 @@ class MonitoringAnggaran extends BaseController
 
     public function exportExcel()
     {
+        $this->releaseSessionLock();
+
         $allMonths = $this->request->getGet('all_months') === '1'
             || $this->request->getGet('all_dates') === '1';
 
@@ -534,13 +536,13 @@ class MonitoringAnggaran extends BaseController
             $allMonths
         );
 
-        $akunFilter = RelaxtimeMonitoringAnggaranHelper::normalizeAkun($this->request->getGet('akun') ?? '', '');
+        $akunList = RelaxtimeMonitoringAnggaranHelper::normalizeAkunList($this->request->getGet('akun'));
         $picFilter = RelaxtimeMonitoringAnggaranHelper::normalizePic($this->request->getGet('pic') ?? '');
 
         $rows = $this->monitoringModel->getFiltered([
             'tgl_mulai' => $allMonths ? '' : $range['start_date'],
             'tgl_selesai' => $allMonths ? '' : $range['end_date'],
-            'akun' => $akunFilter,
+            'akun' => $akunList,
             'pic' => $picFilter,
         ]);
 
@@ -559,10 +561,11 @@ class MonitoringAnggaran extends BaseController
             : (RelaxtimeMonitoringAnggaranHelper::formatMonthLabel($range['start_month'])
                 . ' s.d. '
                 . RelaxtimeMonitoringAnggaranHelper::formatMonthLabel($range['end_month']));
+        $akunLabel = !empty($akunList) ? implode(', ', $akunList) : 'Semua (51, 52, 53)';
         $filterInfo = sprintf(
             'Periode Bulan: %s | Akun: %s | PIC: %s | Diekspor: %s',
             $periodeLabel,
-            $akunFilter !== '' ? $akunFilter : 'Semua',
+            $akunLabel,
             $picFilter !== '' ? $picFilter : 'Semua',
             date('d/m/Y H:i')
         );
@@ -730,7 +733,8 @@ class MonitoringAnggaran extends BaseController
         }
 
         $spreadsheet->setActiveSheetIndex(0);
-        return $this->streamSpreadsheet($spreadsheet, 'Monitoring_Anggaran_' . date('Ymd_His') . '.xlsx');
+        $akunFileTag = (!empty($akunList) && count($akunList) < 3) ? ('Akun_' . implode('_', $akunList) . '_') : '';
+        return $this->streamSpreadsheet($spreadsheet, 'Monitoring_Anggaran_' . $akunFileTag . date('Ymd_His') . '.xlsx');
     }
 
     private function streamSpreadsheet(Spreadsheet $spreadsheet, string $filename)

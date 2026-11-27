@@ -71,6 +71,34 @@ class RelaxtimeMonitoringAnggaranHelper
     }
 
     /**
+     * Normalisasi parameter filter akun (string tunggal, CSV '51,52', atau array ['51','53'])
+     * menjadi daftar kode akun unik terurut (kosong berarti semua akun).
+     *
+     * @return list<string>
+     */
+    public static function normalizeAkunList($raw): array
+    {
+        if ($raw === null || $raw === '') {
+            return [];
+        }
+
+        $items = is_array($raw) ? $raw : explode(',', (string) $raw);
+        $valid = [];
+        foreach ($items as $item) {
+            $token = strtolower(trim((string) $item));
+            if ($token === '' || $token === 'all' || $token === 'semua') {
+                continue;
+            }
+            $norm = self::normalizeAkun($token, '');
+            if ($norm !== '' && !in_array($norm, $valid, true)) {
+                $valid[] = $norm;
+            }
+        }
+        sort($valid);
+        return $valid;
+    }
+
+    /**
      * Normalisasi penulisan PIC agar konsisten di filter & ringkasan.
      */
     public static function normalizePic($raw): string

@@ -327,4 +327,13 @@ final class RelaxtimeMonitoringAnggaranHelperTest extends TestCase
         $this->assertSame(1000000000, $q3['by_akun']['53']['realisasi_kumulatif']);
         $this->assertTrue($q3['by_akun']['53']['tercapai']);
     }
+
+    public function testNormalizeAkunListSupportsSingleCsvAndArray(): void
+    {
+        $this->assertSame([], RelaxtimeMonitoringAnggaranHelper::normalizeAkunList(''));
+        $this->assertSame([], RelaxtimeMonitoringAnggaranHelper::normalizeAkunList('all'));
+        $this->assertSame(['52'], RelaxtimeMonitoringAnggaranHelper::normalizeAkunList('52'));
+        $this->assertSame(['51', '53'], RelaxtimeMonitoringAnggaranHelper::normalizeAkunList('53, 51, 53'));
+        $this->assertSame(['51', '52'], RelaxtimeMonitoringAnggaranHelper::normalizeAkunList(['52', 'Akun 51', 'invalid']));
+    }
 }

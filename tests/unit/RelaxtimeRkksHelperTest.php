@@ -126,4 +126,27 @@ final class RelaxtimeRkksHelperTest extends TestCase
         $this->assertSame('A', $rekapRows[0]['subkomponen_kode']);
         $this->assertSame(6750000, $rekapRows[0]['pagu']);
     }
+
+    public function testFilterItemsByAkunGroupsKeepsAncestorsAndRecalculatesRollup(): void
+    {
+        $items = [
+            ['id_item' => 1, 'parent_id' => null, 'level_type' => 'program', 'kode' => 'P1', 'uraian' => 'Prog', 'jumlah' => 0, 'is_blokir' => 0, 'nilai_blokir' => 0],
+            ['id_item' => 2, 'parent_id' => 1, 'level_type' => 'subkomponen', 'kode' => 'A', 'uraian' => 'Sub', 'jumlah' => 0, 'is_blokir' => 0, 'nilai_blokir' => 0],
+            ['id_item' => 3, 'parent_id' => 2, 'level_type' => 'akun', 'kode' => '511111', 'uraian' => 'Gaji', 'jumlah' => 0, 'is_blokir' => 0, 'nilai_blokir' => 0],
+            ['id_item' => 4, 'parent_id' => 3, 'level_type' => 'detail', 'kode' => '-', 'uraian' => 'Gaji Pokok', 'jumlah' => 1000000, 'is_blokir' => 0, 'nilai_blokir' => 0],
+            ['id_item' => 5, 'parent_id' => 2, 'level_type' => 'akun', 'kode' => '521211', 'uraian' => 'Bahan', 'jumlah' => 0, 'is_blokir' => 0, 'nilai_blokir' => 0],
+            ['id_item' => 6, 'parent_id' => 5, 'level_type' => 'detail', 'kode' => '-', 'uraian' => 'ATK', 'jumlah' => 500000, 'is_blokir' => 0, 'nilai_blokir' => 0],
+            ['id_item' => 7, 'parent_id' => 2, 'level_type' => 'akun', 'kode' => '532111', 'uraian' => 'Modal', 'jumlah' => 0, 'is_blokir' => 0, 'nilai_blokir' => 0],
+            ['id_item' => 8, 'parent_id' => 7, 'level_type' => 'detail', 'kode' => '-', 'uraian' => 'Laptop', 'jumlah' => 2500000, 'is_blokir' => 0, 'nilai_blokir' => 0],
+        ];
+
+        $only52 = RelaxtimeRkksHelper::filterItemsByAkunGroups($items, ['52']);
+        $this->assertCount(4, $only52);
+        $this->assertSame(500000, $only52[0]['jumlah']); // Program rolled up only 52
+        $this->assertSame('521211', $only52[2]['kode']);
+
+        $multi = RelaxtimeRkksHelper::filterItemsByAkunGroups($items, ['51', '53']);
+        $this->assertCount(6, $multi);
+        $this->assertSame(3500000, $multi[0]['jumlah']); // 1.0M + 2.5M
+    }
 }

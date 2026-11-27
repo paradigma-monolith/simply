@@ -767,4 +767,107 @@ class RelaxtimeRkksHelper
         }
         return false;
     }
+
+    /**
+     * Normalisasi parameter filter kelompok akun RKKS ('51', '52', '53') dari string CSV atau array.
+     *
+     * @return list<string>
+     */
+    public static function normalizeAkunGroups($raw): array
+    {
+        if ($raw === null || $raw === '') {
+            return [];
+        }
+
+        $items = is_array($raw) ? $raw : explode(',', (string) $raw);
+        $valid = [];
+        foreach ($items as $item) {
+            $token = trim((string) $item);
+            if (preg_match('/^(51|52|53)/', $token, $m)) {
+                $grp = $m[1];
+                if (!in_array($grp, $valid, true)) {
+                    $valid[] = $grp;
+                }
+            }
+        }
+        sort($valid);
+        return $valid;
+    }
+
+    /**
+     * Saring hierarki item RKKS agar hanya memuat subtree akun (51/52/53) terpilih beserta induknya,
+     * lalu hitung ulang pagu rollup induk sesuai item yang tersisa.
+     *
+     * @param list<array<string, mixed>> $items
+     * @param list<string> $akunGroups
+     * @return list<array<string, mixed>>
+     */
+    public static function filterItemsByAkunGroups(array $items, array $akunGroups): array
+    {
+        $akunGroups = self::normalizeAkunGroups($akunGroups);
+        if (empty($items) || empty($akunGroups) || count($akunGroups) >= count(self::AKUN_GROUP_LABELS)) {
+            return $items;
+        }
+
+        $idKey = array_key_exists('id_item', $items[0]) ? 'id_item' : 'temp_id';
+        $parentKey = array_key_exists('parent_id', $items[0]) ? 'parent_id' : 'parent_temp_id';
+
+        $byId = [];
+        $childrenMap = [];
+        $matchedAkunIds = [];
+        $groupMap = array_flip($akunGroups);
+
+        foreach ($items as $item) {
+            $id = (int) ($item[$idKey] ?? 0);
+            $byId[$id] = $item;
+            $pid = $item[$parentKey] !== null ? (int) $item[$parentKey] : 0;
+            $childrenMap[$pid][] = $id;
+            if (($item['level_type'] ?? '') === 'akun') {
+                $grp = substr((string) ($item['kode'] ?? ''), 0, 2);
+                if (isset($groupMap[$grp])) {
+                    $matchedAkunIds[] = $id;
+                }
+            }
+        }
+
+        if (empty($matchedAkunIds)) {
+            return [];
+        }
+
+        $keepIds = [];
+        foreach ($matchedAkunIds as $akunId) {
+            // Simpan leluhur ke atas (subkomponen -> ... -> program)
+            $curr = $akunId;
+            $guard = 0;
+            while ($curr > 0 && isset($byId[$curr]) && $guard < 25) {
+                $keepIds[$curr] = true;
+                $curr = $byId[$curr][$parentKey] !== null ? (int) $byId[$curr][$parentKey] : 0;
+                $guard++;
+            }
+
+            // Simpan seluruh keturunan di bawah akun (header_detail -> detail)
+            $queue = [$akunId];
+            $qIdx = 0;
+            while ($qIdx < count($queue)) {
+                $nodeId = $queue[$qIdx++];
+                $keepIds[$nodeId] = true;
+                foreach ($childrenMap[$nodeId] ?? [] as $childId) {
+                    if (!isset($keepIds[$childId])) {
+                        $queue[] = $childId;
+                    }
+                }
+            }
+        }
+
+        $filtered = [];
+        foreach ($items as $item) {
+            $id = (int) ($item[$idKey] ?? 0);
+            if (isset($keepIds[$id])) {
+                $filtered[] = $item;
+            }
+        }
+
+        self::recalculateTreeAmounts($filtered);
+        return $filtered;
+    }
 }

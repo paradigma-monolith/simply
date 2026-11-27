@@ -229,9 +229,9 @@ foreach ($items as $it) {
             <i class="fas fa-folder-plus mr-1"></i> Dokumen Baru
           </button>
           <?php if ($hasDokumen): ?>
-            <a href="/relaxtime/rkks/export?dokumen=<?= $activeDokId ?>" class="btn btn-outline-light btn-sm font-weight-bold">
+            <button type="button" class="btn btn-outline-light btn-sm font-weight-bold" id="btnExportRkks">
               <i class="fas fa-file-excel mr-1"></i> Export Excel
-            </a>
+            </button>
           <?php endif; ?>
         </div>
       </div>
@@ -644,6 +644,56 @@ foreach ($items as $it) {
           <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Batal</button>
           <button type="submit" class="btn bg-teal text-white btn-sm font-weight-bold" id="btnSubmitRuh">
             <i class="fas fa-save mr-1"></i> Simpan &amp; Hitung Ulang Pagu
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Export RKKS Excel (Filter Akun 51 / 52 / 53) -->
+<div class="modal fade" id="modalExportRkks" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-teal text-white">
+        <h5 class="modal-title font-weight-bold">
+          <i class="fas fa-file-excel mr-1"></i> Export RKKS ke Excel
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <form id="formExportRkks">
+        <div class="modal-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="font-weight-bold mb-0">Filter Akun yang Diekspor</label>
+            <div class="btn-group btn-group-xs">
+              <button type="button" class="btn btn-outline-secondary rkks-exp-quick" data-preset="all">Semua</button>
+              <button type="button" class="btn btn-outline-primary rkks-exp-quick" data-preset="51">51</button>
+              <button type="button" class="btn btn-outline-teal rkks-exp-quick" data-preset="52">52</button>
+              <button type="button" class="btn btn-outline-warning rkks-exp-quick" data-preset="53">53</button>
+            </div>
+          </div>
+          <div class="border rounded p-2 bg-light">
+            <div class="custom-control custom-checkbox mb-1">
+              <input type="checkbox" class="custom-control-input rkks-exp-akun-cb" id="rkksExp51" value="51" checked>
+              <label class="custom-control-label font-weight-bold" for="rkksExp51">51 — Belanja Pegawai</label>
+            </div>
+            <div class="custom-control custom-checkbox mb-1">
+              <input type="checkbox" class="custom-control-input rkks-exp-akun-cb" id="rkksExp52" value="52" checked>
+              <label class="custom-control-label font-weight-bold" for="rkksExp52">52 — Belanja Barang</label>
+            </div>
+            <div class="custom-control custom-checkbox mb-0">
+              <input type="checkbox" class="custom-control-input rkks-exp-akun-cb" id="rkksExp53" value="53" checked>
+              <label class="custom-control-label font-weight-bold" for="rkksExp53">53 — Belanja Modal</label>
+            </div>
+          </div>
+          <small class="text-muted d-block mt-2">
+            Menyaring sheet <code>RKK_SATKER</code> dan <code>REKAP</code> beserta total pagu hierarki sesuai akun terpilih.
+          </small>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Batal</button>
+          <button type="submit" class="btn bg-teal text-white btn-sm font-weight-bold">
+            <i class="fas fa-download mr-1"></i> Download Excel (.xlsx)
           </button>
         </div>
       </form>
@@ -1460,6 +1510,43 @@ document.addEventListener('DOMContentLoaded', function () {
     applyDepthCollapse(currentDepth);
     mountTreeRows();
     updateVisibility();
+  }
+
+  const btnExportRkks = document.getElementById('btnExportRkks');
+  if (btnExportRkks) {
+    btnExportRkks.addEventListener('click', () => {
+      const activeAk = (document.getElementById('rkksFilterAkun') ? document.getElementById('rkksFilterAkun').value : '') || '';
+      document.querySelectorAll('.rkks-exp-akun-cb').forEach(cb => {
+        cb.checked = activeAk === '' || cb.value === activeAk;
+      });
+      $('#modalExportRkks').modal('show');
+    });
+  }
+
+  document.querySelectorAll('.rkks-exp-quick').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const preset = btn.getAttribute('data-preset');
+      document.querySelectorAll('.rkks-exp-akun-cb').forEach(cb => {
+        cb.checked = preset === 'all' || cb.value === preset;
+      });
+    });
+  });
+
+  const formExportRkks = document.getElementById('formExportRkks');
+  if (formExportRkks) {
+    formExportRkks.addEventListener('submit', e => {
+      e.preventDefault();
+      const selected = Array.from(document.querySelectorAll('.rkks-exp-akun-cb:checked')).map(cb => cb.value);
+      if (!selected.length) {
+        Swal.fire('Pilih Akun', 'Pilih minimal satu kelompok akun (51, 52, atau 53).', 'warning');
+        return;
+      }
+      const params = new URLSearchParams();
+      params.set('dokumen', String(ACTIVE_DOK_ID));
+      if (selected.length < 3) params.set('akun', selected.join(','));
+      $('#modalExportRkks').modal('hide');
+      window.location.href = '/relaxtime/rkks/export?' + params.toString();
+    });
   }
 });
 </script>

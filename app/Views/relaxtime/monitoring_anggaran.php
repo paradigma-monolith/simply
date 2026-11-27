@@ -307,9 +307,9 @@ $targetConfigVal = $targetConfig ?? \App\Libraries\RelaxtimeMonitoringAnggaranHe
         <button type="button" class="btn btn-hero-outline btn-sm px-3 py-2" id="btnImportExcel">
           <i class="fas fa-file-import mr-1"></i> Import Excel
         </button>
-        <a href="/relaxtime/monitoring-anggaran/export?<?= $exportQuery ?>" class="btn btn-hero-outline btn-sm px-3 py-2" id="btnExportExcel">
+        <button type="button" class="btn btn-hero-outline btn-sm px-3 py-2" id="btnExportExcel" data-export-url="/relaxtime/monitoring-anggaran/export?<?= $exportQuery ?>">
           <i class="fas fa-file-excel mr-1"></i> Export Excel
-        </a>
+        </button>
       </div>
     </div>
 
@@ -909,6 +909,62 @@ $targetConfigVal = $targetConfig ?? \App\Libraries\RelaxtimeMonitoringAnggaranHe
           <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Batal</button>
           <button type="submit" class="btn bg-teal text-white btn-sm font-weight-bold" id="btnSaveTargetTriwulan">
             <i class="fas fa-save mr-1"></i> Simpan Pagu &amp; Target
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Filter Export Excel -->
+<div class="modal fade" id="modalExportExcel" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-teal text-white">
+        <h5 class="modal-title font-weight-bold">
+          <i class="fas fa-file-excel mr-1"></i> Export Excel Monitoring Anggaran
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <form id="formExportExcelModal">
+        <div class="modal-body">
+          <div class="form-group">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <label class="font-weight-bold mb-0">Pilih Akun yang Diekspor</label>
+              <div class="btn-group btn-group-xs">
+                <button type="button" class="btn btn-outline-secondary rma-exp-quick" data-preset="all">Semua</button>
+                <button type="button" class="btn btn-outline-primary rma-exp-quick" data-preset="51">51</button>
+                <button type="button" class="btn btn-outline-teal rma-exp-quick" data-preset="52">52</button>
+                <button type="button" class="btn btn-outline-warning rma-exp-quick" data-preset="53">53</button>
+              </div>
+            </div>
+            <div class="border rounded p-2 bg-light">
+              <div class="custom-control custom-checkbox mb-1">
+                <input type="checkbox" class="custom-control-input rma-exp-akun-cb" id="expAkun51" value="51" checked>
+                <label class="custom-control-label font-weight-bold" for="expAkun51">
+                  <span class="rma-badge-akun rma-akun-51 mr-1">51</span> Belanja Pegawai
+                </label>
+              </div>
+              <div class="custom-control custom-checkbox mb-1">
+                <input type="checkbox" class="custom-control-input rma-exp-akun-cb" id="expAkun52" value="52" checked>
+                <label class="custom-control-label font-weight-bold" for="expAkun52">
+                  <span class="rma-badge-akun rma-akun-52 mr-1">52</span> Belanja Barang
+                </label>
+              </div>
+              <div class="custom-control custom-checkbox mb-0">
+                <input type="checkbox" class="custom-control-input rma-exp-akun-cb" id="expAkun53" value="53" checked>
+                <label class="custom-control-label font-weight-bold" for="expAkun53">
+                  <span class="rma-badge-akun rma-akun-53 mr-1">53</span> Belanja Modal
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="small text-muted" id="expFilterSummary"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Batal</button>
+          <button type="submit" class="btn bg-teal text-white btn-sm font-weight-bold">
+            <i class="fas fa-download mr-1"></i> Download Excel (.xlsx)
           </button>
         </div>
       </form>
@@ -1558,7 +1614,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (picVal) params.set('pic', picVal);
     if (allMonthsFlag === '1') params.set('all_months', '1');
     const qs = params.toString();
-    document.getElementById('btnExportExcel').setAttribute('href', '/relaxtime/monitoring-anggaran/export' + (qs ? '?' + qs : ''));
+    document.getElementById('btnExportExcel').setAttribute('data-export-url', '/relaxtime/monitoring-anggaran/export' + (qs ? '?' + qs : ''));
     if (window.history && window.history.replaceState) {
       window.history.replaceState(null, '', '/relaxtime/monitoring-anggaran' + (qs ? '?' + qs : ''));
     }
@@ -2393,6 +2449,67 @@ document.addEventListener('DOMContentLoaded', function () {
       } finally {
         btn.disabled = false;
       }
+    });
+  }
+
+  // Export Excel with Akun 51/52/53 multi-filter modal
+  function syncExportModalFromPage() {
+    const activeAkun = document.getElementById('filterAkun').value;
+    document.querySelectorAll('.rma-exp-akun-cb').forEach(function (cb) {
+      cb.checked = activeAkun === '' || cb.value === activeAkun;
+    });
+    const bMulai = document.getElementById('filterBulanMulai').value;
+    const bSelesai = document.getElementById('filterBulanSelesai').value;
+    const allM = document.getElementById('filterAllMonths').value === '1';
+    const picVal = document.getElementById('filterPic').value;
+    const sumEl = document.getElementById('expFilterSummary');
+    if (sumEl) {
+      const per = allM ? 'Semua Bulan' : ((bMulai || '-') + ' s.d. ' + (bSelesai || '-'));
+      sumEl.innerHTML = 'Periode aktif: <strong>' + escapeHtml(per) + '</strong> &bull; PIC: <strong>' + escapeHtml(picVal || 'Semua') + '</strong>';
+    }
+  }
+
+  const btnExpModal = document.getElementById('btnExportExcel');
+  if (btnExpModal) {
+    btnExpModal.addEventListener('click', function () {
+      syncExportModalFromPage();
+      $('#modalExportExcel').modal('show');
+    });
+  }
+
+  document.querySelectorAll('.rma-exp-quick').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const preset = this.getAttribute('data-preset');
+      document.querySelectorAll('.rma-exp-akun-cb').forEach(function (cb) {
+        cb.checked = preset === 'all' || cb.value === preset;
+      });
+    });
+  });
+
+  const formExpModal = document.getElementById('formExportExcelModal');
+  if (formExpModal) {
+    formExpModal.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const selectedAkuns = Array.from(document.querySelectorAll('.rma-exp-akun-cb:checked')).map(cb => cb.value);
+      if (selectedAkuns.length === 0) {
+        Swal.fire('Pilih Akun', 'Pilih minimal satu akun (51, 52, atau 53) untuk diekspor.', 'warning');
+        return;
+      }
+
+      const params = new URLSearchParams();
+      const bMulai = document.getElementById('filterBulanMulai').value;
+      const bSelesai = document.getElementById('filterBulanSelesai').value;
+      const picVal = document.getElementById('filterPic').value;
+      const allM = document.getElementById('filterAllMonths').value === '1';
+      if (bMulai && !allM) params.set('bulan_mulai', bMulai);
+      if (bSelesai && !allM) params.set('bulan_selesai', bSelesai);
+      if (allM) params.set('all_months', '1');
+      if (picVal) params.set('pic', picVal);
+      if (selectedAkuns.length < 3) params.set('akun', selectedAkuns.join(','));
+
+      const qs = params.toString();
+      $('#modalExportExcel').modal('hide');
+      window.location.href = '/relaxtime/monitoring-anggaran/export' + (qs ? '?' + qs : '');
     });
   }
 

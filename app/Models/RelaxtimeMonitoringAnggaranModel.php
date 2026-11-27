@@ -76,7 +76,7 @@ class RelaxtimeMonitoringAnggaranModel extends Model
 
         $tglMulai = trim((string) ($filters['tgl_mulai'] ?? ''));
         $tglSelesai = trim((string) ($filters['tgl_selesai'] ?? ''));
-        $akun = trim((string) ($filters['akun'] ?? ''));
+        $akunRaw = $filters['akun'] ?? '';
         $pic = trim((string) ($filters['pic'] ?? ''));
 
         if ($tglMulai !== '') {
@@ -85,9 +85,27 @@ class RelaxtimeMonitoringAnggaranModel extends Model
         if ($tglSelesai !== '') {
             $builder->where('tanggal <=', $tglSelesai);
         }
-        if ($akun !== '' && strtolower($akun) !== 'all') {
-            $builder->where('akun', $akun);
+
+        $akunList = [];
+        if (is_array($akunRaw)) {
+            foreach ($akunRaw as $a) {
+                $aTrim = trim((string) $a);
+                if ($aTrim !== '' && strtolower($aTrim) !== 'all') {
+                    $akunList[] = $aTrim;
+                }
+            }
+        } else {
+            $akunStr = trim((string) $akunRaw);
+            if ($akunStr !== '' && strtolower($akunStr) !== 'all') {
+                $akunList = array_values(array_filter(array_map('trim', explode(',', $akunStr)), static fn($v) => $v !== '' && strtolower($v) !== 'all'));
+            }
         }
+        if (count($akunList) === 1) {
+            $builder->where('akun', $akunList[0]);
+        } elseif (count($akunList) > 1) {
+            $builder->whereIn('akun', array_values(array_unique($akunList)));
+        }
+
         if ($pic !== '' && strtolower($pic) !== 'all') {
             $builder->where('pic', $pic);
         }
