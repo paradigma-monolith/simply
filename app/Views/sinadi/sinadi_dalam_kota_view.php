@@ -94,6 +94,36 @@ foreach ($rows as $r) {
     border-color: #0d9488;
     box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
   }
+  .sn-length-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sn-length-label {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #64748b;
+    margin: 0;
+    white-space: nowrap;
+  }
+  .sn-length-select {
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    font-size: 0.77rem;
+    font-weight: 600;
+    color: #1e293b;
+    background: #f8fafc;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .sn-length-select:focus {
+    background: #ffffff;
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+  }
   #example11_wrapper .dataTables_filter {
     display: none !important;
   }
@@ -192,9 +222,21 @@ foreach ($rows as $r) {
       Ditolak <span class="sn-pill-cnt"><?= $statusCounts['Ditolak']; ?></span>
     </button>
   <?php endif; ?>
-  <div class="sn-search-wrap ml-auto">
-    <i class="fas fa-search sn-search-icon"></i>
-    <input type="search" id="snTableSearch" class="sn-search-input" placeholder="Cari kegiatan, tujuan, MAK, pembuat..." autocomplete="off">
+  <div class="d-flex flex-wrap align-items-center ml-auto" style="gap: 8px;">
+    <div class="sn-length-wrap">
+      <label for="snPageLength" class="sn-length-label">Tampilkan:</label>
+      <select id="snPageLength" class="sn-length-select" aria-label="Jumlah baris per halaman">
+        <option value="10">10 baris</option>
+        <option value="20" selected>20 baris</option>
+        <option value="50">50 baris</option>
+        <option value="100">100 baris</option>
+        <option value="-1">Semua baris</option>
+      </select>
+    </div>
+    <div class="sn-search-wrap">
+      <i class="fas fa-search sn-search-icon"></i>
+      <input type="search" id="snTableSearch" class="sn-search-input" placeholder="Cari kegiatan, tujuan, MAK, pembuat..." autocomplete="off">
+    </div>
   </div>
 </div>
 
@@ -404,10 +446,25 @@ foreach ($rows as $r) {
       $('#example11').DataTable().destroy();
     }
 
+    var allowedLengths = [10, 20, 50, 100, -1];
+    var savedLen = 20;
+    try {
+      var storedLen = parseInt(window.localStorage.getItem('sinadi_page_length') || '', 10);
+      if (allowedLengths.indexOf(storedLen) !== -1) {
+        savedLen = storedLen;
+      }
+    } catch (e) {}
+    if (window.__sinadiPageLength !== undefined && allowedLengths.indexOf(window.__sinadiPageLength) !== -1) {
+      savedLen = window.__sinadiPageLength;
+    }
+    window.__sinadiPageLength = savedLen;
+    $('#snPageLength').val(String(savedLen));
+
     var table = $('#example11').DataTable({
       dom: "t<'row mt-2 align-items-center'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
       paging: true,
-      pageLength: 20,
+      pageLength: savedLen,
+      lengthMenu: [[10, 20, 50, 100, -1], ['10 baris', '20 baris', '50 baris', '100 baris', 'Semua baris']],
       lengthChange: false,
       searching: true,
       info: true,
@@ -445,6 +502,19 @@ foreach ($rows as $r) {
     // Input pencarian terintegrasi di bar filter status
     $('#snTableSearch').off('input keyup search').on('input keyup search', function() {
       table.search(this.value).draw();
+    });
+
+    // Pemilih jumlah baris yang ditampilkan sekaligus
+    $('#snPageLength').off('change').on('change', function() {
+      var lenVal = parseInt(this.value, 10);
+      if (allowedLengths.indexOf(lenVal) === -1) {
+        lenVal = 20;
+      }
+      window.__sinadiPageLength = lenVal;
+      try {
+        window.localStorage.setItem('sinadi_page_length', String(lenVal));
+      } catch (e) {}
+      table.page.len(lenVal).draw();
     });
 
     // Filter cepat berdasarkan pill status surat
