@@ -27,6 +27,10 @@ class RelaxtimeMonitoringAnggaranModel extends Model
         'tindak_lanjut_status',
         'tindak_lanjut_catatan',
         'tindak_lanjut_target_rencana',
+        'tindak_lanjut_pengalihan_nominal',
+        'tindak_lanjut_pengalihan_bulan',
+        'tindak_lanjut_pengalihan_target_id',
+        'tindak_lanjut_pengalihan_info',
         'tindak_lanjut_updated_at',
         'tindak_lanjut_updated_by',
         'created_by',
@@ -59,6 +63,10 @@ class RelaxtimeMonitoringAnggaranModel extends Model
                 `tindak_lanjut_status` VARCHAR(30) NOT NULL DEFAULT '',
                 `tindak_lanjut_catatan` TEXT NULL DEFAULT NULL,
                 `tindak_lanjut_target_rencana` BIGINT(20) NULL DEFAULT NULL,
+                `tindak_lanjut_pengalihan_nominal` BIGINT(20) NULL DEFAULT NULL,
+                `tindak_lanjut_pengalihan_bulan` DATE NULL DEFAULT NULL,
+                `tindak_lanjut_pengalihan_target_id` INT(11) UNSIGNED NULL DEFAULT NULL,
+                `tindak_lanjut_pengalihan_info` VARCHAR(255) NULL DEFAULT NULL,
                 `tindak_lanjut_updated_at` DATETIME NULL DEFAULT NULL,
                 `tindak_lanjut_updated_by` INT(11) UNSIGNED NULL DEFAULT NULL,
                 `created_by` INT(11) UNSIGNED NULL DEFAULT NULL,
@@ -80,11 +88,15 @@ class RelaxtimeMonitoringAnggaranModel extends Model
             $existingCols[strtolower((string) ($col['Field'] ?? ''))] = true;
         }
         $alterCols = [
-            'tindak_lanjut_status'         => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_status` VARCHAR(30) NOT NULL DEFAULT '' AFTER `import_batch`",
-            'tindak_lanjut_catatan'        => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_catatan` TEXT NULL DEFAULT NULL AFTER `tindak_lanjut_status`",
-            'tindak_lanjut_target_rencana' => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_target_rencana` BIGINT(20) NULL DEFAULT NULL AFTER `tindak_lanjut_catatan`",
-            'tindak_lanjut_updated_at'     => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_updated_at` DATETIME NULL DEFAULT NULL AFTER `tindak_lanjut_target_rencana`",
-            'tindak_lanjut_updated_by'     => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_updated_by` INT(11) UNSIGNED NULL DEFAULT NULL AFTER `tindak_lanjut_updated_at`",
+            'tindak_lanjut_status'             => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_status` VARCHAR(30) NOT NULL DEFAULT '' AFTER `import_batch`",
+            'tindak_lanjut_catatan'            => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_catatan` TEXT NULL DEFAULT NULL AFTER `tindak_lanjut_status`",
+            'tindak_lanjut_target_rencana'     => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_target_rencana` BIGINT(20) NULL DEFAULT NULL AFTER `tindak_lanjut_catatan`",
+            'tindak_lanjut_pengalihan_nominal' => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_pengalihan_nominal` BIGINT(20) NULL DEFAULT NULL AFTER `tindak_lanjut_target_rencana`",
+            'tindak_lanjut_pengalihan_bulan'   => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_pengalihan_bulan` DATE NULL DEFAULT NULL AFTER `tindak_lanjut_pengalihan_nominal`",
+            'tindak_lanjut_pengalihan_target_id' => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_pengalihan_target_id` INT(11) UNSIGNED NULL DEFAULT NULL AFTER `tindak_lanjut_pengalihan_bulan`",
+            'tindak_lanjut_pengalihan_info'    => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_pengalihan_info` VARCHAR(255) NULL DEFAULT NULL AFTER `tindak_lanjut_pengalihan_target_id`",
+            'tindak_lanjut_updated_at'         => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_updated_at` DATETIME NULL DEFAULT NULL AFTER `tindak_lanjut_pengalihan_info`",
+            'tindak_lanjut_updated_by'         => "ALTER TABLE `{$this->table}` ADD COLUMN `tindak_lanjut_updated_by` INT(11) UNSIGNED NULL DEFAULT NULL AFTER `tindak_lanjut_updated_at`",
         ];
         foreach ($alterCols as $colName => $alterSql) {
             if (!isset($existingCols[$colName])) {

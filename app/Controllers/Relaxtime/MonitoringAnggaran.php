@@ -314,31 +314,174 @@ class MonitoringAnggaran extends BaseController
         $catatan = trim((string) ($this->request->getPost('tindak_lanjut_catatan') ?? ''));
         $terapkanKeRencana = ((string) $this->request->getPost('terapkan_ke_rencana') === '1');
 
+        $enablePengalihan = ((string) $this->request->getPost('alihkan_anggaran') === '1');
+        $pengalihanMode = trim((string) ($this->request->getPost('pengalihan_mode') ?: 'create_new'));
+        $nominalPengalihan = max(0, RelaxtimeMonitoringAnggaranHelper::parseAmount($this->request->getPost('nominal_pengalihan') ?? 0));
+        $kurangiRencanaAsal = ((string) $this->request->getPost('kurangi_rencana_asal') === '1');
+
+        $now = date('Y-m-d H:i:s');
         $payload = [
             'tindak_lanjut_status'         => $status,
             'tindak_lanjut_catatan'        => $catatan !== '' ? $catatan : null,
             'tindak_lanjut_target_rencana' => $targetRencana,
-            'tindak_lanjut_updated_at'     => date('Y-m-d H:i:s'),
+            'tindak_lanjut_updated_at'     => $now,
             'tindak_lanjut_updated_by'     => $userId,
             'updated_by'                   => $userId,
         ];
 
-        if ($terapkanKeRencana && $targetRencana !== null) {
-            $payload['rencana'] = $targetRencana;
-        }
+        $reallocatedId = null;
+        $sourceRencana = (int) ($existing['rencana'] ?? 0);
 
-        if (!$this->monitoringModel->update((int) $id, $payload)) {
-            return $this->response->setJSON([
-                'success' => false,
-                'message' => 'Gagal menyimpan tindak lanjut revisi.',
-            ])->setStatusCode(500);
+        if ($enablePengalihan) {
+            if ($nominalPengalihan <= 0) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Nominal pengalihan anggaran harus lebih besar dari Rp 0.',
+                ])->setStatusCode(400);
+            }
+            if ($kurangiRencanaAsal && $nominalPengalihan > $sourceRencana) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Nominal pengalihan (Rp ' . number_format($nominalPengalihan, 0, ',', '.') . ') melebihi Rencana item asal (Rp ' . number_format($sourceRencana, 0, ',', '.') . ').',
+                ])->setStatusCode(400);
+            }
+
+            if ($pengalihanMode === 'add_to_existing') {
+                $targetId = (int) ($this->request->getPost('pengalihan_target_id') ?? 0);
+                if ($targetId <= 0 || $targetId === (int) $id) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Pilih item kegiatan tujuan pengalihan yang valid (berbeda dari item asal).',
+                    ])->setStatusCode(400);
+                }
+                $targetItem = $this->monitoringModel->find($targetId);
+                if (!$targetItem) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Item kegiatan tujuan pengalihan tidak ditemukan.',
+                    ])->setStatusCode(404);
+                }
+
+                $targetMonthLabel = RelaxtimeMonitoringAnggaranHelper::formatMonthLabel($targetItem['tanggal'] ?? '');
+                $sourceMonthLabel = RelaxtimeMonitoringAnggaranHelper::formatMonthLabel($existing['tanggal'] ?? '');
+                $alokasiInfo = mb_substr('Dialihkan Rp ' . number_format($nominalPengalihan, 0, ',', '.') . ' → ' . $targetMonthLabel . ' (' . ($targetItem['ro'] ?: '-') . ')', 0, 250);
+                $targetNote = 'Menerima pengalihan Rp ' . number_format($nominalPengalihan, 0, ',', '.') . ' dari ' . $sourceMonthLabel . ' (' . ($existing['ro'] ?: '-') . ' - ' . mb_substr((string) ($existing['kegiatan'] ?? ''), 0, 80) . ')';
+                $existingTargetNote = trim((string) ($targetItem['tindak_lanjut_catatan'] ?? ''));
+                $combinedTargetNote = $existingTargetNote !== '' ? ($existingTargetNote . ' | ' . $targetNote) : $targetNote;
+
+                $db = \Config\Database::connect();
+                $db->transStart();
+                if ($kurangiRencanaAsal) {
+                    $payload['rencana'] = max(0, $sourceRencana - $nominalPengalihan);
+                }
+                $payload['tindak_lanjut_pengalihan_nominal'] = $nominalPengalihan;
+                $payload['tindak_lanjut_pengalihan_bulan'] = $targetItem['tanggal'] ?? null;
+                $payload['tindak_lanjut_pengalihan_target_id'] = $targetId;
+                $payload['tindak_lanjut_pengalihan_info'] = $alokasiInfo;
+                $this->monitoringModel->update((int) $id, $payload);
+
+                $this->monitoringModel->update($targetId, [
+                    'rencana'                   => (int) ($targetItem['rencana'] ?? 0) + $nominalPengalihan,
+                    'tindak_lanjut_catatan'     => $combinedTargetNote,
+                    'tindak_lanjut_updated_at'  => $now,
+                    'tindak_lanjut_updated_by'  => $userId,
+                    'updated_by'                => $userId,
+                ]);
+                $db->transComplete();
+
+                if ($db->transStatus() === false) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Gagal memproses transaksi pengalihan anggaran.',
+                    ])->setStatusCode(500);
+                }
+                $reallocatedId = $targetId;
+            } else {
+                $bulanTujuanDb = RelaxtimeMonitoringAnggaranHelper::normalizeMonthToDate(
+                    $this->request->getPost('pengalihan_bulan'),
+                    (int) date('Y'),
+                    ''
+                );
+                if ($bulanTujuanDb === '') {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Bulan tujuan rencana pengalihan harus diisi (YYYY-MM).',
+                    ])->setStatusCode(400);
+                }
+                $destRo = trim((string) ($this->request->getPost('pengalihan_ro') ?: ($existing['ro'] ?? '')));
+                $destAkun = RelaxtimeMonitoringAnggaranHelper::normalizeAkun($this->request->getPost('pengalihan_akun') ?? ($existing['akun'] ?? '52'), '52');
+                $destPic = RelaxtimeMonitoringAnggaranHelper::normalizePic($this->request->getPost('pengalihan_pic') ?? ($existing['pic'] ?? ''));
+                $destKegiatan = trim((string) ($this->request->getPost('pengalihan_kegiatan') ?: ('[Pengalihan] ' . ($existing['kegiatan'] ?? ''))));
+                if ($destRo === '' || $destKegiatan === '' || $destPic === '') {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'RO, Kegiatan, dan PIC tujuan pengalihan wajib diisi.',
+                    ])->setStatusCode(400);
+                }
+
+                $targetMonthLabel = RelaxtimeMonitoringAnggaranHelper::formatMonthLabel($bulanTujuanDb);
+                $sourceMonthLabel = RelaxtimeMonitoringAnggaranHelper::formatMonthLabel($existing['tanggal'] ?? '');
+                $alokasiInfo = mb_substr('Dialihkan Rp ' . number_format($nominalPengalihan, 0, ',', '.') . ' → ' . $targetMonthLabel . ' (' . $destRo . ')', 0, 250);
+                $newItemNote = 'Hasil pengalihan anggaran Rp ' . number_format($nominalPengalihan, 0, ',', '.') . ' dari ' . $sourceMonthLabel . ' (' . ($existing['ro'] ?: '-') . ')';
+
+                $db = \Config\Database::connect();
+                $db->transStart();
+                $this->monitoringModel->insert([
+                    'tanggal'                      => $bulanTujuanDb,
+                    'ro'                           => mb_substr($destRo, 0, 50),
+                    'akun'                         => $destAkun,
+                    'kegiatan'                     => $destKegiatan,
+                    'rencana'                      => $nominalPengalihan,
+                    'pic'                          => mb_substr($destPic, 0, 100),
+                    'realisasi'                    => 0,
+                    'sumber_input'                 => 'manual',
+                    'tindak_lanjut_status'         => 'tidak_perlu',
+                    'tindak_lanjut_catatan'        => $newItemNote,
+                    'tindak_lanjut_updated_at'     => $now,
+                    'tindak_lanjut_updated_by'     => $userId,
+                    'created_by'                   => $userId,
+                    'updated_by'                   => $userId,
+                ]);
+                $reallocatedId = (int) $this->monitoringModel->getInsertID();
+
+                if ($kurangiRencanaAsal) {
+                    $payload['rencana'] = max(0, $sourceRencana - $nominalPengalihan);
+                }
+                $payload['tindak_lanjut_pengalihan_nominal'] = $nominalPengalihan;
+                $payload['tindak_lanjut_pengalihan_bulan'] = $bulanTujuanDb;
+                $payload['tindak_lanjut_pengalihan_target_id'] = $reallocatedId > 0 ? $reallocatedId : null;
+                $payload['tindak_lanjut_pengalihan_info'] = $alokasiInfo;
+                $this->monitoringModel->update((int) $id, $payload);
+                $db->transComplete();
+
+                if ($db->transStatus() === false) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Gagal menyimpan rencana pengalihan anggaran.',
+                    ])->setStatusCode(500);
+                }
+            }
+        } else {
+            if ($terapkanKeRencana && $targetRencana !== null) {
+                $payload['rencana'] = $targetRencana;
+            }
+            if (!$this->monitoringModel->update((int) $id, $payload)) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Gagal menyimpan tindak lanjut revisi.',
+                ])->setStatusCode(500);
+            }
         }
 
         $updatedRow = $this->monitoringModel->find((int) $id);
+        $reallocatedRow = $reallocatedId ? $this->monitoringModel->find($reallocatedId) : null;
         return $this->response->setJSON([
             'success' => true,
-            'message' => 'Tindak lanjut revisi berhasil disimpan.',
+            'message' => $enablePengalihan
+                ? 'Tindak lanjut revisi & pengalihan anggaran Rp ' . number_format($nominalPengalihan, 0, ',', '.') . ' berhasil disimpan.'
+                : 'Tindak lanjut revisi berhasil disimpan.',
             'row' => $updatedRow ? $this->formatRowForClient($updatedRow) : null,
+            'reallocated_row' => $reallocatedRow ? $this->formatRowForClient($reallocatedRow) : null,
         ]);
     }
 
@@ -657,6 +800,8 @@ class MonitoringAnggaran extends BaseController
             $tlLabel = $tlStatus !== '' ? RelaxtimeMonitoringAnggaranHelper::formatTindakLanjutLabel($tlStatus) : '-';
             $tlTarget = $item['tindak_lanjut_target_rencana'] !== null ? (int) $item['tindak_lanjut_target_rencana'] : null;
             $tlCatatan = trim((string) ($item['tindak_lanjut_catatan'] ?? ''));
+            $tlPengalihanInfo = trim((string) ($item['tindak_lanjut_pengalihan_info'] ?? ''));
+            $catatanGabungan = trim(($tlPengalihanInfo !== '' ? '[' . $tlPengalihanInfo . '] ' : '') . $tlCatatan);
 
             $sheet->setCellValue('A' . $rowNum, $no++);
             $sheet->setCellValueExplicit('B' . $rowNum, RelaxtimeMonitoringAnggaranHelper::formatMonthLabel($item['tanggal'] ?? ''), DataType::TYPE_STRING);
@@ -678,7 +823,7 @@ class MonitoringAnggaran extends BaseController
             } else {
                 $sheet->setCellValue('O' . $rowNum, '-');
             }
-            $sheet->setCellValue('P' . $rowNum, $tlCatatan !== '' ? $tlCatatan : '-');
+            $sheet->setCellValue('P' . $rowNum, $catatanGabungan !== '' ? $catatanGabungan : '-');
 
             $sheet->getStyle("G{$rowNum}:I{$rowNum}")->getNumberFormat()->setFormatCode('#,##0');
             $sheet->getStyle("J{$rowNum}")->getNumberFormat()->setFormatCode('0.0%');
@@ -837,6 +982,10 @@ class MonitoringAnggaran extends BaseController
             'tindak_lanjut_status' => (string) ($row['tindak_lanjut_status'] ?? ''),
             'tindak_lanjut_catatan' => (string) ($row['tindak_lanjut_catatan'] ?? ''),
             'tindak_lanjut_target_rencana' => isset($row['tindak_lanjut_target_rencana']) && $row['tindak_lanjut_target_rencana'] !== null ? (int) $row['tindak_lanjut_target_rencana'] : null,
+            'tindak_lanjut_pengalihan_nominal' => isset($row['tindak_lanjut_pengalihan_nominal']) && $row['tindak_lanjut_pengalihan_nominal'] !== null ? (int) $row['tindak_lanjut_pengalihan_nominal'] : null,
+            'tindak_lanjut_pengalihan_bulan' => (string) ($row['tindak_lanjut_pengalihan_bulan'] ?? ''),
+            'tindak_lanjut_pengalihan_target_id' => isset($row['tindak_lanjut_pengalihan_target_id']) && $row['tindak_lanjut_pengalihan_target_id'] !== null ? (int) $row['tindak_lanjut_pengalihan_target_id'] : null,
+            'tindak_lanjut_pengalihan_info' => (string) ($row['tindak_lanjut_pengalihan_info'] ?? ''),
             'tindak_lanjut_updated_at' => (string) ($row['tindak_lanjut_updated_at'] ?? ''),
             'created_at' => (string) ($row['created_at'] ?? ''),
             'updated_at' => (string) ($row['updated_at'] ?? ''),
