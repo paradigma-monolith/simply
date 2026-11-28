@@ -25,6 +25,7 @@ final class SinadiSppdRekapTest extends TestCase
         for ($i = 1; $i <= $count; $i++) {
             $list[] = [
                 'id_perjalanan'         => 3994,
+                'no_sppd'               => 'PR.01.05/1/100/2026',
                 'nama_kegiatan'         => 'Kegiatan Inspeksi Kesehatan Lingkungan Asrama Haji Indramayu Tahap I Tahun 1448 H',
                 'tgl_pelaksanaan'       => '2026-10-21',
                 'tgl_pelaksanaan_akhir' => '2026-10-21',
@@ -32,9 +33,11 @@ final class SinadiSppdRekapTest extends TestCase
                 'mata_anggaran'         => '7960.QAH.U29.051.A.524111',
                 'nama_kantor'           => 'Balai Kekarantinaan Kesehatan Kelas I Bandung',
                 'ppk'                   => 'Muhammad Dani Suarman, SE',
-                'ppk_nip'               => '198806032015031004',
+                'ppk_nip'               => 'NIP. 198806032015031004',
                 'kepala_kantor'         => 'dr. Sedya Dwisangka, M.Epid.',
-                'kepala_kantor_nip'     => '196901042002121003',
+                'kepala_kantor_nip'     => 'NIP. 196901042002121003',
+                'kasubag_adum'          => 'Kasubag Adum',
+                'kasubag_adum_nip'      => 'NIP. 197801012005011004',
                 'nama_pegawai'          => $i === 1 ? 'dr. Sedya Dwisangka, M.Epid.' : "Peserta Perjalanan {$i}, SKM",
                 'nip_pegawai'           => '19800101200501' . str_pad((string) $i, 4, '0', STR_PAD_LEFT),
                 'golongan'              => $i % 2 === 0 ? 'IV/a' : 'IV/b',
@@ -46,6 +49,7 @@ final class SinadiSppdRekapTest extends TestCase
                 'tgl_surat_tugas'       => '2026-10-20',
                 'tgl_pergi'             => '2026-10-21',
                 'tgl_pulang'            => '2026-10-21',
+                'tgl_sppd'              => '2026-10-20',
             ];
         }
 
@@ -114,9 +118,40 @@ final class SinadiSppdRekapTest extends TestCase
         $this->assertSame('06 Juni 2026', $stops[2]['tgl_berangkat_label']);
     }
 
-    public function testUnifiedRekapUsesSameF4PortraitPaperForAllPagesAndZeroAndThreePejabat(): void
+    public function testRekapMainMatchesSppdSrikandiLayoutAndCatatanPosition(): void
     {
         $perjalanan = $this->buildSamplePesertaList(10);
+
+        // Baseline: original Cetak SPPD Srikandi (1 participant)
+        $origPerjalanan = [$perjalanan[0]];
+        $origCatatanY = null;
+        $srikandi_config = SinadiSppdSrikandiHelper::parse([]);
+        $borang = 'borang';
+        $ttd_verifikator_3 = null;
+
+        ob_start();
+        $origBackup = $perjalanan;
+        $perjalanan = $origPerjalanan;
+        include APPPATH . 'Views/sinadi/sppd.php';
+        $origHtml = (string) ob_get_clean();
+        $perjalanan = $origBackup;
+
+        $dompdfOrig = new Dompdf();
+        $dompdfOrig->setCallbacks([
+            'measureCatatan' => [
+                'event' => 'end_frame',
+                'f' => static function ($frame) use (&$origCatatanY): void {
+                    if ($origCatatanY === null && strpos($frame->get_node()->textContent ?? '', 'CATATAN LAIN-LAIN') !== false && $frame->get_node()->nodeName === '#text') {
+                        $pos = $frame->get_position();
+                        $origCatatanY = (float) ($pos['y'] ?? 0.0);
+                    }
+                },
+            ],
+        ]);
+        $dompdfOrig->loadHtml($origHtml);
+        $dompdfOrig->setPaper([0, 0, 595, 935], 'portrait');
+        $dompdfOrig->render();
+        $this->assertNotNull($origCatatanY);
 
         $configs = [
             [],
@@ -131,21 +166,17 @@ final class SinadiSppdRekapTest extends TestCase
             ]),
         ];
 
-        $baselineCatatanY = null;
+        $baselineRekapCatatanY = null;
 
         foreach ($configs as $idx => $srikandi_config) {
             ob_start();
-            include APPPATH . 'Views/sinadi/sppd_rekap.php';
+            include APPPATH . 'Views/sinadi/sppd_rekap_main.php';
             $html = (string) ob_get_clean();
 
             $this->assertStringContainsString('${nomor_naskah}', $html);
             $this->assertStringContainsString('${tanggal_naskah}', $html);
             $this->assertStringContainsString('${ttd_pengirim1}', $html);
             $this->assertStringContainsString('${ttd_pengirim2}', $html);
-            $this->assertStringContainsString('dr. Sedya Dwisangka, M.Epid.', $html);
-            $this->assertStringContainsString('Peserta Perjalanan 10, SKM', $html);
-            $this->assertStringContainsString('style="width: 13.5%;">NOMOR</th>', $html);
-            $this->assertStringContainsString('style="width: 9.5%;">KEBERANGKATAN</th>', $html);
 
             $catatanY = null;
             $dompdf = new Dompdf();
@@ -165,64 +196,114 @@ final class SinadiSppdRekapTest extends TestCase
             $dompdf->render();
 
             $this->assertSame(
-                3,
+                2,
                 $dompdf->getCanvas()->get_page_count(),
-                "SPPD Rekap unified config #{$idx} expected 3 portrait pages, got " . $dompdf->getCanvas()->get_page_count()
+                "SPPD Rekap main config #{$idx} expected 2 pages, got " . $dompdf->getCanvas()->get_page_count()
             );
 
             $this->assertNotNull($catatanY, "CATATAN LAIN-LAIN frame should be measured on config #{$idx}");
-            if ($baselineCatatanY === null) {
-                $baselineCatatanY = $catatanY;
+            if ($baselineRekapCatatanY === null) {
+                $baselineRekapCatatanY = $catatanY;
             } else {
                 $this->assertEqualsWithDelta(
-                    $baselineCatatanY,
+                    $baselineRekapCatatanY,
                     $catatanY,
                     0.5,
-                    "Page 2 table height shifted with 3 pejabat: baseline={$baselineCatatanY}, actual={$catatanY}"
+                    "Page 2 table height shifted with 3 pejabat: baseline={$baselineRekapCatatanY}, actual={$catatanY}"
                 );
             }
-
-            $pdfBinary = $dompdf->output();
-            $mediaBoxMatches = [];
-            preg_match_all('/\/MediaBox\s*\[([^\]]+)\]/', $pdfBinary, $mediaBoxMatches);
-            $this->assertNotEmpty($mediaBoxMatches[1]);
-            foreach ($mediaBoxMatches[1] as $box) {
-                $this->assertSame('0.000 0.000 595.000 935.000', trim($box));
-            }
-            $this->assertStringNotContainsString('[0.000 0.000 935.000 595.000]', $pdfBinary);
+            $this->assertEqualsWithDelta(
+                $origCatatanY,
+                $catatanY,
+                2.0,
+                "Page 2 CATATAN LAIN-LAIN position differs from Cetak SPPD Srikandi: orig={$origCatatanY}, rekap={$catatanY}"
+            );
         }
-
-        // Verify 30 participants paginate cleanly across multiple F4 Portrait pages
-        $perjalanan = $this->buildSamplePesertaList(30);
-        $srikandi_config = [];
-        ob_start();
-        include APPPATH . 'Views/sinadi/sppd_rekap.php';
-        $html30 = (string) ob_get_clean();
-
-        $dompdf30 = new Dompdf();
-        $dompdf30->loadHtml($html30);
-        $dompdf30->setPaper([0, 0, 595, 935], 'portrait');
-        $dompdf30->render();
-        $this->assertGreaterThan(3, $dompdf30->getCanvas()->get_page_count());
     }
 
-    public function testSimplePdfMergerPreservesXrefIntegrity(): void
+    public function testLampiranLandscapeAndMixedOrientationMergeValidPdf(): void
     {
-        $d1 = new Dompdf();
-        $d1->loadHtml('<p>Portrait</p>');
-        $d1->setPaper([0, 0, 595, 935], 'portrait');
-        $d1->render();
+        $perjalanan10 = $this->buildSamplePesertaList(10);
+        $srikandi_config = [];
 
-        $d2 = new Dompdf();
-        $d2->loadHtml('<p>Landscape</p>');
-        $d2->setPaper([0, 0, 595, 935], 'landscape');
-        $d2->render();
+        $perjalanan = $perjalanan10;
+        ob_start();
+        include APPPATH . 'Views/sinadi/sppd_rekap_main.php';
+        $htmlMain = (string) ob_get_clean();
 
-        $merged = SimplePdfMerger::merge([$d1->output(), $d2->output()]);
+        $dompdfMain = new Dompdf();
+        $dompdfMain->loadHtml($htmlMain);
+        $dompdfMain->setPaper([0, 0, 595, 935], 'portrait');
+        $dompdfMain->render();
+        $mainPages = $dompdfMain->getCanvas()->get_page_count();
+        $pdfMain = $dompdfMain->output();
+
+        ob_start();
+        include APPPATH . 'Views/sinadi/sppd_rekap_lampiran.php';
+        $htmlLampiran = (string) ob_get_clean();
+
+        $this->assertStringContainsString('@page {', $htmlLampiran);
+        $this->assertStringContainsString('margin: 20px 38px 20px 38px;', $htmlLampiran);
+        $this->assertStringNotContainsString('* {', $htmlLampiran);
+        $this->assertStringContainsString('dr. Sedya Dwisangka, M.Epid.', $htmlLampiran);
+        $this->assertStringContainsString('Peserta Perjalanan 10, SKM', $htmlLampiran);
+        $this->assertStringContainsString('${nomor_naskah}', $htmlLampiran);
+        $this->assertStringContainsString('${tanggal_naskah}', $htmlLampiran);
+        $this->assertStringContainsString('${ttd_pengirim1}', $htmlLampiran);
+
+        $dompdfLampiran = new Dompdf();
+        $dompdfLampiran->loadHtml($htmlLampiran);
+        $dompdfLampiran->setPaper([0, 0, 595, 935], 'landscape');
+        $dompdfLampiran->render();
+        $lampiranPages = $dompdfLampiran->getCanvas()->get_page_count();
+        $pdfLampiran = $dompdfLampiran->output();
+
+        $this->assertSame(1, $lampiranPages);
+
+        $merged = SimplePdfMerger::merge([$pdfMain, $pdfLampiran]);
+
         $this->assertSame(0, strpos($merged, '%PDF-'));
         $this->assertSame('%%EOF', substr(trim($merged), -5));
+
+        $startxrefPos = strrpos($merged, 'startxref');
+        $this->assertNotFalse($startxrefPos);
+        $this->assertSame(1, preg_match('/startxref\s+(\d+)/', $merged, $sxMatch, 0, (int) $startxrefPos));
+        $xrefOffset = (int) $sxMatch[1];
+
+        $this->assertSame(1, preg_match('/\/Root\s+(\d+)\s+0\s+R/', $merged, $rootMatch, 0, $xrefOffset));
+        $rootId = (int) $rootMatch[1];
+
+        $trailerPos = strpos($merged, 'trailer', $xrefOffset);
+        $this->assertNotFalse($trailerPos);
+        $xrefBlock = substr($merged, $xrefOffset, (int) $trailerPos - $xrefOffset);
+        $this->assertGreaterThan(0, preg_match_all('/^(\d{10})\s+00000\s+n\s*$/m', $xrefBlock, $entryMatches));
+
+        $id = 1;
+        foreach ($entryMatches[1] as $offStr) {
+            $off = (int) $offStr;
+            $this->assertSame(0, strpos(substr($merged, $off, 20), "{$id} 0 obj"), "Object #{$id} offset mismatch");
+            $id++;
+        }
+
+        $this->assertSame(1, preg_match('/' . $rootId . '\s+0\s+obj\s*<<[^>]*\/Pages\s+(\d+)\s+0\s+R/', $merged, $pagesRefMatch));
+        $rootPagesId = (int) $pagesRefMatch[1];
+        $this->assertSame(1, preg_match('/' . $rootPagesId . '\s+0\s+obj\s*<<[^>]*\/Count\s+(\d+)/', $merged, $countMatch));
+        $this->assertSame(3, $mainPages + $lampiranPages);
+        $this->assertSame($mainPages + $lampiranPages, (int) $countMatch[1]);
+
         $this->assertStringContainsString('[0.000 0.000 595.000 935.000]', $merged);
         $this->assertStringContainsString('[0.000 0.000 935.000 595.000]', $merged);
+
+        // Verify 25 participants paginate cleanly across >1 landscape pages
+        $perjalanan = $this->buildSamplePesertaList(25);
+        ob_start();
+        include APPPATH . 'Views/sinadi/sppd_rekap_lampiran.php';
+        $html25 = (string) ob_get_clean();
+        $dompdf25 = new Dompdf();
+        $dompdf25->loadHtml($html25);
+        $dompdf25->setPaper([0, 0, 595, 935], 'landscape');
+        $dompdf25->render();
+        $this->assertGreaterThan(1, $dompdf25->getCanvas()->get_page_count());
     }
 
     public function testModalRendersRekapButtonDisabledBelowTenAndActiveAtTen(): void
