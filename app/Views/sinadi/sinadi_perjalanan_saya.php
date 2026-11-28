@@ -307,7 +307,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           <i class="fas fa-chart-bar mr-2"></i>Monitoring Dinas Luar
         </h4>
         <p class="mdl-hero-sub">
-          Peringkat penghasilan &amp; frekuensi perjalanan Dinas Luar perorangan &bull;
+          Peringkat penghasilan &amp; frekuensi Perjalanan Dinas perorangan &bull;
           Status: <strong>Disetujui (+7 Kegiatan Haji Khusus)</strong> &bull;
           Periode: <strong><?= esc(mediumdate_indo($startDate)); ?></strong> s.d. <strong><?= esc(mediumdate_indo($endDate)); ?></strong> &bull;
           Tim: <strong id="mdlHeroTimNama"><?= esc($selectedTimNama); ?></strong> &bull;
@@ -461,7 +461,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
             <i class="fas fa-sitemap text-teal mr-1"></i> Total Penghasilan per Tim Kerja
           </h5>
           <small class="text-muted">
-            Akumulasi penghasilan Dinas Luar berstatus <strong>Disetujui</strong> (Pegawai DUK) &bull; Klik untuk membuka rincian per tim.
+            Akumulasi penghasilan Perjalanan Dinas berstatus <strong>Disetujui</strong> (Pegawai DUK) &bull; Klik untuk membuka rincian per tim.
           </small>
         </div>
         <div class="d-flex flex-wrap align-items-center ml-auto" style="gap: 6px;">
@@ -573,7 +573,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
             </div>
           <?php else : ?>
             <div class="text-center text-muted small py-2">
-              Belum ada data Dinas Luar berstatus Disetujui pada rentang tanggal yang dipilih.
+              Belum ada data Perjalanan Dinas berstatus Disetujui pada rentang tanggal yang dipilih.
             </div>
           <?php endif; ?>
         </div>
@@ -585,10 +585,10 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
       <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center py-2 px-3 mdl-card-header-flex" style="gap: 8px;">
         <div>
           <h5 class="mb-0 font-weight-bold" style="font-size: 0.98rem;">
-            Peringkat Dinas Luar Perorangan
+            Peringkat Perjalanan Dinas Perorangan
           </h5>
           <small class="text-muted" id="mdlSortSubtitle">
-            Diurutkan mulai nomor 1 berdasarkan <?= $sortMode === 'penghasilan' ? 'total penghasilan terbanyak' : 'frekuensi Dinas Luar terbanyak'; ?>.
+            Diurutkan mulai nomor 1 berdasarkan <?= $sortMode === 'penghasilan' ? 'total penghasilan terbanyak' : 'frekuensi Perjalanan Dinas terbanyak'; ?>.
           </small>
         </div>
         <div class="mdl-sort-pills ml-auto">
@@ -694,7 +694,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
     <div class="modal-content">
       <div class="modal-header bg-teal text-white py-2">
         <h5 class="modal-title" id="modalRiwayatDlLabel">
-          <i class="fas fa-route mr-1"></i> Riwayat Dinas Luar Pegawai
+          <i class="fas fa-route mr-1"></i> Riwayat Perjalanan Dinas Pegawai
         </h5>
         <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
@@ -1261,7 +1261,7 @@ $buildQueryUrl = static function (array $overrides) use ($startDate, $endDate, $
           search: 'Cari Pegawai / Tim:',
           lengthMenu: 'Tampilkan _MENU_',
           info: 'Menampilkan _START_ - _END_ dari _TOTAL_ pegawai',
-          infoEmpty: 'Tidak ada data Dinas Luar pada filter ini',
+          infoEmpty: 'Tidak ada data Perjalanan Dinas pada filter ini',
           zeroRecords: 'Tidak ditemukan data yang sesuai',
           paginate: {
             previous: 'Sebelumnya',
