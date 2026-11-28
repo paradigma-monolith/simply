@@ -20,7 +20,7 @@ $ppkNipLabel = \App\Libraries\SinadiSppdSrikandiHelper::formatNipLabel($first['p
   <meta charset="UTF-8">
   <style>
     @page {
-      margin: 22px 26px;
+      margin: 24px 34px;
     }
 
     * {
@@ -78,22 +78,26 @@ $ppkNipLabel = \App\Libraries\SinadiSppdSrikandiHelper::formatNipLabel($first['p
     .peserta-table th,
     .peserta-table td {
       border: 1px solid #000;
-      padding: 3px 4px;
-      font-size: 7pt;
       line-height: 1.25;
       word-wrap: break-word;
       overflow-wrap: break-word;
     }
 
-    .peserta-table th {
+    .peserta-table thead th {
+      padding: 4px 3px;
       text-align: center;
       vertical-align: middle;
       font-weight: bold;
       background-color: #f4f4f4;
-      font-size: 6.8pt;
+      font-size: 6.4pt;
+      word-wrap: normal;
+      overflow-wrap: normal;
     }
 
-    .peserta-table td {
+    .peserta-table tbody td {
+      padding: 3.5px 4px;
+      font-size: 7pt;
+      height: 24px;
       vertical-align: middle;
     }
 
@@ -135,11 +139,11 @@ $ppkNipLabel = \App\Libraries\SinadiSppdSrikandiHelper::formatNipLabel($first['p
     </tr>
   </table>
 
-  <table class="meta-table" style="width: 75%; margin-bottom: 6px;">
+  <table class="meta-table" style="width: 100%; margin-bottom: 6px;">
     <tr>
-      <td style="width: 28%;">Daftar Peserta Kegiatan</td>
-      <td style="width: 2%;">:</td>
-      <td style="width: 70%; font-weight: bold;"><?= esc(name_capitalize((string) ($first['nama_kegiatan'] ?? ''))); ?></td>
+      <td style="width: 165px;">Daftar Peserta Kegiatan</td>
+      <td style="width: 10px;">:</td>
+      <td style="font-weight: bold;"><?= esc(name_capitalize((string) ($first['nama_kegiatan'] ?? ''))); ?></td>
     </tr>
     <tr>
       <td>Tanggal Penyelenggaraan</td>
@@ -167,22 +171,22 @@ $ppkNipLabel = \App\Libraries\SinadiSppdSrikandiHelper::formatNipLabel($first['p
     <thead>
       <tr>
         <th rowspan="2" style="width: 3%;">NO</th>
-        <th rowspan="2" style="width: 14%;">NAMA</th>
-        <th rowspan="2" style="width: 6%;">PANGKAT/<br>GOL</th>
-        <th rowspan="2" style="width: 13%;">JABATAN</th>
-        <th rowspan="2" style="width: 8%;">TEMPAT KEDUDUKAN ASAL</th>
-        <th rowspan="2" style="width: 5%;">TINGKAT BIAYA<br>PERJADIN</th>
-        <th rowspan="2" style="width: 9%;">ALAT ANGKUT YG DIGUNAKAN</th>
-        <th colspan="2" style="width: 19%;">SURAT TUGAS</th>
-        <th colspan="2" style="width: 14%;">TANGGAL</th>
-        <th colspan="2" rowspan="2" style="width: 6%;">LAMANYA PERJALANAN DINAS</th>
-        <th rowspan="2" style="width: 3%;">KET</th>
+        <th rowspan="2" style="width: 16%;">NAMA</th>
+        <th rowspan="2" style="width: 5%;">PANGKAT/<br>GOL</th>
+        <th rowspan="2" style="width: 10.5%;">JABATAN</th>
+        <th rowspan="2" style="width: 7.5%;">TEMPAT<br>KEDUDUKAN ASAL</th>
+        <th rowspan="2" style="width: 5%;">TINGKAT<br>BIAYA<br>PERJADIN</th>
+        <th rowspan="2" style="width: 8%;">ALAT ANGKUT YG<br>DIGUNAKAN</th>
+        <th colspan="2" style="width: 21.5%;">SURAT TUGAS</th>
+        <th colspan="2" style="width: 16%;">TANGGAL</th>
+        <th colspan="2" rowspan="2" style="width: 5.5%;">LAMANYA<br>PERJALANAN<br>DINAS</th>
+        <th rowspan="2" style="width: 2%;">KET</th>
       </tr>
       <tr>
-        <th style="width: 12%;">NOMOR</th>
-        <th style="width: 7%;">TANGGAL</th>
-        <th style="width: 7%;">KEBERANGKATAN</th>
-        <th style="width: 7%;">KEMBALI</th>
+        <th style="width: 15%;">NOMOR</th>
+        <th style="width: 6.5%;">TANGGAL</th>
+        <th style="width: 9.5%;">KEBERANGKATAN</th>
+        <th style="width: 6.5%;">KEMBALI</th>
       </tr>
     </thead>
     <tbody>
@@ -202,25 +206,25 @@ $ppkNipLabel = \App\Libraries\SinadiSppdSrikandiHelper::formatNipLabel($first['p
         );
       ?>
         <tr>
-          <td class="center"><?= $idx + 1; ?></td>
-          <td>
+          <td class="center" style="width: 3%;"><?= $idx + 1; ?></td>
+          <td style="width: 16%;">
             <div><?= esc(name_capitalize((string) ($row['nama_pegawai'] ?? ''))); ?></div>
             <?php if ($nipRaw !== '' && $nipRaw !== '-') : ?>
-              <div style="font-size: 6.3pt; color: #333;">NIP. <?= esc($nipRaw); ?></div>
+              <div style="font-size: 6.2pt; color: #333;">NIP. <?= esc($nipRaw); ?></div>
             <?php endif; ?>
           </td>
-          <td class="center"><?= esc($gol); ?></td>
-          <td><?= esc($jabatan); ?></td>
-          <td class="center"><?= esc((string) ($row['kota_asal'] ?? '')); ?></td>
-          <td class="center">C</td>
-          <td class="center"><?= esc((string) ($row['transportasi'] ?? '')); ?></td>
-          <td class="center"><?= esc((string) ($row['no_surat_tugas'] ?? '')); ?></td>
-          <td class="center"><?= esc(\App\Libraries\SinadiSppdSrikandiHelper::formatDateIndoSafe($row['tgl_surat_tugas'] ?? '')); ?></td>
-          <td class="center"><?= esc(\App\Libraries\SinadiSppdSrikandiHelper::formatDateIndoSafe($row['tgl_pergi'] ?? '')); ?></td>
-          <td class="center"><?= esc(\App\Libraries\SinadiSppdSrikandiHelper::formatDateIndoSafe($row['tgl_pulang'] ?? '')); ?></td>
-          <td class="center" style="width: 3%;"><?= esc($durasi); ?></td>
+          <td class="center" style="width: 5%;"><?= esc($gol); ?></td>
+          <td style="width: 10.5%;"><?= esc($jabatan); ?></td>
+          <td class="center" style="width: 7.5%;"><?= esc((string) ($row['kota_asal'] ?? '')); ?></td>
+          <td class="center" style="width: 5%;">C</td>
+          <td class="center" style="width: 8%;"><?= esc((string) ($row['transportasi'] ?? '')); ?></td>
+          <td class="center" style="width: 15%;"><?= esc((string) ($row['no_surat_tugas'] ?? '')); ?></td>
+          <td class="center" style="width: 6.5%;"><?= esc(\App\Libraries\SinadiSppdSrikandiHelper::formatDateIndoSafe($row['tgl_surat_tugas'] ?? '')); ?></td>
+          <td class="center" style="width: 9.5%;"><?= esc(\App\Libraries\SinadiSppdSrikandiHelper::formatDateIndoSafe($row['tgl_pergi'] ?? '')); ?></td>
+          <td class="center" style="width: 6.5%;"><?= esc(\App\Libraries\SinadiSppdSrikandiHelper::formatDateIndoSafe($row['tgl_pulang'] ?? '')); ?></td>
+          <td class="center" style="width: 2.5%;"><?= esc($durasi); ?></td>
           <td class="center" style="width: 3%;">Hari</td>
-          <td></td>
+          <td style="width: 2%;"></td>
         </tr>
       <?php endforeach; ?>
     </tbody>
@@ -234,7 +238,7 @@ $ppkNipLabel = \App\Libraries\SinadiSppdSrikandiHelper::formatNipLabel($first['p
           <div>${tanggal_naskah}</div>
           <div>Pejabat Pembuat Komitmen</div>
           <div><?= esc($namaKantor); ?></div>
-          <div style="height: 64px; line-height: 64px; padding-left: 22px;">
+          <div style="height: 75px; line-height: 75px; padding-left: 22px;">
             ${ttd_pengirim1}
           </div>
           <div><strong><?= esc($ppkNama); ?></strong></div>

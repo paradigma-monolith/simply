@@ -131,6 +131,8 @@ final class SinadiSppdRekapTest extends TestCase
             ]),
         ];
 
+        $baselineCatatanY = null;
+
         foreach ($configs as $idx => $srikandi_config) {
             ob_start();
             include APPPATH . 'Views/sinadi/sppd_rekap_main.php';
@@ -141,7 +143,19 @@ final class SinadiSppdRekapTest extends TestCase
             $this->assertStringContainsString('${ttd_pengirim1}', $html);
             $this->assertStringContainsString('${ttd_pengirim2}', $html);
 
+            $catatanY = null;
             $dompdf = new Dompdf();
+            $dompdf->setCallbacks([
+                'measureCatatan' => [
+                    'event' => 'end_frame',
+                    'f' => static function ($frame) use (&$catatanY): void {
+                        if ($catatanY === null && strpos($frame->get_node()->textContent ?? '', 'CATATAN LAIN-LAIN') !== false && $frame->get_node()->nodeName === '#text') {
+                            $pos = $frame->get_position();
+                            $catatanY = (float) ($pos['y'] ?? 0.0);
+                        }
+                    },
+                ],
+            ]);
             $dompdf->loadHtml($html);
             $dompdf->setPaper([0, 0, 595, 935], 'portrait');
             $dompdf->render();
@@ -151,6 +165,18 @@ final class SinadiSppdRekapTest extends TestCase
                 $dompdf->getCanvas()->get_page_count(),
                 "SPPD Rekap main config #{$idx} expected 2 pages, got " . $dompdf->getCanvas()->get_page_count()
             );
+
+            $this->assertNotNull($catatanY, "CATATAN LAIN-LAIN frame should be measured on config #{$idx}");
+            if ($baselineCatatanY === null) {
+                $baselineCatatanY = $catatanY;
+            } else {
+                $this->assertEqualsWithDelta(
+                    $baselineCatatanY,
+                    $catatanY,
+                    0.5,
+                    "Page 2 table height shifted with 3 pejabat: baseline={$baselineCatatanY}, actual={$catatanY}"
+                );
+            }
         }
     }
 
@@ -175,6 +201,9 @@ final class SinadiSppdRekapTest extends TestCase
         include APPPATH . 'Views/sinadi/sppd_rekap_lampiran.php';
         $htmlLampiran = (string) ob_get_clean();
 
+        $this->assertStringContainsString('<table class="peserta-table">', $htmlLampiran);
+        $this->assertStringContainsString('style="width: 15%;">NOMOR</th>', $htmlLampiran);
+        $this->assertStringContainsString('style="width: 9.5%;">KEBERANGKATAN</th>', $htmlLampiran);
         $this->assertStringContainsString('dr. Nanang Lioncu, M.K.M', $htmlLampiran);
         $this->assertStringContainsString('Peserta Perjalanan 10', $htmlLampiran);
         $this->assertStringContainsString('${nomor_naskah}', $htmlLampiran);

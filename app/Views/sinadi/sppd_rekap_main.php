@@ -26,11 +26,12 @@ $stopRows = \App\Libraries\SinadiSppdSrikandiHelper::buildRekapBackPageStops($sr
       margin: 0;
       padding: 0;
       font-family: Arial, Helvetica, sans-serif;
-      font-size: 8pt;
+      font-size: 8.5pt;
     }
 
     body {
-      margin: 18px 36px 0 36px;
+      margin: 15px 40px 0 40px;
+      color: #000;
     }
 
     .center {
@@ -58,29 +59,37 @@ $stopRows = \App\Libraries\SinadiSppdSrikandiHelper::buildRekapBackPageStops($sr
       border-collapse: collapse;
     }
 
-    .spd-table td,
-    .spd-table th {
-      border: 1px solid #000;
-      padding: 5px 8px;
-      vertical-align: top;
-      font-size: 8.5pt;
-    }
-
-    .spd-table ol {
-      margin: 0;
-      padding-left: 15px;
-    }
-
-    .spd-table ol li {
-      font-size: 8.5pt;
-      margin-bottom: 1px;
-    }
-
     .unset-table td {
       border: none;
       padding: 1px 2px;
       font-size: 8pt;
       vertical-align: top;
+    }
+
+    .spd-table {
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: collapse;
+    }
+
+    .spd-table td,
+    .spd-table th {
+      border: 1px solid #000;
+      height: 36px;
+      padding: 6px 10px;
+      vertical-align: middle;
+      font-size: 8.5pt;
+      line-height: 1.3;
+    }
+
+    .spd-table ol {
+      margin: 0;
+      padding-left: 16px;
+    }
+
+    .spd-table ol li {
+      font-size: 8.5pt;
+      margin-bottom: 1px;
     }
 
     .rekap-back {
@@ -91,71 +100,67 @@ $stopRows = \App\Libraries\SinadiSppdSrikandiHelper::buildRekapBackPageStops($sr
 
     .rekap-back td {
       border: 1px solid #000;
-      padding: 3px 6px;
+      padding: 5px 10px;
       vertical-align: top;
-      font-size: 8pt;
+      font-size: 8.5pt;
       line-height: 1.25;
     }
 
     .stop-line {
-      height: 13px;
-      line-height: 13px;
+      height: 14px;
+      line-height: 14px;
       overflow: hidden;
       white-space: nowrap;
-      font-size: 8pt;
+      font-size: 8.5pt;
     }
 
     .stop-label {
       display: inline-block;
-      width: 88px;
-      margin-left: 18px;
+      width: 92px;
+      margin-left: 20px;
     }
 
     .stop-label-right {
       display: inline-block;
-      width: 88px;
+      width: 92px;
     }
 
     .roman-badge {
       position: absolute;
       font-weight: bold;
-      font-size: 8pt;
+      font-size: 8.5pt;
+    }
+
+    .stop-box {
+      height: 96px;
+      overflow: hidden;
     }
 
     .pejabat-box {
-      height: 88px;
+      height: 96px;
       overflow: hidden;
       text-align: center;
-      margin-top: 2px;
     }
 
     .pejabat-jabatan {
-      height: 18px;
-      line-height: 9px;
+      height: 20px;
+      line-height: 10px;
       overflow: hidden;
       font-weight: bold;
-      font-size: 7.5pt;
+      font-size: 7.8pt;
     }
 
     .pejabat-ttd {
-      height: 46px;
-      line-height: 46px;
-      font-size: 8pt;
+      height: 52px;
+      line-height: 52px;
+      font-size: 8.5pt;
     }
 
     .pejabat-identity {
-      height: 22px;
-      line-height: 11px;
+      height: 24px;
+      line-height: 12px;
       overflow: hidden;
-      font-size: 7.5pt;
-    }
-
-    .blank-stop-box {
-      height: 88px;
-    }
-
-    .row5-blank-box {
-      height: 62px;
+      font-size: 8pt;
     }
   </style>
 </head>
@@ -163,64 +168,67 @@ $stopRows = \App\Libraries\SinadiSppdSrikandiHelper::buildRekapBackPageStops($sr
 <body>
   <!-- HALAMAN 1: SURAT PERJALANAN DINAS (SPD) KOLEKTIF -->
   <div>
-    <div class="right uppercase" style="margin-top: 12px; margin-bottom: 12px; font-size: 8pt;">
+    <div class="right uppercase" style="margin-top: 22px; margin-bottom: 16px; margin-right: 10px; font-size: 7.5pt;">
       Lampiran 1
     </div>
 
     <table class="unset-table" style="margin-bottom: 10px;">
       <tr>
-        <td style="width: 55%; text-align: center;">
+        <td class="center" style="width: 52%;">
           <div class="uppercase" style="font-size: 8.5pt;">KEMENTERIAN KESEHATAN REPUBLIK INDONESIA</div>
           <?php if ((int) date('Y') >= 2025) : ?>
-            <div class="uppercase" style="font-size: 8.5pt;">DIREKTORAT JENDERAL PENANGGULANGAN PENYAKIT</div>
+            <div class="uppercase" style="font-size: 8.5pt;">DIREKTORAT JENDERAL</div>
+            <div class="uppercase" style="font-size: 8.5pt;">PENANGGULANGAN PENYAKIT</div>
           <?php else : ?>
-            <div class="uppercase" style="font-size: 8.5pt;">DIREKTORAT JENDERAL PENCEGAHAN DAN PENGENDALIAN PENYAKIT</div>
+            <div class="uppercase" style="font-size: 8.5pt;">DIREKTORAT JENDERAL PENCEGAHAN</div>
+            <div class="uppercase" style="font-size: 8.5pt;">DAN PENGENDALIAN PENYAKIT</div>
           <?php endif; ?>
-          <div class="uppercase" style="font-size: 8.5pt; width: 250px; margin: 0 auto;"><?= esc($namaKantor); ?></div>
+          <div class="uppercase" style="font-size: 8.5pt; width: 230px; margin: 0 auto;"><?= esc($namaKantor); ?></div>
         </td>
-        <td style="width: 45%; padding-left: 16px;">
+        <td style="width: 48%; padding-left: 24px;">
           <div style="font-size: 7pt;">Keputusan Menteri Keuangan Republik Indonesia</div>
           <div style="font-size: 7pt;"><?= (int) date('Y') >= 2024 ? 'Nomor 119 Tahun 2023' : 'Nomor 113/PMK.05/2012'; ?></div>
           <div style="font-size: 7pt;">Tentang Perjalanan dinas jabatan dalam negeri</div>
-          <div style="font-size: 7pt;">Bagi Pejabat Negara, Pegawai Negeri dan Pegawai Tidak Tetap</div>
+          <div style="font-size: 7pt;">Bagi Pejabat Negara Pegawai Negeri dan Pegawai</div>
+          <div style="font-size: 7pt;">Tidak Tetap</div>
         </td>
       </tr>
     </table>
 
-    <table class="unset-table" style="margin-bottom: 10px;">
+    <table class="unset-table" style="margin-bottom: 8px;">
       <tr>
-        <td style="width: 55%;">&nbsp;</td>
-        <td style="width: 45%; padding-left: 16px;">
+        <td style="width: 52%;">&nbsp;</td>
+        <td style="width: 48%; padding-left: 24px;">
           <table class="unset-table">
             <tr>
-              <td style="width: 72px; font-size: 8pt;">Lembar ke</td>
-              <td style="width: 10px; font-size: 8pt;">:</td>
-              <td></td>
+              <td style="width: 78px; font-size: 7.5pt;">Lembar ke</td>
+              <td style="width: 10px; font-size: 7.5pt;">:</td>
+              <td style="font-size: 7.5pt;"></td>
             </tr>
             <tr>
-              <td style="font-size: 8pt;">Kode No</td>
-              <td style="font-size: 8pt;">:</td>
-              <td></td>
+              <td style="font-size: 7.5pt;">Kode No</td>
+              <td style="font-size: 7.5pt;">:</td>
+              <td style="font-size: 7.5pt;"></td>
             </tr>
             <tr>
-              <td style="font-size: 8pt;">Nomor</td>
-              <td style="font-size: 8pt;">:</td>
-              <td style="font-size: 8pt;">${nomor_naskah}</td>
+              <td style="font-size: 7.5pt;">Nomor</td>
+              <td style="font-size: 7.5pt;">:</td>
+              <td style="font-size: 7.5pt;">${nomor_naskah}</td>
             </tr>
           </table>
         </td>
       </tr>
     </table>
 
-    <div class="uppercase center" style="margin-top: 8px; margin-bottom: 12px;">
-      <strong><u style="font-size: 9.5pt;">SURAT PERJALANAN DINAS (SPD)</u></strong>
+    <div class="uppercase center" style="margin-top: 10px; margin-bottom: 12px;">
+      <strong><u style="font-size: 8.5pt;">SURAT PERJALANAN DINAS (SPD)</u></strong>
     </div>
 
     <table class="spd-table">
       <tr>
-        <td class="center" style="width: 5%;">1.</td>
-        <td style="width: 46%;">Pejabat Pembuat Komitmen</td>
-        <td colspan="2" style="width: 49%;"><?= esc($ppkNama); ?></td>
+        <td class="center" style="width: 4%; height: 24px; padding: 4px 10px;">1.</td>
+        <td style="width: 48%; height: 24px; padding: 4px 10px;">Pejabat Pembuat Komitmen</td>
+        <td colspan="2" style="width: 48%; height: 24px; padding: 4px 10px;"><?= esc($ppkNama); ?></td>
       </tr>
       <tr>
         <td class="center">2.</td>
@@ -293,30 +301,31 @@ $stopRows = \App\Libraries\SinadiSppdSrikandiHelper::buildRekapBackPageStops($sr
         </td>
       </tr>
       <tr>
-        <td class="center" style="padding: 4px 8px;">8.</td>
-        <td style="padding: 4px 8px;">
+        <td class="center" style="height: auto; padding: 4px 10px;">8.</td>
+        <td style="height: auto; padding: 4px 10px;">
           <span style="display: inline-block; width: 70px;">Pengikut</span>
           <span>Nama</span>
         </td>
-        <td class="center" style="width: 17%; padding: 4px 6px;">Tanggal Lahir</td>
-        <td style="width: 32%; padding: 4px 8px;">Keterangan</td>
+        <td class="center" style="width: 15%; height: auto; padding: 4px 10px;">Tanggal Lahir</td>
+        <td style="width: 33%; height: auto; padding: 4px 10px;">Keterangan</td>
       </tr>
       <tr>
-        <td>&nbsp;</td>
-        <td style="padding-top: 4px; padding-bottom: 6px;">
+        <td style="height: auto; padding: 4px 10px;">&nbsp;</td>
+        <td style="height: auto; padding: 4px 10px 8px 10px; vertical-align: top;">
           <div>1.</div>
           <div>2.</div>
           <div>3.</div>
           <div>4.</div>
+          <div>5.</div>
         </td>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
+        <td style="height: auto; padding: 4px 10px;">&nbsp;</td>
+        <td style="height: auto; padding: 4px 10px;">&nbsp;</td>
       </tr>
       <tr>
         <td class="center">9.</td>
         <td>
           <div>Pembebanan Anggaran</div>
-          <ol type="a" style="padding-left: 24px;">
+          <ol type="a">
             <li>Instansi</li>
             <li>Akun</li>
           </ol>
@@ -336,11 +345,11 @@ $stopRows = \App\Libraries\SinadiSppdSrikandiHelper::buildRekapBackPageStops($sr
       </tr>
     </table>
 
-    <table class="unset-table" style="margin-top: 16px;">
+    <table class="unset-table" style="margin-top: 14px;">
       <tr>
-        <td style="width: 56%;">&nbsp;</td>
+        <td style="width: 60%;">&nbsp;</td>
         <td style="width: 15%; font-size: 8.5pt;">Dikeluarkan di</td>
-        <td style="width: 29%; font-size: 8.5pt;">: Bandung</td>
+        <td style="width: 25%; font-size: 8.5pt;">: Bandung</td>
       </tr>
       <tr>
         <td>&nbsp;</td>
@@ -349,11 +358,11 @@ $stopRows = \App\Libraries\SinadiSppdSrikandiHelper::buildRekapBackPageStops($sr
       </tr>
       <tr>
         <td>&nbsp;</td>
-        <td colspan="2" style="padding-top: 5px; font-size: 8.5pt;">Pejabat Pembuat Komitmen</td>
+        <td colspan="2" style="padding-top: 4px; font-size: 8.5pt;">Pejabat Pembuat Komitmen</td>
       </tr>
       <tr>
         <td>&nbsp;</td>
-        <td colspan="2" style="height: 82px; vertical-align: middle; padding-left: 24px; font-size: 8.5pt;">
+        <td colspan="2" style="height: 105px; vertical-align: middle; padding-left: 24px; font-size: 8.5pt;">
           ${ttd_pengirim1}
         </td>
       </tr>
@@ -370,22 +379,22 @@ $stopRows = \App\Libraries\SinadiSppdSrikandiHelper::buildRekapBackPageStops($sr
   <div class="page-break"></div>
 
   <!-- HALAMAN 2: HALAMAN BELAKANG / VISUM KOLEKTIF -->
-  <div style="margin-top: 18px;">
+  <div style="margin-top: 25px;">
     <table class="rekap-back">
       <!-- BARIS I -->
       <tr>
         <td style="width: 50%;">&nbsp;</td>
         <td style="width: 50%;">
           <div class="stop-line"><span class="stop-label-right">Berangkat dari</span><span>: Terlampir</span></div>
-          <div style="font-size: 7.5pt; margin-bottom: 1px;">(Tempat kedudukan)</div>
+          <div class="stop-line">(Tempat kedudukan)</div>
           <div class="stop-line"><span class="stop-label-right">Pada Tanggal</span><span>: Terlampir</span></div>
           <div class="stop-line"><span class="stop-label-right">Ke</span><span>: Terlampir</span></div>
-          <div style="margin-top: 3px; font-size: 8pt;">Kepala <?= esc($namaKantor); ?></div>
-          <div style="height: 54px; line-height: 54px; padding-left: 24px; font-size: 8pt;">
+          <div style="margin-top: 3px; font-size: 8.5pt;">Kepala <?= esc($namaKantor); ?></div>
+          <div style="height: 68px; line-height: 68px; padding-left: 26px; font-size: 8.5pt;">
             ${ttd_pengirim2}
           </div>
-          <div style="font-size: 8pt;"><strong><?= esc($kepalaNama); ?></strong></div>
-          <div style="font-size: 8pt;"><strong><?= esc($kepalaNipLabel); ?></strong></div>
+          <div style="font-size: 8.5pt;"><strong><?= esc($kepalaNama); ?></strong></div>
+          <div style="font-size: 8.5pt;"><strong><?= esc($kepalaNipLabel); ?></strong></div>
         </td>
       </tr>
 
@@ -394,7 +403,7 @@ $stopRows = \App\Libraries\SinadiSppdSrikandiHelper::buildRekapBackPageStops($sr
         $pejabat = $stop['pejabat'];
       ?>
         <tr>
-          <td style="width: 50%;">
+          <td>
             <div class="stop-line">
               <span class="roman-badge"><?= esc($stop['roman']); ?></span>
               <span class="stop-label">Tiba di</span>
@@ -404,24 +413,29 @@ $stopRows = \App\Libraries\SinadiSppdSrikandiHelper::buildRekapBackPageStops($sr
               <span class="stop-label">Pada tanggal</span>
               <span>: <?= esc($stop['tgl_tiba_label']); ?></span>
             </div>
-            <?php if ($pejabat !== null) : ?>
-              <div class="pejabat-box">
-                <div class="pejabat-jabatan"><?= esc($pejabat['jabatan']); ?></div>
-                <div class="pejabat-ttd"><?= $pejabat['placeholder']; ?></div>
-                <div class="pejabat-identity">
-                  <div><strong><u><?= esc($pejabat['nama']); ?></u></strong></div>
-                  <div><?= $pejabat['nip'] !== '' ? esc(\App\Libraries\SinadiSppdSrikandiHelper::formatNipLabel($pejabat['nip'])) : '&nbsp;'; ?></div>
+            <div class="stop-line">
+              <?php if ($pejabat === null && $stop['roman'] === 'IV') : ?>
+                <span class="stop-label">Kepala</span><span>:</span>
+              <?php else : ?>
+                &nbsp;
+              <?php endif; ?>
+            </div>
+            <div class="stop-box">
+              <?php if ($pejabat !== null) : ?>
+                <div class="pejabat-box">
+                  <div class="pejabat-jabatan"><?= esc($pejabat['jabatan']); ?></div>
+                  <div class="pejabat-ttd"><?= $pejabat['placeholder']; ?></div>
+                  <div class="pejabat-identity">
+                    <div><strong><u><?= esc($pejabat['nama']); ?></u></strong></div>
+                    <div><?= $pejabat['nip'] !== '' ? esc(\App\Libraries\SinadiSppdSrikandiHelper::formatNipLabel($pejabat['nip'])) : '&nbsp;'; ?></div>
+                  </div>
                 </div>
-              </div>
-            <?php else : ?>
-              <div class="blank-stop-box">
-                <?php if ($stop['roman'] === 'IV') : ?>
-                  <div class="stop-line"><span class="stop-label">Kepala</span><span>:</span></div>
-                <?php endif; ?>
-              </div>
-            <?php endif; ?>
+              <?php else : ?>
+                &nbsp;
+              <?php endif; ?>
+            </div>
           </td>
-          <td style="width: 50%;">
+          <td>
             <div class="stop-line">
               <span class="stop-label-right">Berangkat dari</span>
               <span>: <?= esc($stop['berangkat_dari']); ?></span>
@@ -434,29 +448,29 @@ $stopRows = \App\Libraries\SinadiSppdSrikandiHelper::buildRekapBackPageStops($sr
               <span class="stop-label-right">Pada Tanggal</span>
               <span>: <?= esc($stop['tgl_berangkat_label']); ?></span>
             </div>
-            <?php if ($pejabat !== null) : ?>
-              <div class="pejabat-box" style="margin-top: -11px;">
-                <div class="pejabat-jabatan"><?= esc($pejabat['jabatan']); ?></div>
-                <div class="pejabat-ttd"><?= $pejabat['placeholder']; ?></div>
-                <div class="pejabat-identity">
-                  <div><strong><u><?= esc($pejabat['nama']); ?></u></strong></div>
-                  <div><?= $pejabat['nip'] !== '' ? esc(\App\Libraries\SinadiSppdSrikandiHelper::formatNipLabel($pejabat['nip'])) : '&nbsp;'; ?></div>
+            <div class="stop-box">
+              <?php if ($pejabat !== null) : ?>
+                <div class="pejabat-box">
+                  <div class="pejabat-jabatan"><?= esc($pejabat['jabatan']); ?></div>
+                  <div class="pejabat-ttd"><?= $pejabat['placeholder']; ?></div>
+                  <div class="pejabat-identity">
+                    <div><strong><u><?= esc($pejabat['nama']); ?></u></strong></div>
+                    <div><?= $pejabat['nip'] !== '' ? esc(\App\Libraries\SinadiSppdSrikandiHelper::formatNipLabel($pejabat['nip'])) : '&nbsp;'; ?></div>
+                  </div>
                 </div>
-              </div>
-            <?php else : ?>
-              <div class="blank-stop-box" style="margin-top: -11px;">
-                <?php if ($stop['roman'] === 'IV') : ?>
-                  <div class="stop-line" style="margin-top: 13px;"><span class="stop-label-right">Kepala</span><span>:</span></div>
-                <?php endif; ?>
-              </div>
-            <?php endif; ?>
+              <?php elseif ($stop['roman'] === 'IV') : ?>
+                <div class="stop-line"><span class="stop-label-right">Kepala</span><span>:</span></div>
+              <?php else : ?>
+                &nbsp;
+              <?php endif; ?>
+            </div>
           </td>
         </tr>
       <?php endforeach; ?>
 
       <!-- BARIS V -->
       <tr>
-        <td style="width: 50%;">
+        <td>
           <div class="stop-line">
             <span class="roman-badge">V</span>
             <span class="stop-label">Tiba di</span>
@@ -464,20 +478,21 @@ $stopRows = \App\Libraries\SinadiSppdSrikandiHelper::buildRekapBackPageStops($sr
           </div>
           <div class="stop-line"><span class="stop-label">Pada tanggal</span><span>:</span></div>
           <div class="stop-line"><span class="stop-label">Kepala</span><span>:</span></div>
-          <div class="row5-blank-box">&nbsp;</div>
+          <div class="stop-box">&nbsp;</div>
         </td>
-        <td style="width: 50%;">
+        <td>
           <div class="stop-line"><span class="stop-label-right">Berangkat dari</span><span>:</span></div>
           <div class="stop-line"><span class="stop-label-right">Ke</span><span>:</span></div>
           <div class="stop-line"><span class="stop-label-right">Pada Tanggal</span><span>:</span></div>
-          <div class="stop-line"><span class="stop-label-right">Kepala</span><span>:</span></div>
-          <div class="row5-blank-box" style="height: 49px;">&nbsp;</div>
+          <div class="stop-box">
+            <div class="stop-line"><span class="stop-label-right">Kepala</span><span>:</span></div>
+          </div>
         </td>
       </tr>
 
       <!-- BARIS VI -->
       <tr>
-        <td style="width: 50%;">
+        <td>
           <div class="stop-line">
             <span class="roman-badge">VI</span>
             <span class="stop-label">Tiba di</span>
@@ -487,39 +502,39 @@ $stopRows = \App\Libraries\SinadiSppdSrikandiHelper::buildRekapBackPageStops($sr
             <span class="stop-label">Pada tanggal</span>
             <span>: Terlampir</span>
           </div>
-          <div style="margin-left: 18px; margin-top: 4px; font-size: 8pt;">Pejabat Pembuat Komitmen</div>
-          <div style="height: 50px; line-height: 50px; margin-left: 18px; padding-left: 20px; font-size: 8pt;">
+          <div style="margin-left: 20px; margin-top: 6px; font-size: 8.5pt;">Pejabat Pembuat Komitmen</div>
+          <div style="height: 66px; line-height: 66px; margin-left: 20px; padding-left: 22px; font-size: 8.5pt;">
             ${ttd_pengirim1}
           </div>
-          <div style="margin-left: 18px; font-size: 8pt;"><strong><?= esc($ppkNama); ?></strong></div>
-          <div style="margin-left: 18px; font-size: 8pt;"><strong><?= esc($ppkNipLabel); ?></strong></div>
+          <div style="margin-left: 20px; font-size: 8.5pt;"><strong><?= esc($ppkNama); ?></strong></div>
+          <div style="margin-left: 20px; font-size: 8.5pt;"><strong><?= esc($ppkNipLabel); ?></strong></div>
         </td>
-        <td style="width: 50%;">
-          <div style="font-size: 7.5pt; line-height: 1.25;">
+        <td>
+          <div style="font-size: 8pt; line-height: 1.25;">
             Telah diperiksa dengan keterangan bahwa perjalanan tersebut di atas benar dilakukan atas perintahnya dan semata-mata untuk kepentingan jabatan dalam waktu yang sesingkat-singkatnya
           </div>
-          <div style="margin-top: 4px; font-size: 8pt;">Pejabat Pembuat Komitmen</div>
-          <div style="height: 44px; line-height: 44px; padding-left: 20px; font-size: 8pt;">
+          <div style="margin-top: 4px; font-size: 8.5pt;">Pejabat Pembuat Komitmen</div>
+          <div style="height: 60px; line-height: 60px; padding-left: 22px; font-size: 8.5pt;">
             ${ttd_pengirim1}
           </div>
-          <div style="font-size: 8pt;"><strong><?= esc($ppkNama); ?></strong></div>
-          <div style="font-size: 8pt;"><strong><?= esc($ppkNipLabel); ?></strong></div>
+          <div style="font-size: 8.5pt;"><strong><?= esc($ppkNama); ?></strong></div>
+          <div style="font-size: 8.5pt;"><strong><?= esc($ppkNipLabel); ?></strong></div>
         </td>
       </tr>
 
       <!-- BARIS VII -->
       <tr>
-        <td colspan="2" style="padding: 4px 6px;">
+        <td colspan="2" style="padding: 4px 10px;">
           <span class="roman-badge">VII</span>
-          <span style="margin-left: 18px; font-weight: bold;">CATATAN LAIN-LAIN</span>
+          <span style="margin-left: 20px; font-weight: bold;">CATATAN LAIN-LAIN</span>
         </td>
       </tr>
 
       <!-- BARIS VIII -->
       <tr>
-        <td colspan="2" style="border: none; padding: 4px 6px 0 6px;">
+        <td colspan="2" style="border: none; padding: 5px 10px 0 10px;">
           <div style="font-weight: bold; text-decoration: underline; margin-bottom: 2px;">VIII. PERHATIAN</div>
-          <div style="padding-left: 14px; font-size: 7.5pt; line-height: 1.25;">
+          <div style="padding-left: 14px; font-size: 8pt; line-height: 1.25;">
             PPK yang menerbitkan SPD, pegawai yang melakukan perjalanan dinas, para pejabat yang mengesahkan tanggal berangkat / tiba, serta bendahara pengeluaran bertanggung jawab berdasarkan peraturan - peraturan Keuangan Negara apabila negara menderita rugi akibat kesalahan, kelalaian, dan kealpaannya.
           </div>
         </td>
