@@ -477,6 +477,8 @@
     <div class="absen-type-container">
       <div class="absen-selector-group">
         <?php
+        /** @var string $nip */
+        $nip = $nip ?? '';
         $showWfo = !isset($absenSetting['show_wfo']) || $absenSetting['show_wfo'];
         $showWfa = !isset($absenSetting['show_wfa']) || $absenSetting['show_wfa'];
         $showDl = !isset($absenSetting['show_dl']) || $absenSetting['show_dl'];

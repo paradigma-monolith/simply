@@ -1,5 +1,17 @@
 <?= $this->extend('layouts/adminLTE-3.2.0'); ?>
 <?= $this->section('content'); ?>
+<?php
+/**
+ * @var string $activeMenu
+ * @var array $getData
+ * @var array $getPeserta
+ * @var array $getDataVerifikator
+ */
+$activeMenu = $activeMenu ?? '';
+$getData = $getData ?? [];
+$getPeserta = $getPeserta ?? [];
+$getDataVerifikator = $getDataVerifikator ?? [];
+?>
 <!-- Main content -->
 <style>
   .floating-submit-btn {

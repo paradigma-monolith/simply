@@ -427,21 +427,28 @@ class Ajax extends BaseController
               'data' => 'sukses'
             ];
             if ($cek) {
-              for ($i = 0; $i < count($this->request->getVar("data_asal")); $i++) {
-                $pembaharuanData['id_abs_bangunan'] = $this->request->getVar("id_abs");
-                $pembaharuanData['updated_by'] = $cek['id_user'];
-                if ($i == 0) {
-                  $id_unit_kerja = $this->request->getVar("data_tujuan")[$i];
-                  $pembaharuanData['id_unit_kerja'] = $id_unit_kerja;
-                } elseif ($i == 1) {
-                  $id_abs_lantai = $this->request->getVar("data_tujuan")[$i];
-                  $pembaharuanData['id_abs_lantai'] = $id_abs_lantai;
-                } elseif ($i == 2) {
-                  $id_abs_ruang = $this->request->getVar("data_tujuan")[$i];
-                  $pembaharuanData['id_abs_ruang'] = $id_abs_ruang;
+              $pembaharuanData = [];
+              $dataAsalList = $this->request->getVar("data_asal");
+              $dataTujuanList = $this->request->getVar("data_tujuan");
+              if (is_array($dataAsalList)) {
+                for ($i = 0; $i < count($dataAsalList); $i++) {
+                  $pembaharuanData['id_abs_bangunan'] = $this->request->getVar("id_abs");
+                  $pembaharuanData['updated_by'] = $cek['id_user'];
+                  if ($i == 0) {
+                    $id_unit_kerja = $dataTujuanList[$i] ?? null;
+                    $pembaharuanData['id_unit_kerja'] = $id_unit_kerja;
+                  } elseif ($i == 1) {
+                    $id_abs_lantai = $dataTujuanList[$i] ?? null;
+                    $pembaharuanData['id_abs_lantai'] = $id_abs_lantai;
+                  } elseif ($i == 2) {
+                    $id_abs_ruang = $dataTujuanList[$i] ?? null;
+                    $pembaharuanData['id_abs_ruang'] = $id_abs_ruang;
+                  }
                 }
               }
-              $this->absLokasiModel->save($pembaharuanData);
+              if (!empty($pembaharuanData)) {
+                $this->absLokasiModel->save($pembaharuanData);
+              }
             }
           }
         } else {
@@ -465,9 +472,10 @@ class Ajax extends BaseController
       $msg = [];
       if ($cek) {
         $base64_string = $keterangan;
+        $filepath = null;
 
         // Extract base64 images
-        preg_match_all('/data:image\/(.*?);base64,(.*?)"/', $base64_string, $matches, PREG_SET_ORDER);
+        preg_match_all('/data:image\/(.*?);base64,(.*?)"/', (string) $base64_string, $matches, PREG_SET_ORDER);
 
         foreach ($matches as $match) {
           $image_extension = $match[1]; // Get the image extension

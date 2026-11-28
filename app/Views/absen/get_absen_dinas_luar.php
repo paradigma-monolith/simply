@@ -20,6 +20,8 @@
   </thead>
   <tbody class="addDataAbsenHarian">
     <?php
+    /** @var array $absen */
+    $absen = $absen ?? [];
     $nomor = 1;
     $canEditDel = !empty($isAdmin) || !empty($aksesEditDel);
     foreach ($absen as $data) :

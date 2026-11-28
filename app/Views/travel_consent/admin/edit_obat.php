@@ -1,3 +1,7 @@
+<?php
+/** @var array $obat */
+$obat = $obat ?? [];
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -69,7 +73,7 @@
         <div class="alert alert-success"><?= session()->getFlashdata('success') ?></div>
     <?php endif; ?>
 
-    <form action="/travelconsent/update_obat/<?= $obat['id'] ?>" method="post" enctype="multipart/form-data">
+    <form action="/travelconsent/update_obat/<?= $obat['id'] ?? '' ?>" method="post" enctype="multipart/form-data">
         <div class="row mb-3">
             <div class="col-md-8 offset-md-2">
                 <table class="table table-sm table-borderless table-meta mb-0">
