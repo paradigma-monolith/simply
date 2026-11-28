@@ -12,8 +12,197 @@ use DateTimeImmutable;
 class SinadiSppdSrikandiHelper
 {
     public const MAX_PEJABAT_ROWS = 3;
+    public const MIN_REKAP_PESERTA = 10;
     private const BACK_PAGE_STOP_SLOTS = 3;
     private const ROMAN_NUMERALS = ['II', 'III', 'IV'];
+
+    public static function isRekapEligible(int $pesertaCount): bool
+    {
+        return $pesertaCount >= self::MIN_REKAP_PESERTA;
+    }
+
+    public static function formatDateIndoSafe(?string $ymd): string
+    {
+        $raw = trim((string) $ymd);
+        if ($raw === '' || strpos($raw, '0000-00-00') === 0) {
+            return '';
+        }
+
+        $dateOnly = self::sanitizeYmdDate(substr($raw, 0, 10));
+        if ($dateOnly === '') {
+            return '';
+        }
+
+        if (!function_exists('mediumdate_indo')) {
+            helper('tanggal');
+        }
+
+        return mediumdate_indo($dateOnly);
+    }
+
+    public static function computeDurationDays(?string $tglPergi, ?string $tglPulang): string
+    {
+        $startYmd = self::sanitizeYmdDate(substr(trim((string) $tglPergi), 0, 10));
+        $endYmd = self::sanitizeYmdDate(substr(trim((string) $tglPulang), 0, 10));
+        if ($startYmd === '' || $endYmd === '') {
+            return '';
+        }
+
+        $start = new DateTimeImmutable($startYmd);
+        $end = new DateTimeImmutable($endYmd);
+        if ($end < $start) {
+            return '1';
+        }
+
+        return (string) ((int) $start->diff($end)->days + 1);
+    }
+
+    public static function formatNipLabel(?string $nip): string
+    {
+        $trimmed = trim((string) $nip);
+        if ($trimmed === '' || $trimmed === '-') {
+            return '';
+        }
+
+        if (stripos($trimmed, 'nip') === 0) {
+            return $trimmed;
+        }
+
+        return 'NIP. ' . $trimmed;
+    }
+
+    /**
+     * Memformat rentang tanggal penyelenggaraan untuk header Lampiran IV.
+     *
+     * @param array<int, array<string, mixed>> $perjalanan
+     */
+    public static function formatTanggalPenyelenggaraan(array $perjalanan): string
+    {
+        $first = $perjalanan[0] ?? [];
+        $start = self::sanitizeYmdDate(substr(trim((string) ($first['tgl_pelaksanaan'] ?? '')), 0, 10));
+        $end = self::sanitizeYmdDate(substr(trim((string) ($first['tgl_pelaksanaan_akhir'] ?? '')), 0, 10));
+
+        if ($start === '' || $end === '') {
+            $minStart = '';
+            $maxEnd = '';
+            foreach ($perjalanan as $row) {
+                $pStart = self::sanitizeYmdDate(substr(trim((string) ($row['tgl_pergi'] ?? '')), 0, 10));
+                $pEnd = self::sanitizeYmdDate(substr(trim((string) ($row['tgl_pulang'] ?? '')), 0, 10));
+                if ($pStart !== '' && ($minStart === '' || $pStart < $minStart)) {
+                    $minStart = $pStart;
+                }
+                if ($pEnd !== '' && ($maxEnd === '' || $pEnd > $maxEnd)) {
+                    $maxEnd = $pEnd;
+                }
+            }
+            if ($start === '') {
+                $start = $minStart;
+            }
+            if ($end === '') {
+                $end = $maxEnd;
+            }
+        }
+
+        if ($start === '' && $end === '') {
+            return '';
+        }
+        if ($start === '') {
+            $start = $end;
+        }
+        if ($end === '' || $end === $start) {
+            return self::formatDateIndoSafe($start);
+        }
+
+        return self::formatDateIndoSafe($start) . ' s.d. ' . self::formatDateIndoSafe($end);
+    }
+
+    /**
+     * Menyusun baris II–IV halaman Visum SPPD Rekap dengan default "Terlampir" pada baris II
+     * dan tetap mendukung pejabat tujuan Srikandi (${ttd_pengirim3}..${ttd_pengirim5}).
+     *
+     * @param array<string, mixed> $srikandiConfig
+     * @return array<int, array<string, mixed>>
+     */
+    public static function buildRekapBackPageStops(array $srikandiConfig = []): array
+    {
+        $rows = is_array($srikandiConfig['rows'] ?? null) ? $srikandiConfig['rows'] : [];
+        $modeTanggal = ($srikandiConfig['mode_tanggal'] ?? 'auto') === 'manual' ? 'manual' : 'auto';
+
+        $stops = [];
+        for ($i = 0; $i < self::BACK_PAGE_STOP_SLOTS; $i++) {
+            $roman = self::ROMAN_NUMERALS[$i];
+            $row = is_array($rows[$i] ?? null) ? $rows[$i] : [];
+
+            $lokasi = trim((string) ($row['lokasi'] ?? ''));
+            $jabatan = trim((string) ($row['jabatan'] ?? ''));
+            $nama = trim((string) ($row['nama'] ?? ''));
+            $nip = trim((string) ($row['nip'] ?? ''));
+            $tglTibaRaw = trim((string) ($row['tgl_tiba'] ?? ''));
+            $tglBerangkatRaw = trim((string) ($row['tgl_berangkat'] ?? ''));
+
+            $hasPejabat = ($jabatan !== '' || $nama !== '');
+            $hasManualDates = ($modeTanggal === 'manual' && ($tglTibaRaw !== '' || $tglBerangkatRaw !== ''));
+            $hasContent = ($lokasi !== '' || $hasPejabat || $hasManualDates);
+
+            if ($i > 0 && !$hasContent) {
+                $stops[] = [
+                    'active'              => false,
+                    'roman'               => $roman,
+                    'tiba_di'             => '',
+                    'tgl_tiba_label'      => '',
+                    'berangkat_dari'      => '',
+                    'ke'                  => '',
+                    'tgl_berangkat_label' => '',
+                    'pejabat'             => null,
+                ];
+                continue;
+            }
+
+            $nextLokasi = '';
+            if ($i + 1 < self::MAX_PEJABAT_ROWS) {
+                $nextLokasi = trim((string) ($rows[$i + 1]['lokasi'] ?? ''));
+            }
+
+            $tibaLabel = 'Terlampir';
+            $berangkatLabel = 'Terlampir';
+            if ($modeTanggal === 'manual') {
+                $formattedTiba = self::formatDateIndoSafe($tglTibaRaw);
+                $formattedBerangkat = self::formatDateIndoSafe($tglBerangkatRaw);
+                if ($formattedTiba !== '') {
+                    $tibaLabel = $formattedTiba;
+                }
+                if ($formattedBerangkat !== '') {
+                    $berangkatLabel = $formattedBerangkat;
+                }
+            }
+
+            $pejabat = null;
+            if ($hasPejabat) {
+                $pejabat = [
+                    'jabatan'     => $jabatan,
+                    'nama'        => $nama,
+                    'nip'         => $nip,
+                    'placeholder' => '${ttd_pengirim' . ($i + 3) . '}',
+                ];
+            }
+
+            $locLabel = $lokasi !== '' ? $lokasi : 'Terlampir';
+            $keLabel = $nextLokasi !== '' ? $nextLokasi : 'Terlampir';
+
+            $stops[] = [
+                'active'              => true,
+                'roman'               => $roman,
+                'tiba_di'             => $locLabel,
+                'tgl_tiba_label'      => $tibaLabel,
+                'berangkat_dari'      => $locLabel,
+                'ke'                  => $keLabel,
+                'tgl_berangkat_label' => $berangkatLabel,
+                'pejabat'             => $pejabat,
+            ];
+        }
+
+        return $stops;
+    }
 
     /**
      * Mem-parsing input query string SPPD Srikandi menjadi konfigurasi terstruktur.

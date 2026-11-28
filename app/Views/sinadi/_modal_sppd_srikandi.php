@@ -15,6 +15,9 @@ if (empty($pegawaiOptions)) {
         $pegawaiOptions = [];
     }
 }
+$pesertaCount = is_array($getPeserta ?? null) ? count($getPeserta) : 0;
+$minRekapPeserta = \App\Libraries\SinadiSppdSrikandiHelper::MIN_REKAP_PESERTA;
+$canDownloadRekap = \App\Libraries\SinadiSppdSrikandiHelper::isRekapEligible($pesertaCount);
 ?>
 <!-- Modal SPPD Srikandi -->
 <style>
@@ -92,11 +95,22 @@ if (empty($pegawaiOptions)) {
                     </div>
                   </div>
                 </div>
-                <?php if ($srikandiMeta['tgl_pergi'] !== '' && $srikandiMeta['tgl_pulang'] !== '') : ?>
-                  <span class="badge badge-light border px-2 py-1" style="font-size: 12px;">
-                    Jadwal: <?= esc($srikandiMeta['tgl_pergi']); ?> s.d. <?= esc($srikandiMeta['tgl_pulang']); ?>
-                  </span>
-                <?php endif; ?>
+                <div class="d-flex flex-wrap align-items-center" style="gap: 6px;">
+                  <?php if ($srikandiMeta['tgl_pergi'] !== '' && $srikandiMeta['tgl_pulang'] !== '') : ?>
+                    <span class="badge badge-light border px-2 py-1" style="font-size: 12px;">
+                      Jadwal: <?= esc($srikandiMeta['tgl_pergi']); ?> s.d. <?= esc($srikandiMeta['tgl_pulang']); ?>
+                    </span>
+                  <?php endif; ?>
+                  <?php if ($canDownloadRekap) : ?>
+                    <span class="badge badge-primary px-2 py-1" style="font-size: 12px;">
+                      Peserta: <?= $pesertaCount; ?> orang &bull; SPPD Rekap Aktif
+                    </span>
+                  <?php else : ?>
+                    <span class="badge badge-secondary px-2 py-1" style="font-size: 12px;">
+                      Peserta: <?= $pesertaCount; ?> orang (SPPD Rekap min. <?= $minRekapPeserta; ?> orang)
+                    </span>
+                  <?php endif; ?>
+                </div>
               </div>
             </div>
           </div>
@@ -110,8 +124,17 @@ if (empty($pegawaiOptions)) {
           </button>
           <small class="text-muted" id="srikandiRowCounterInfo">1 dari 3 baris aktif (Baris II–IV)</small>
         </div>
-        <div class="d-flex align-items-center" style="gap: 8px;">
+        <div class="d-flex align-items-center flex-wrap" style="gap: 8px;">
           <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+          <button
+            type="button"
+            id="btnDownloadSppdRekap"
+            class="btn <?= $canDownloadRekap ? 'btn-primary' : 'btn-outline-secondary'; ?>"
+            <?= $canDownloadRekap ? 'onclick="cetakSppdRekap()"' : 'disabled aria-disabled="true"'; ?>
+            title="<?= $canDownloadRekap ? 'Download SPPD Rekap kolektif beserta Lampiran IV' : 'Aktif jika peserta minimal ' . $minRekapPeserta . ' orang (saat ini: ' . $pesertaCount . ' orang)'; ?>"
+          >
+            <i class="fas fa-file-pdf mr-1"></i>Download SPPD Rekap
+          </button>
           <button type="button" class="btn btn-success" onclick="cetakSppdSrikandi()">Cetak SPPD Srikandi</button>
         </div>
       </div>
@@ -442,8 +465,9 @@ if (empty($pegawaiOptions)) {
     });
   });
 
-  window.cetakSppdSrikandi = function() {
-    var id = $('#id_perjalanan_srikandi').val();
+  var CAN_DOWNLOAD_REKAP = <?= $canDownloadRekap ? 'true' : 'false'; ?>;
+
+  function buildSrikandiParams() {
     var mode = getDateMode();
     var $rows = $('#srikandiPejabatContainer .srikandi-pejabat-row');
     var params = new URLSearchParams();
@@ -472,7 +496,24 @@ if (empty($pegawaiOptions)) {
       }
     });
 
+    return params;
+  }
+
+  window.cetakSppdSrikandi = function() {
+    var id = $('#id_perjalanan_srikandi').val();
+    var params = buildSrikandiParams();
     var url = '<?= base_url('sinadi/sppd') ?>/' + encodeURIComponent(id) + '/borang?' + params.toString();
+    window.open(url, '_blank');
+    $('#modalSppdSrikandi').modal('hide');
+  };
+
+  window.cetakSppdRekap = function() {
+    if (!CAN_DOWNLOAD_REKAP) {
+      return;
+    }
+    var id = $('#id_perjalanan_srikandi').val();
+    var params = buildSrikandiParams();
+    var url = '<?= base_url('sinadi/sppd') ?>/' + encodeURIComponent(id) + '/borang-rekap?' + params.toString();
     window.open(url, '_blank');
     $('#modalSppdSrikandi').modal('hide');
   };

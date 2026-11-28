@@ -1087,7 +1087,11 @@ class Pdf extends BaseController
       ->join('sinadi_setting', 'sinadi_perjalanan_dinas_peserta.id_sinadi_setting=sinadi_setting.id_sinadi_setting')
       ->where('sinadi_perjalanan_dinas.id_perjalanan', $value)
       ->findAll();
-      
+
+    if (empty($data['perjalanan'])) {
+      return $this->response->setStatusCode(404)->setBody('Data perjalanan dinas tidak ditemukan.');
+    }
+
     $filename = 'sppd - (' . preg_replace('/[<>:"\/\\\\|?*\x00-\x1F]/u', '-', $data['perjalanan'][0]['nama_kegiatan']) . ') - ' . ($data['perjalanan'][0]['tgl_pergi'] == $data['perjalanan'][0]['tgl_pulang'] ? $data['perjalanan'][0]['tgl_pergi'] : $data['perjalanan'][0]['tgl_pergi'] . " s.d" . $data['perjalanan'][0]['tgl_pulang']);
 
     // return (view('sinadi/sppd', $data));
@@ -1098,6 +1102,35 @@ class Pdf extends BaseController
     // Tangkap data GET dari Modal SPPD Srikandi
     $srikandiConfig = \App\Libraries\SinadiSppdSrikandiHelper::parseFromRequest($this->request);
     $data['srikandi_config'] = $srikandiConfig;
+
+    if ($borang === 'borang-rekap') {
+      if (!\App\Libraries\SinadiSppdSrikandiHelper::isRekapEligible(count($data['perjalanan']))) {
+        return $this->response->setStatusCode(400)->setBody('SPPD Rekap hanya dapat diunduh jika peserta minimal ' . \App\Libraries\SinadiSppdSrikandiHelper::MIN_REKAP_PESERTA . ' orang.');
+      }
+
+      $customPaper = [0, 0, 595, 935];
+
+      $dompdfMain = new Dompdf();
+      $dompdfMain->loadHtml(view('sinadi/sppd_rekap_main', $data));
+      $dompdfMain->setPaper($customPaper, 'portrait');
+      $dompdfMain->render();
+      $pdfMain = $dompdfMain->output();
+
+      $dompdfLampiran = new Dompdf();
+      $dompdfLampiran->loadHtml(view('sinadi/sppd_rekap_lampiran', $data));
+      $dompdfLampiran->setPaper($customPaper, 'landscape');
+      $dompdfLampiran->render();
+      $pdfLampiran = $dompdfLampiran->output();
+
+      $mergedPdf = \App\Libraries\SimplePdfMerger::merge([$pdfMain, $pdfLampiran]);
+
+      $rekapFilename = 'sppd-rekap - (' . preg_replace('/[<>:"\/\\\\|?*\x00-\x1F]/u', '-', $data['perjalanan'][0]['nama_kegiatan']) . ') - ' . ($data['perjalanan'][0]['tgl_pergi'] == $data['perjalanan'][0]['tgl_pulang'] ? $data['perjalanan'][0]['tgl_pergi'] : $data['perjalanan'][0]['tgl_pergi'] . ' s.d ' . $data['perjalanan'][0]['tgl_pulang']) . '.pdf';
+
+      return $this->response
+        ->setHeader('Content-Type', 'application/pdf')
+        ->setHeader('Content-Disposition', 'attachment; filename="' . str_replace('"', '', $rekapFilename) . '"')
+        ->setBody($mergedPdf);
+    }
 
     $firstSrikandiRow = $srikandiConfig['rows'][0] ?? [];
     $data['jabatan_tujuan'] = $firstSrikandiRow['jabatan'] ?? '';
