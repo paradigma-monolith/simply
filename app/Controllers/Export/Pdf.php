@@ -1109,27 +1109,16 @@ class Pdf extends BaseController
       }
 
       $customPaper = [0, 0, 595, 935];
-
-      $dompdfMain = new Dompdf();
-      $dompdfMain->loadHtml(view('sinadi/sppd_rekap_main', $data));
-      $dompdfMain->setPaper($customPaper, 'portrait');
-      $dompdfMain->render();
-      $pdfMain = $dompdfMain->output();
-
-      $dompdfLampiran = new Dompdf();
-      $dompdfLampiran->loadHtml(view('sinadi/sppd_rekap_lampiran', $data));
-      $dompdfLampiran->setPaper($customPaper, 'landscape');
-      $dompdfLampiran->render();
-      $pdfLampiran = $dompdfLampiran->output();
-
-      $mergedPdf = \App\Libraries\SimplePdfMerger::merge([$pdfMain, $pdfLampiran]);
+      $dompdf->loadHtml(view('sinadi/sppd_rekap', $data));
+      $dompdf->setPaper($customPaper, 'portrait');
+      $dompdf->render();
 
       $rekapFilename = 'sppd-rekap - (' . preg_replace('/[<>:"\/\\\\|?*\x00-\x1F]/u', '-', $data['perjalanan'][0]['nama_kegiatan']) . ') - ' . ($data['perjalanan'][0]['tgl_pergi'] == $data['perjalanan'][0]['tgl_pulang'] ? $data['perjalanan'][0]['tgl_pergi'] : $data['perjalanan'][0]['tgl_pergi'] . ' s.d ' . $data['perjalanan'][0]['tgl_pulang']) . '.pdf';
 
       return $this->response
         ->setHeader('Content-Type', 'application/pdf')
         ->setHeader('Content-Disposition', 'attachment; filename="' . str_replace('"', '', $rekapFilename) . '"')
-        ->setBody($mergedPdf);
+        ->setBody($dompdf->output());
     }
 
     $firstSrikandiRow = $srikandiConfig['rows'][0] ?? [];
